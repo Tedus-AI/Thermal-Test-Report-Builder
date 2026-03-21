@@ -1125,10 +1125,14 @@
       font-size: 10px;
       font-weight: 700;
       color: #fff;
-      cursor: pointer;
+      cursor: grab;
       z-index: 15;
       transform: translate(-50%, -50%);
       user-select: none;
+    }
+
+    .marker-dot:active {
+      cursor: grabbing;
     }
 
     .marker-dot:hover {
@@ -1138,7 +1142,7 @@
 
     .marker-label {
       position: absolute;
-      min-width: 80px;
+      min-width: 40px;
       padding: 4px 8px;
       background: #fff;
       border: 1.5px solid #333;
@@ -2257,6 +2261,50 @@
           }
         });
 
+        // Draggable dot
+        let dotDragging = false;
+        dot.addEventListener('mousedown', (e) => {
+          if (e.button !== 0) return;
+          e.preventDefault();
+          e.stopPropagation();
+          dotDragging = true;
+        });
+
+        document.addEventListener('mousemove', (e) => {
+          if (!dotDragging) return;
+          const zr = zone.getBoundingClientRect();
+          const wr = workspace.getBoundingClientRect();
+          // Clamp to photo zone
+          const cx = Math.max(zr.left, Math.min(zr.right, e.clientX));
+          const cy = Math.max(zr.top, Math.min(zr.bottom, e.clientY));
+          const newDotX = (cx - wr.left);
+          const newDotY = (cy - wr.top);
+          dot.style.left = newDotX + 'px';
+          dot.style.top = newDotY + 'px';
+          // Update SVG line if label exists
+          if (m.label_x >= 0 && m.label_y >= 0) {
+            const lbl = workspace.querySelector(`.marker-label[data-id="${m.id}"]`);
+            if (lbl) {
+              updateAnnotationLine(svg, m.id, newDotX, newDotY,
+                parseFloat(lbl.style.left) + lbl.offsetWidth / 2,
+                parseFloat(lbl.style.top) + lbl.offsetHeight / 2);
+            }
+          }
+        });
+
+        document.addEventListener('mouseup', (e) => {
+          if (!dotDragging) return;
+          dotDragging = false;
+          const zr = zone.getBoundingClientRect();
+          const cx = Math.max(zr.left, Math.min(zr.right, e.clientX));
+          const cy = Math.max(zr.top, Math.min(zr.bottom, e.clientY));
+          // Convert back to % of photo zone
+          m.x = Math.round(((cx - zr.left) / zr.width) * 10000) / 100;
+          m.y = Math.round(((cy - zr.top) / zr.height) * 10000) / 100;
+          renderAnnotationMarkers(page);
+          scheduleSave(state.activePage);
+        });
+
         workspace.appendChild(dot);
 
         // Label (only if placed)
@@ -2751,7 +2799,7 @@
         if (m.label_x >= 0 && m.label_y >= 0) {
           const lx = (m.label_x / 100) * wsW;
           const ly = (m.label_y / 100) * wsH;
-          dots += `<div style="position:absolute;left:${lx}px;top:${ly}px;min-width:80px;padding:4px 8px;background:#fff;border:1.5px solid #333;border-radius:4px;font-size:11px;color:rgba(15,23,42,0.90);z-index:20;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,0.12);">${escHtml(m.label || 'TC' + (idx + 1))}</div>`;
+          dots += `<div style="position:absolute;left:${lx}px;top:${ly}px;min-width:40px;padding:4px 8px;background:#fff;border:1.5px solid #333;border-radius:4px;font-size:11px;color:rgba(15,23,42,0.90);z-index:20;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,0.12);">${escHtml(m.label || 'TC' + (idx + 1))}</div>`;
           svgLines += `<line x1="${dx}" y1="${dy}" x2="${lx + 40}" y2="${ly + 10}" stroke="#dc2626" stroke-width="1.5"/>`;
         }
       });

@@ -394,13 +394,20 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      overflow: auto;
-      padding: var(--space-8);
+      overflow: hidden;
+      padding: 12px;
+      position: relative;
     }
 
     #editor-canvas {
-      width: 595px;
-      height: 842px;
+      /* Default portrait A4 aspect ratio 595:842 */
+      --canvas-aspect: 595 / 842;
+      aspect-ratio: var(--canvas-aspect);
+      max-width: calc(100% - 80px);  /* leave room for nav buttons */
+      max-height: 100%;
+      /* Fill as much space as possible while keeping ratio */
+      width: auto;
+      height: 100%;
       background: #ffffff;
       border-radius: 4px;
       box-shadow:
@@ -410,10 +417,43 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      flex-shrink: 0;
+      flex-shrink: 1;
       position: relative;
       overflow: hidden;
     }
+
+    /* Page navigation buttons */
+    .page-nav-btn {
+      position: absolute;
+      bottom: 20px;
+      z-index: 60;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      border: 1px solid rgba(255,255,255,0.15);
+      background: rgba(15,23,42,0.55);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      color: #fff;
+      font-size: 18px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s, transform 0.15s;
+      user-select: none;
+    }
+    .page-nav-btn:hover {
+      background: rgba(56,189,248,0.35);
+      transform: scale(1.1);
+    }
+    .page-nav-btn:disabled {
+      opacity: 0.25;
+      cursor: default;
+      pointer-events: none;
+    }
+    .page-nav-btn.prev { left: 20px; }
+    .page-nav-btn.next { right: 20px; }
 
     .canvas-placeholder {
       font-size: 15px;
@@ -830,8 +870,7 @@
 
     /* ━━━ Image Page Module (A4 Landscape 842×595) ━━━ */
     #editor-canvas.landscape {
-      width: 842px;
-      height: 595px;
+      --canvas-aspect: 842 / 595;
     }
 
     .image-page {
@@ -1319,9 +1358,11 @@
 
       <!-- Editor -->
       <main class="editor-area">
+        <button class="page-nav-btn prev" id="btn-prev-page" title="上一頁">&#9664;</button>
         <div id="editor-canvas">
           <span class="canvas-placeholder" id="canvas-placeholder">← 請從左側選擇或新增頁面</span>
         </div>
+        <button class="page-nav-btn next" id="btn-next-page" title="下一頁">&#9654;</button>
       </main>
     </div>
   </div>
@@ -1355,6 +1396,28 @@
     const $statusDot = document.getElementById('status-dot');
     const $statusText = document.getElementById('status-text');
     const $contextMenu = document.getElementById('context-menu');
+    const $btnPrev = document.getElementById('btn-prev-page');
+    const $btnNext = document.getElementById('btn-next-page');
+
+    // ━━━ Page nav buttons ━━━
+    function updatePageNavButtons() {
+      const idx = state.activePage;
+      const total = state.pages.length;
+      $btnPrev.disabled = (idx === null || idx <= 0);
+      $btnNext.disabled = (idx === null || idx >= total - 1);
+      $btnPrev.style.display = (total > 0) ? '' : 'none';
+      $btnNext.style.display = (total > 0) ? '' : 'none';
+    }
+
+    $btnPrev.addEventListener('click', () => {
+      if (state.activePage > 0) selectPage(state.activePage - 1);
+    });
+    $btnNext.addEventListener('click', () => {
+      if (state.activePage < state.pages.length - 1) selectPage(state.activePage + 1);
+    });
+    // Hide initially until pages load
+    $btnPrev.style.display = 'none';
+    $btnNext.style.display = 'none';
 
     // ━━━ Status helpers ━━━
     function setStatus(type, text) {
@@ -1576,6 +1639,7 @@
       state.activePage = idx;
       renderPageList();
       renderCanvas();
+      updatePageNavButtons();
     }
 
     // ━━━ Context menu ━━━
@@ -1608,6 +1672,7 @@
 
       renderPageList();
       renderCanvas();
+      updatePageNavButtons();
       contextTarget = null;
     });
 

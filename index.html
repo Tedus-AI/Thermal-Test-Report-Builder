@@ -51,6 +51,10 @@
   <!-- SortableJS CDN -->
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js"></script>
 
+  <!-- html2canvas + jsPDF CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
+
   <style>
     /* ━━━ CSS Design System: Liquid Glass ━━━ */
     :root {
@@ -991,6 +995,75 @@
       background: rgba(56,189,248,0.05);
       border-bottom-color: var(--color-primary);
     }
+
+    /* ━━━ Preview Overlay ━━━ */
+    .preview-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 10000;
+      background: #000;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .preview-overlay.open {
+      display: flex;
+    }
+
+    .preview-close {
+      position: absolute;
+      top: 16px;
+      right: 20px;
+      font-size: 28px;
+      color: rgba(255,255,255,0.6);
+      background: none;
+      border: none;
+      cursor: pointer;
+      z-index: 10001;
+      line-height: 1;
+      padding: 4px 10px;
+      border-radius: 6px;
+      transition: color var(--transition-fast), background var(--transition-fast);
+    }
+
+    .preview-close:hover {
+      color: #fff;
+      background: rgba(255,255,255,0.1);
+    }
+
+    .preview-canvas-wrap {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex: 1;
+      width: 100%;
+      padding: 32px;
+    }
+
+    .preview-canvas-wrap > div {
+      background: #fff;
+      border-radius: 4px;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+      overflow: hidden;
+    }
+
+    .preview-footer {
+      padding: 12px 0 20px;
+      font-size: 14px;
+      color: rgba(255,255,255,0.50);
+      user-select: none;
+    }
+
+    /* ━━━ PDF Export helper ━━━ */
+    .pdf-render-stage {
+      position: fixed;
+      left: -9999px;
+      top: 0;
+      z-index: -1;
+      pointer-events: none;
+    }
   </style>
 </head>
 <body>
@@ -1007,8 +1080,8 @@
             <button class="dropdown-item" data-type="conclusion">📝 結論頁</button>
           </div>
         </div>
-        <button class="glass-btn">預覽</button>
-        <button class="glass-btn">匯出 PDF</button>
+        <button class="glass-btn" id="btn-preview">預覽</button>
+        <button class="glass-btn" id="btn-export-pdf">匯出 PDF</button>
       </div>
       <div class="toolbar-right" id="status-bar">
         <span class="status-dot" id="status-dot"></span>
@@ -1044,7 +1117,15 @@
 
   <!-- Context Menu -->
   <div class="context-menu" id="context-menu">
+    <button class="context-item" id="context-duplicate" style="color: var(--text-primary);">📋 複製此頁</button>
     <button class="context-item" id="context-delete">🗑 刪除此頁面</button>
+  </div>
+
+  <!-- Preview Overlay -->
+  <div class="preview-overlay" id="preview-overlay">
+    <button class="preview-close" id="preview-close">✕</button>
+    <div class="preview-canvas-wrap" id="preview-canvas-wrap"></div>
+    <div class="preview-footer" id="preview-footer"></div>
   </div>
 
   <script>
@@ -1144,9 +1225,13 @@
     }
 
     // ━━━ Debounced auto-save ━━━
+    const saveTimers = {};
     function scheduleSave(pageIndex) {
-      if (state.saveTimer) clearTimeout(state.saveTimer);
-      state.saveTimer = setTimeout(() => savePageToFirestore(pageIndex), 1000);
+      if (saveTimers[pageIndex]) clearTimeout(saveTimers[pageIndex]);
+      saveTimers[pageIndex] = setTimeout(() => {
+        delete saveTimers[pageIndex];
+        savePageToFirestore(pageIndex);
+      }, 1000);
     }
 
     // ━━━ Image handling (base64 / Storage) ━━━
@@ -1310,6 +1395,33 @@
 
       renderPageList();
       renderCanvas();
+      contextTarget = null;
+    });
+
+    // ━━━ Duplicate page ━━━
+    document.getElementById('context-duplicate').addEventListener('click', () => {
+      $contextMenu.classList.remove('open');
+      if (contextTarget === null) return;
+
+      const src = state.pages[contextTarget];
+      const clone = {
+        id: 'page_' + Date.now(),
+        type: src.type,
+        order: contextTarget + 1,
+        data: JSON.parse(JSON.stringify(src.data)),
+      };
+
+      // Insert after source
+      state.pages.splice(contextTarget + 1, 0, clone);
+      // Re-index orders
+      state.pages.forEach((p, i) => p.order = i);
+
+      renderPageList();
+      selectPage(contextTarget + 1);
+      // Save the new page and any reordered pages after it
+      for (let i = contextTarget + 1; i < state.pages.length; i++) {
+        scheduleSave(i);
+      }
       contextTarget = null;
     });
 
@@ -1923,6 +2035,217 @@
       });
     }
 
+    // ━━━ Preview Mode ━━━
+    let previewIdx = 0;
+
+    function openPreview() {
+      if (state.pages.length === 0) return;
+      previewIdx = state.activePage !== null ? state.activePage : 0;
+      renderPreviewPage();
+      document.getElementById('preview-overlay').classList.add('open');
+    }
+
+    function closePreview() {
+      document.getElementById('preview-overlay').classList.remove('open');
+    }
+
+    function renderPreviewPage() {
+      const wrap = document.getElementById('preview-canvas-wrap');
+      const footer = document.getElementById('preview-footer');
+      const page = state.pages[previewIdx];
+      if (!page) return;
+
+      const isLandscape = page.type === 'image';
+      const w = isLandscape ? 842 : 595;
+      const h = isLandscape ? 595 : 842;
+
+      // Scale to fit viewport
+      const vw = window.innerWidth - 64;
+      const vh = window.innerHeight - 120;
+      const scale = Math.min(vw / w, vh / h, 1);
+
+      // Create a temporary canvas element to render the page
+      const container = document.createElement('div');
+      container.style.width = w + 'px';
+      container.style.height = h + 'px';
+      container.style.transform = `scale(${scale})`;
+      container.style.transformOrigin = 'center center';
+      container.style.overflow = 'hidden';
+
+      // Render page content into the container
+      const tempCanvas = document.createElement('div');
+      tempCanvas.id = 'preview-temp-canvas';
+      tempCanvas.style.width = w + 'px';
+      tempCanvas.style.height = h + 'px';
+      tempCanvas.style.background = '#fff';
+      tempCanvas.style.display = 'flex';
+      tempCanvas.style.alignItems = 'center';
+      tempCanvas.style.justifyContent = 'center';
+      tempCanvas.style.overflow = 'hidden';
+
+      // Temporarily swap canvas to render page content
+      const origCanvas = $canvas;
+      const origHTML = $canvas.innerHTML;
+      const origClass = $canvas.className;
+
+      // Build page HTML
+      const fakeCanvas = document.createElement('div');
+      fakeCanvas.id = 'editor-canvas';
+      fakeCanvas.style.width = w + 'px';
+      fakeCanvas.style.height = h + 'px';
+      fakeCanvas.style.background = '#fff';
+      fakeCanvas.style.overflow = 'hidden';
+
+      // Use the real canvas reference temporarily
+      const savedActive = state.activePage;
+      state.activePage = previewIdx;
+
+      // We need to render into the real canvas, clone, then restore
+      if (isLandscape) $canvas.classList.add('landscape');
+      else $canvas.classList.remove('landscape');
+
+      if (page.type === 'cover') renderCoverPage(page);
+      else if (page.type === 'image') renderImagePage(page);
+      else if (page.type === 'conclusion') renderConclusionPage(page);
+
+      // Clone the rendered content
+      const cloned = $canvas.cloneNode(true);
+      cloned.style.width = w + 'px';
+      cloned.style.height = h + 'px';
+      cloned.style.transform = `scale(${scale})`;
+      cloned.style.transformOrigin = 'center center';
+      cloned.style.boxShadow = '0 8px 40px rgba(0,0,0,0.5)';
+      cloned.style.borderRadius = '4px';
+      cloned.style.flexShrink = '0';
+
+      // Restore original
+      state.activePage = savedActive;
+      renderCanvas();
+
+      wrap.innerHTML = '';
+      wrap.appendChild(cloned);
+      footer.textContent = `第 ${previewIdx + 1} 頁 / 共 ${state.pages.length} 頁`;
+    }
+
+    // Preview navigation
+    document.addEventListener('keydown', (e) => {
+      const overlay = document.getElementById('preview-overlay');
+      if (!overlay.classList.contains('open')) return;
+
+      if (e.key === 'Escape') {
+        closePreview();
+      } else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+        e.preventDefault();
+        if (previewIdx < state.pages.length - 1) {
+          previewIdx++;
+          renderPreviewPage();
+        }
+      } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (previewIdx > 0) {
+          previewIdx--;
+          renderPreviewPage();
+        }
+      }
+    });
+
+    // ━━━ PDF Export ━━━
+    async function exportPDF() {
+      if (state.pages.length === 0) return;
+      if (typeof html2canvas === 'undefined' || typeof jspdf === 'undefined') {
+        alert('PDF 匯出函式庫載入中，請稍後再試');
+        return;
+      }
+
+      setStatus('saving', '匯出中...');
+      const { jsPDF } = jspdf;
+
+      // Save current state
+      const savedActive = state.activePage;
+      const savedCanvasClass = $canvas.className;
+
+      // Get filename from cover page data
+      let filename = 'ThermalReport';
+      const coverPage = state.pages.find(p => p.type === 'cover');
+      if (coverPage && coverPage.data) {
+        const d = coverPage.data;
+        const parts = [];
+        if (d.project_name) parts.push(d.project_name.replace(/[^a-zA-Z0-9\u4e00-\u9fff_-]/g, '_'));
+        if (d.stage) parts.push(d.stage);
+        if (d.date) parts.push(d.date);
+        parts.push('ThermalReport');
+        filename = parts.join('_');
+      } else {
+        filename += '_' + new Date().toISOString().slice(0, 10);
+      }
+
+      let pdf = null;
+
+      try {
+        for (let i = 0; i < state.pages.length; i++) {
+          const page = state.pages[i];
+          const isLandscape = page.type === 'image';
+          const w = isLandscape ? 842 : 595;
+          const h = isLandscape ? 595 : 842;
+
+          // Render page into canvas
+          state.activePage = i;
+          if (isLandscape) {
+            $canvas.classList.add('landscape');
+          } else {
+            $canvas.classList.remove('landscape');
+          }
+
+          $canvas.style.width = w + 'px';
+          $canvas.style.height = h + 'px';
+
+          if (page.type === 'cover') renderCoverPage(page);
+          else if (page.type === 'image') renderImagePage(page);
+          else if (page.type === 'conclusion') renderConclusionPage(page);
+
+          // Wait a frame for render
+          await new Promise(r => setTimeout(r, 100));
+
+          // Capture with html2canvas
+          const canvasImg = await html2canvas($canvas, {
+            scale: 2,
+            useCORS: true,
+            backgroundColor: '#ffffff',
+            width: w,
+            height: h,
+          });
+
+          // A4 dimensions in mm: 210×297
+          const orientation = isLandscape ? 'landscape' : 'portrait';
+          const pdfW = isLandscape ? 297 : 210;
+          const pdfH = isLandscape ? 210 : 297;
+
+          if (i === 0) {
+            pdf = new jsPDF({ orientation, unit: 'mm', format: 'a4' });
+          } else {
+            pdf.addPage('a4', orientation);
+          }
+
+          const imgData = canvasImg.toDataURL('image/jpeg', 0.92);
+          pdf.addImage(imgData, 'JPEG', 0, 0, pdfW, pdfH);
+        }
+
+        // Download
+        pdf.save(filename + '.pdf');
+        setStatus('saved', '已儲存 ✅');
+        console.log('✅ PDF exported:', filename + '.pdf');
+      } catch (err) {
+        console.error('PDF export error:', err);
+        setStatus('saved', '匯出失敗');
+        alert('PDF 匯出失敗：' + err.message);
+      }
+
+      // Restore
+      state.activePage = savedActive;
+      $canvas.className = savedCanvasClass;
+      renderCanvas();
+    }
+
     // ━━━ Utility ━━━
     function escapeAttr(str) {
       if (!str) return '';
@@ -1937,6 +2260,11 @@
       // Setup dropdowns
       setupDropdown('toolbar-add-btn', 'toolbar-add-menu');
       setupDropdown('sidebar-add-btn', 'sidebar-add-menu');
+
+      // Preview & PDF buttons
+      document.getElementById('btn-preview').addEventListener('click', openPreview);
+      document.getElementById('preview-close').addEventListener('click', closePreview);
+      document.getElementById('btn-export-pdf').addEventListener('click', exportPDF);
 
       // Setup SortableJS
       if (typeof Sortable !== 'undefined') {

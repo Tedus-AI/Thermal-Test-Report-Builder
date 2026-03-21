@@ -611,6 +611,219 @@
       appearance: auto;
     }
 
+    /* ━━━ Conclusion Page Module ━━━ */
+    .conclusion-page {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      padding: 32px 40px 24px;
+      font-family: var(--font-ui);
+      color: var(--text-on-white);
+      overflow-y: auto;
+      gap: 20px;
+    }
+
+    .concl-section {
+      flex-shrink: 0;
+    }
+
+    .concl-section-title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: rgba(15,23,42,0.38);
+      margin-bottom: 8px;
+    }
+
+    /* Summary rich text */
+    .concl-summary {
+      min-height: 72px;
+      padding: 10px 12px;
+      border: 1px solid rgba(15,23,42,0.10);
+      border-radius: 6px;
+      font-size: 13px;
+      line-height: 1.7;
+      color: var(--text-on-white);
+      outline: none;
+      transition: border-color var(--transition-fast);
+    }
+
+    .concl-summary:empty::before {
+      content: attr(data-placeholder);
+      color: rgba(15,23,42,0.25);
+      pointer-events: none;
+    }
+
+    .concl-summary:focus {
+      border-color: rgba(56,189,248,0.4);
+    }
+
+    /* Compliance table */
+    .concl-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+
+    .concl-table th {
+      text-align: left;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: rgba(15,23,42,0.45);
+      padding: 6px 8px;
+      border-bottom: 2px solid rgba(15,23,42,0.10);
+    }
+
+    .concl-table td {
+      padding: 5px 8px;
+      border-bottom: 1px solid rgba(15,23,42,0.06);
+      vertical-align: middle;
+    }
+
+    .concl-table input {
+      font-family: var(--font-ui);
+      font-size: 12px;
+      color: var(--text-on-white);
+      border: none;
+      outline: none;
+      background: transparent;
+      width: 100%;
+      padding: 2px 0;
+    }
+
+    .concl-table input::placeholder {
+      color: rgba(15,23,42,0.22);
+    }
+
+    .concl-table input:focus {
+      background: rgba(56,189,248,0.04);
+    }
+
+    .concl-table select {
+      font-family: var(--font-ui);
+      font-size: 12px;
+      border: none;
+      outline: none;
+      background: transparent;
+      cursor: pointer;
+      padding: 2px 4px;
+      border-radius: 4px;
+      appearance: auto;
+    }
+
+    .concl-verdict-pass { background: rgba(34,197,94,0.12); color: #166534; }
+    .concl-verdict-warning { background: rgba(250,204,21,0.18); color: #854d0e; }
+    .concl-verdict-fail { background: rgba(239,68,68,0.12); color: #991b1b; }
+
+    .concl-add-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      margin-top: 6px;
+      padding: 4px 10px;
+      font-size: 12px;
+      font-family: var(--font-ui);
+      color: rgba(56,189,248,0.8);
+      background: transparent;
+      border: 1px dashed rgba(56,189,248,0.25);
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background var(--transition-fast), border-color var(--transition-fast);
+    }
+
+    .concl-add-btn:hover {
+      background: rgba(56,189,248,0.06);
+      border-color: rgba(56,189,248,0.5);
+    }
+
+    /* Issues list */
+    .concl-issues-list {
+      list-style: none;
+      padding: 0;
+    }
+
+    .concl-issue-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 6px;
+      margin-bottom: 4px;
+    }
+
+    .concl-issue-bullet {
+      color: rgba(15,23,42,0.30);
+      font-size: 13px;
+      line-height: 1.7;
+      flex-shrink: 0;
+      user-select: none;
+    }
+
+    .concl-issue-input {
+      flex: 1;
+      font-family: var(--font-ui);
+      font-size: 13px;
+      color: var(--text-on-white);
+      border: none;
+      outline: none;
+      background: transparent;
+      padding: 2px 0;
+      line-height: 1.7;
+      border-bottom: 1px dashed rgba(15,23,42,0.08);
+    }
+
+    .concl-issue-input::placeholder {
+      color: rgba(15,23,42,0.22);
+    }
+
+    .concl-issue-input:focus {
+      border-bottom-color: rgba(56,189,248,0.3);
+    }
+
+    /* Actions table */
+    .concl-actions-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+
+    .concl-actions-table th {
+      text-align: left;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: rgba(15,23,42,0.45);
+      padding: 6px 8px;
+      border-bottom: 2px solid rgba(15,23,42,0.10);
+    }
+
+    .concl-actions-table td {
+      padding: 5px 8px;
+      border-bottom: 1px solid rgba(15,23,42,0.06);
+    }
+
+    .concl-actions-table input {
+      font-family: var(--font-ui);
+      font-size: 12px;
+      color: var(--text-on-white);
+      border: none;
+      outline: none;
+      background: transparent;
+      width: 100%;
+      padding: 2px 0;
+    }
+
+    .concl-actions-table input::placeholder {
+      color: rgba(15,23,42,0.22);
+    }
+
+    .concl-actions-table input:focus {
+      background: rgba(56,189,248,0.04);
+    }
+
     /* ━━━ Image Page Module (A4 Landscape 842×595) ━━━ */
     #editor-canvas.landscape {
       width: 842px;
@@ -791,6 +1004,7 @@
           <div class="dropdown-menu" id="toolbar-add-menu">
             <button class="dropdown-item" data-type="cover">🏠 封面頁</button>
             <button class="dropdown-item" data-type="image">🖼 圖片頁</button>
+            <button class="dropdown-item" data-type="conclusion">📝 結論頁</button>
           </div>
         </div>
         <button class="glass-btn">預覽</button>
@@ -813,6 +1027,7 @@
             <div class="dropdown-menu" id="sidebar-add-menu">
               <button class="dropdown-item" data-type="cover">🏠 封面頁</button>
               <button class="dropdown-item" data-type="image">🖼 圖片頁</button>
+              <button class="dropdown-item" data-type="conclusion">📝 結論頁</button>
             </div>
           </div>
         </div>
@@ -992,6 +1207,7 @@
           const type = item.dataset.type;
           if (type === 'cover') addCoverPage();
           else if (type === 'image') addImagePage();
+          else if (type === 'conclusion') addConclusionPage();
         });
       });
     }
@@ -1038,13 +1254,13 @@
         if (page.type === 'cover') { icon = '🏠'; label = '封面頁'; }
         if (page.type === 'image') {
           icon = '🖼';
-          // Count which image page number this is
           let imgCount = 0;
           for (let j = 0; j <= idx; j++) {
             if (state.pages[j].type === 'image') imgCount++;
           }
           label = '圖片頁 ' + imgCount;
         }
+        if (page.type === 'conclusion') { icon = '📝'; label = '結論頁'; }
 
         el.textContent = icon + ' ' + label;
 
@@ -1117,6 +1333,8 @@
         renderCoverPage(page);
       } else if (page.type === 'image') {
         renderImagePage(page);
+      } else if (page.type === 'conclusion') {
+        renderConclusionPage(page);
       }
     }
 
@@ -1473,6 +1691,236 @@
       if (imgs.length >= 4) return; // already full
       const nextPos = imgs.length;
       await handleImagePageImage(page, nextPos, file);
+    }
+
+    // ━━━ Conclusion Page Module ━━━
+    function addConclusionPage() {
+      const page = {
+        id: 'page_' + Date.now(),
+        type: 'conclusion',
+        order: state.pages.length,
+        data: {
+          summary: '',
+          compliance: [],
+          issues: [''],
+          actions: [],
+        }
+      };
+      state.pages.push(page);
+      renderPageList();
+      selectPage(state.pages.length - 1);
+      scheduleSave(state.pages.length - 1);
+    }
+
+    function renderConclusionPage(page) {
+      const d = page.data;
+      if (!d.issues) d.issues = [''];
+      if (!d.compliance) d.compliance = [];
+      if (!d.actions) d.actions = [];
+
+      // Build compliance rows
+      let complianceRows = '';
+      d.compliance.forEach((row, i) => {
+        const verdictClass = row.verdict === 'pass' ? 'concl-verdict-pass'
+          : row.verdict === 'warning' ? 'concl-verdict-warning'
+          : row.verdict === 'fail' ? 'concl-verdict-fail' : '';
+        complianceRows += `
+          <tr>
+            <td><input type="text" placeholder="元件名稱" value="${escapeAttr(row.component)}" data-comp-idx="${i}" data-comp-field="component"></td>
+            <td><input type="text" placeholder="°C" value="${escapeAttr(row.tc_max)}" data-comp-idx="${i}" data-comp-field="tc_max"></td>
+            <td><input type="text" placeholder="°C" value="${escapeAttr(row.spec)}" data-comp-idx="${i}" data-comp-field="spec"></td>
+            <td class="${verdictClass}">
+              <select data-comp-idx="${i}" data-comp-field="verdict">
+                <option value="" ${!row.verdict ? 'selected' : ''}>—</option>
+                <option value="pass" ${row.verdict === 'pass' ? 'selected' : ''}>✅ Pass</option>
+                <option value="warning" ${row.verdict === 'warning' ? 'selected' : ''}>⚠️ Warning</option>
+                <option value="fail" ${row.verdict === 'fail' ? 'selected' : ''}>❌ Fail</option>
+              </select>
+            </td>
+          </tr>`;
+      });
+
+      // Build issues
+      let issuesHtml = '';
+      d.issues.forEach((issue, i) => {
+        issuesHtml += `
+          <li class="concl-issue-item">
+            <span class="concl-issue-bullet">•</span>
+            <input class="concl-issue-input" type="text" placeholder="輸入問題描述..."
+                   value="${escapeAttr(issue)}" data-issue-idx="${i}">
+          </li>`;
+      });
+
+      // Build actions rows
+      let actionsRows = '';
+      d.actions.forEach((act, i) => {
+        actionsRows += `
+          <tr>
+            <td><input type="text" placeholder="行動描述" value="${escapeAttr(act.description)}" data-act-idx="${i}" data-act-field="description"></td>
+            <td><input type="text" placeholder="Owner" value="${escapeAttr(act.owner)}" data-act-idx="${i}" data-act-field="owner"></td>
+            <td><input type="date" value="${escapeAttr(act.due_date)}" data-act-idx="${i}" data-act-field="due_date"></td>
+          </tr>`;
+      });
+
+      $canvas.innerHTML = `
+        <div class="conclusion-page">
+          <!-- 1. Summary -->
+          <div class="concl-section">
+            <div class="concl-section-title">Conclusion</div>
+            <div class="concl-summary" contenteditable="true" data-placeholder="請輸入實驗結論..."
+                 id="concl-summary-editor">${d.summary || ''}</div>
+          </div>
+
+          <!-- 2. Compliance Summary -->
+          <div class="concl-section">
+            <div class="concl-section-title">Compliance Summary</div>
+            <table class="concl-table">
+              <thead>
+                <tr>
+                  <th style="width:30%">Component</th>
+                  <th style="width:20%">Max Tc (°C)</th>
+                  <th style="width:20%">Derated Spec</th>
+                  <th style="width:30%">Verdict</th>
+                </tr>
+              </thead>
+              <tbody id="compliance-tbody">${complianceRows}</tbody>
+            </table>
+            <button class="concl-add-btn" id="add-compliance-btn">+ 新增元件</button>
+          </div>
+
+          <!-- 3. Issues Found -->
+          <div class="concl-section">
+            <div class="concl-section-title">Issues Found</div>
+            <ul class="concl-issues-list" id="issues-list">${issuesHtml}</ul>
+          </div>
+
+          <!-- 4. Next Action -->
+          <div class="concl-section">
+            <div class="concl-section-title">Next Action</div>
+            <table class="concl-actions-table">
+              <thead>
+                <tr>
+                  <th style="width:50%">Action</th>
+                  <th style="width:25%">Owner</th>
+                  <th style="width:25%">Due Date</th>
+                </tr>
+              </thead>
+              <tbody id="actions-tbody">${actionsRows}</tbody>
+            </table>
+            <button class="concl-add-btn" id="add-action-btn">+ 新增行動</button>
+          </div>
+        </div>
+      `;
+
+      bindConclusionHandlers(page);
+    }
+
+    function bindConclusionHandlers(page) {
+      const d = page.data;
+      const pageIdx = state.activePage;
+
+      // Summary (contenteditable)
+      const summaryEl = document.getElementById('concl-summary-editor');
+      if (summaryEl) {
+        summaryEl.addEventListener('input', () => {
+          d.summary = summaryEl.innerHTML;
+          scheduleSave(pageIdx);
+        });
+        // Ctrl+B for bold
+        summaryEl.addEventListener('keydown', (e) => {
+          if (e.ctrlKey && e.key === 'b') {
+            e.preventDefault();
+            document.execCommand('bold');
+          }
+        });
+      }
+
+      // Compliance table inputs
+      $canvas.querySelectorAll('[data-comp-idx]').forEach(el => {
+        const idx = parseInt(el.dataset.compIdx);
+        const field = el.dataset.compField;
+        const eventType = el.tagName === 'SELECT' ? 'change' : 'input';
+        el.addEventListener(eventType, () => {
+          if (d.compliance[idx]) {
+            d.compliance[idx][field] = el.value;
+            // Re-render to update verdict color
+            if (field === 'verdict') {
+              renderConclusionPage(page);
+            }
+            scheduleSave(pageIdx);
+          }
+        });
+      });
+
+      // Add compliance row
+      document.getElementById('add-compliance-btn')?.addEventListener('click', () => {
+        d.compliance.push({ component: '', tc_max: '', spec: '', verdict: '' });
+        renderConclusionPage(page);
+        scheduleSave(pageIdx);
+        // Focus the last component input
+        setTimeout(() => {
+          const inputs = $canvas.querySelectorAll('[data-comp-field="component"]');
+          inputs[inputs.length - 1]?.focus();
+        }, 30);
+      });
+
+      // Issues inputs
+      $canvas.querySelectorAll('[data-issue-idx]').forEach(el => {
+        const idx = parseInt(el.dataset.issueIdx);
+
+        el.addEventListener('input', () => {
+          d.issues[idx] = el.value;
+          scheduleSave(pageIdx);
+        });
+
+        el.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            // Insert new issue after current
+            d.issues.splice(idx + 1, 0, '');
+            renderConclusionPage(page);
+            scheduleSave(pageIdx);
+            setTimeout(() => {
+              const inputs = $canvas.querySelectorAll('[data-issue-idx]');
+              inputs[idx + 1]?.focus();
+            }, 30);
+          }
+          if (e.key === 'Backspace' && el.value === '' && d.issues.length > 1) {
+            e.preventDefault();
+            d.issues.splice(idx, 1);
+            renderConclusionPage(page);
+            scheduleSave(pageIdx);
+            setTimeout(() => {
+              const inputs = $canvas.querySelectorAll('[data-issue-idx]');
+              const focusIdx = Math.max(0, idx - 1);
+              inputs[focusIdx]?.focus();
+            }, 30);
+          }
+        });
+      });
+
+      // Actions table inputs
+      $canvas.querySelectorAll('[data-act-idx]').forEach(el => {
+        const idx = parseInt(el.dataset.actIdx);
+        const field = el.dataset.actField;
+        el.addEventListener('input', () => {
+          if (d.actions[idx]) {
+            d.actions[idx][field] = el.value;
+            scheduleSave(pageIdx);
+          }
+        });
+      });
+
+      // Add action row
+      document.getElementById('add-action-btn')?.addEventListener('click', () => {
+        d.actions.push({ description: '', owner: '', due_date: '' });
+        renderConclusionPage(page);
+        scheduleSave(pageIdx);
+        setTimeout(() => {
+          const inputs = $canvas.querySelectorAll('[data-act-field="description"]');
+          inputs[inputs.length - 1]?.focus();
+        }, 30);
+      });
     }
 
     // ━━━ Utility ━━━

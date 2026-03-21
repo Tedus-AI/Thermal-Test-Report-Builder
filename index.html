@@ -2609,67 +2609,17 @@
       const vh = window.innerHeight - 120;
       const scale = Math.min(vw / w, vh / h, 1);
 
-      // Create a temporary canvas element to render the page
-      const container = document.createElement('div');
-      container.style.width = w + 'px';
-      container.style.height = h + 'px';
-      container.style.transform = `scale(${scale})`;
-      container.style.transformOrigin = 'center center';
-      container.style.overflow = 'hidden';
+      // Build static HTML into an isolated div (no live-canvas swapping)
+      const el = document.createElement('div');
+      el.style.cssText = `width:${w}px;height:${h}px;background:#fff;border-radius:4px;box-shadow:0 8px 40px rgba(0,0,0,0.5);overflow:hidden;transform:scale(${scale});transform-origin:center center;flex-shrink:0;font-family:${getComputedStyle(document.body).fontFamily};`;
 
-      // Render page content into the container
-      const tempCanvas = document.createElement('div');
-      tempCanvas.id = 'preview-temp-canvas';
-      tempCanvas.style.width = w + 'px';
-      tempCanvas.style.height = h + 'px';
-      tempCanvas.style.background = '#fff';
-      tempCanvas.style.display = 'flex';
-      tempCanvas.style.alignItems = 'center';
-      tempCanvas.style.justifyContent = 'center';
-      tempCanvas.style.overflow = 'hidden';
-
-      // Temporarily swap canvas to render page content
-      const origCanvas = $canvas;
-      const origHTML = $canvas.innerHTML;
-      const origClass = $canvas.className;
-
-      // Build page HTML
-      const fakeCanvas = document.createElement('div');
-      fakeCanvas.id = 'editor-canvas';
-      fakeCanvas.style.width = w + 'px';
-      fakeCanvas.style.height = h + 'px';
-      fakeCanvas.style.background = '#fff';
-      fakeCanvas.style.overflow = 'hidden';
-
-      // Use the real canvas reference temporarily
-      const savedActive = state.activePage;
-      state.activePage = previewIdx;
-
-      // We need to render into the real canvas, clone, then restore
-      if (isLandscape) $canvas.classList.add('landscape');
-      else $canvas.classList.remove('landscape');
-
-      if (page.type === 'cover') renderCoverPage(page);
-      else if (page.type === 'image') renderImagePage(page);
-      else if (page.type === 'annotation') renderAnnotationPage(page);
-      else if (page.type === 'conclusion') renderConclusionPage(page);
-
-      // Clone the rendered content
-      const cloned = $canvas.cloneNode(true);
-      cloned.style.width = w + 'px';
-      cloned.style.height = h + 'px';
-      cloned.style.transform = `scale(${scale})`;
-      cloned.style.transformOrigin = 'center center';
-      cloned.style.boxShadow = '0 8px 40px rgba(0,0,0,0.5)';
-      cloned.style.borderRadius = '4px';
-      cloned.style.flexShrink = '0';
-
-      // Restore original
-      state.activePage = savedActive;
-      renderCanvas();
+      if (page.type === 'cover') el.innerHTML = buildCoverHTML(page.data);
+      else if (page.type === 'image') el.innerHTML = buildImagePageHTML(page.data);
+      else if (page.type === 'annotation') el.innerHTML = buildAnnotationHTML(page.data);
+      else if (page.type === 'conclusion') el.innerHTML = buildConclusionHTML(page.data);
 
       wrap.innerHTML = '';
-      wrap.appendChild(cloned);
+      wrap.appendChild(el);
       footer.textContent = `第 ${previewIdx + 1} 頁 / 共 ${state.pages.length} 頁`;
     }
 
@@ -2696,6 +2646,166 @@
     });
 
     // ━━━ PDF Export ━━━
+
+    // Offscreen renderer: builds static HTML for a page (no event bindings)
+    function renderPageOffscreen(page, container) {
+      const isLandscape = page.type === 'image' || page.type === 'annotation';
+      const w = isLandscape ? 842 : 595;
+      const h = isLandscape ? 595 : 842;
+
+      container.style.cssText = `position:fixed;left:-9999px;top:0;width:${w}px;height:${h}px;background:#fff;z-index:-1;overflow:hidden;font-family:${getComputedStyle(document.body).fontFamily};`;
+
+      if (page.type === 'cover') {
+        container.innerHTML = buildCoverHTML(page.data);
+      } else if (page.type === 'image') {
+        container.innerHTML = buildImagePageHTML(page.data);
+      } else if (page.type === 'annotation') {
+        container.innerHTML = buildAnnotationHTML(page.data);
+      } else if (page.type === 'conclusion') {
+        container.innerHTML = buildConclusionHTML(page.data);
+      }
+    }
+
+    // ── Static HTML builders (pure layout, no inputs/events) ──
+
+    function buildCoverHTML(d) {
+      const hasImg = !!d.cover_image;
+      return `<div style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;padding:40px 48px 32px;color:rgba(15,23,42,0.90);overflow:hidden;">
+        <div style="font-size:14px;letter-spacing:0.08em;text-transform:uppercase;color:rgba(15,23,42,0.50);padding:6px 8px;margin-bottom:16px;text-align:center;width:100%;">${escHtml(d.dept)}</div>
+        ${hasImg
+          ? `<div style="width:380px;height:240px;margin-bottom:24px;flex-shrink:0;display:flex;align-items:center;justify-content:center;overflow:hidden;">
+               <img src="${escapeAttr(d.cover_image)}" style="max-width:100%;max-height:100%;object-fit:contain;">
+             </div>`
+          : `<div style="width:380px;height:240px;margin-bottom:24px;flex-shrink:0;"></div>`}
+        <div style="font-size:26px;font-weight:700;text-align:center;padding:8px;margin-bottom:4px;width:100%;">${escHtml(d.project_name)}</div>
+        <div style="font-size:17px;font-weight:500;text-align:center;color:rgba(15,23,42,0.65);padding:6px 8px;margin-bottom:24px;width:100%;">${escHtml(d.model)}</div>
+        <div style="display:grid;grid-template-columns:auto 1fr;gap:8px 16px;align-items:center;width:100%;max-width:380px;margin-top:auto;padding-top:16px;">
+          <span style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:rgba(15,23,42,0.45);text-align:right;">Stage</span>
+          <span style="font-size:14px;padding:4px 8px;">${escHtml(d.stage)}</span>
+          <span style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:rgba(15,23,42,0.45);text-align:right;">Version</span>
+          <span style="font-size:14px;padding:4px 8px;">${escHtml(d.report_version)}</span>
+          <span style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:rgba(15,23,42,0.45);text-align:right;">Date</span>
+          <span style="font-size:14px;padding:4px 8px;">${escHtml(d.date)}</span>
+          <span style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:rgba(15,23,42,0.45);text-align:right;">Tested By</span>
+          <span style="font-size:14px;padding:4px 8px;">${escHtml(d.tested_by)}</span>
+        </div>
+      </div>`;
+    }
+
+    function buildImagePageHTML(d) {
+      const imgs = d.images || [];
+      const count = imgs.length;
+      // Grid CSS
+      let gridStyle = 'flex:1;display:grid;gap:10px;min-height:0;';
+      if (count <= 1) gridStyle += 'grid-template-columns:1fr;grid-template-rows:1fr;';
+      else if (count === 2) gridStyle += 'grid-template-columns:1fr 1fr;grid-template-rows:1fr;';
+      else gridStyle += 'grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;';
+
+      let cells = '';
+      for (let i = 0; i < count; i++) {
+        const img = imgs[i];
+        const src = img && img.url_or_base64;
+        cells += `<div style="display:flex;flex-direction:column;min-height:0;min-width:0;">
+          <div style="flex:1;border:${src ? '1px solid rgba(15,23,42,0.08)' : '2px dashed rgba(15,23,42,0.15)'};border-radius:6px;display:flex;align-items:center;justify-content:center;overflow:hidden;min-height:0;">
+            ${src ? `<img src="${escapeAttr(src)}" style="width:100%;height:100%;object-fit:contain;">` : ''}
+          </div>
+          ${src && img.caption ? `<div style="font-size:12px;color:rgba(15,23,42,0.55);padding:4px 6px;margin-top:4px;border-bottom:1px dashed rgba(15,23,42,0.12);">${escHtml(img.caption)}</div>` : ''}
+        </div>`;
+      }
+      if (count === 0) {
+        cells = '<div style="display:flex;align-items:center;justify-content:center;flex:1;"></div>';
+      }
+
+      return `<div style="width:100%;height:100%;display:flex;flex-direction:column;padding:20px 24px 16px;overflow:hidden;color:rgba(15,23,42,0.90);">
+        <div style="font-size:18px;font-weight:700;padding:6px 8px;margin-bottom:12px;">${escHtml(d.title)}</div>
+        <div style="${gridStyle}">${cells}</div>
+      </div>`;
+    }
+
+    function buildAnnotationHTML(d) {
+      const hasPhoto = !!d.photo_url_or_base64;
+      const markers = d.markers || [];
+      // Workspace: 842 × ~555 (full height minus title ~40px)
+      const wsW = 842, wsH = 555;
+      const pzL = 80, pzT = 60, pzW = wsW - 160, pzH = wsH - 120;
+
+      let dots = '', svgLines = '';
+      markers.forEach((m, idx) => {
+        const dx = pzL + (m.x / 100) * pzW;
+        const dy = pzT + (m.y / 100) * pzH;
+        dots += `<div style="position:absolute;left:${dx}px;top:${dy}px;width:22px;height:22px;border-radius:50%;background:#dc2626;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;transform:translate(-50%,-50%);z-index:15;">${idx + 1}</div>`;
+        if (m.label_x >= 0 && m.label_y >= 0) {
+          const lx = (m.label_x / 100) * wsW;
+          const ly = (m.label_y / 100) * wsH;
+          dots += `<div style="position:absolute;left:${lx}px;top:${ly}px;min-width:80px;padding:4px 8px;background:#fff;border:1.5px solid #333;border-radius:4px;font-size:11px;color:rgba(15,23,42,0.90);z-index:20;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,0.12);">${escHtml(m.label || 'TC' + (idx + 1))}</div>`;
+          svgLines += `<line x1="${dx}" y1="${dy}" x2="${lx + 40}" y2="${ly + 10}" stroke="#dc2626" stroke-width="1.5"/>`;
+        }
+      });
+
+      return `<div style="width:100%;height:100%;display:flex;flex-direction:column;overflow:hidden;position:relative;color:rgba(15,23,42,0.90);">
+        <div style="font-size:16px;font-weight:700;padding:12px 16px 8px;flex-shrink:0;">${escHtml(d.title)}</div>
+        <div style="flex:1;position:relative;overflow:hidden;">
+          ${hasPhoto ? `<div style="position:absolute;top:${pzT}px;left:${pzL}px;width:${pzW}px;height:${pzH}px;border:1px solid rgba(15,23,42,0.08);border-radius:6px;overflow:hidden;display:flex;align-items:center;justify-content:center;">
+            <img src="${escapeAttr(d.photo_url_or_base64)}" style="width:100%;height:100%;object-fit:contain;">
+          </div>` : ''}
+          <svg style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:10;">${svgLines}</svg>
+          ${dots}
+        </div>
+      </div>`;
+    }
+
+    function buildConclusionHTML(d) {
+      const comp = d.compliance || [];
+      const issues = (d.issues || []).filter(s => s);
+      const acts = d.actions || [];
+
+      const thStyle = 'text-align:left;font-size:11px;font-weight:600;color:rgba(15,23,42,0.45);padding:6px 8px;border-bottom:2px solid rgba(15,23,42,0.10);';
+      const tdStyle = 'padding:5px 8px;border-bottom:1px solid rgba(15,23,42,0.06);font-size:12px;';
+
+      let compRows = comp.map(r => {
+        let bg = '';
+        let vLabel = '—';
+        if (r.verdict === 'pass')    { bg = 'background:rgba(34,197,94,0.12);color:#166534;'; vLabel = '✅ Pass'; }
+        if (r.verdict === 'warning') { bg = 'background:rgba(250,204,21,0.18);color:#854d0e;'; vLabel = '⚠️ Warning'; }
+        if (r.verdict === 'fail')    { bg = 'background:rgba(239,68,68,0.12);color:#991b1b;'; vLabel = '❌ Fail'; }
+        return `<tr><td style="${tdStyle}">${escHtml(r.component)}</td><td style="${tdStyle}">${escHtml(r.tc_max)}</td><td style="${tdStyle}">${escHtml(r.spec)}</td><td style="${tdStyle}${bg}">${vLabel}</td></tr>`;
+      }).join('');
+
+      let issuesHtml = issues.map(s => `<li style="margin-bottom:4px;font-size:13px;line-height:1.7;">• ${escHtml(s)}</li>`).join('');
+
+      let actRows = acts.map(a => `<tr><td style="${tdStyle}">${escHtml(a.description)}</td><td style="${tdStyle}">${escHtml(a.owner)}</td><td style="${tdStyle}">${escHtml(a.due_date)}</td></tr>`).join('');
+
+      const secTitle = 'font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:rgba(15,23,42,0.38);margin-bottom:8px;';
+
+      return `<div style="width:100%;height:100%;display:flex;flex-direction:column;padding:32px 40px 24px;gap:20px;color:rgba(15,23,42,0.90);overflow-y:auto;">
+        <div>
+          <div style="${secTitle}">Conclusion</div>
+          <div style="min-height:60px;padding:10px 12px;border:1px solid rgba(15,23,42,0.10);border-radius:6px;font-size:13px;line-height:1.7;">${d.summary || ''}</div>
+        </div>
+        ${comp.length > 0 ? `<div>
+          <div style="${secTitle}">Compliance Summary</div>
+          <table style="width:100%;border-collapse:collapse;font-size:12px;"><thead><tr>
+            <th style="${thStyle}">Component</th><th style="${thStyle}">Max Tc</th><th style="${thStyle}">Spec</th><th style="${thStyle}">Verdict</th>
+          </tr></thead><tbody>${compRows}</tbody></table>
+        </div>` : ''}
+        ${issues.length > 0 ? `<div>
+          <div style="${secTitle}">Issues Found</div>
+          <ul style="list-style:none;padding:0;">${issuesHtml}</ul>
+        </div>` : ''}
+        ${acts.length > 0 ? `<div>
+          <div style="${secTitle}">Next Action</div>
+          <table style="width:100%;border-collapse:collapse;font-size:12px;"><thead><tr>
+            <th style="${thStyle}">Action</th><th style="${thStyle}">Owner</th><th style="${thStyle}">Due Date</th>
+          </tr></thead><tbody>${actRows}</tbody></table>
+        </div>` : ''}
+      </div>`;
+    }
+
+    function escHtml(s) {
+      if (!s) return '';
+      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
     async function exportPDF() {
       if (state.pages.length === 0) return;
       if (typeof html2canvas === 'undefined' || typeof jspdf === 'undefined') {
@@ -2706,11 +2816,7 @@
       setStatus('saving', '匯出中...');
       const { jsPDF } = jspdf;
 
-      // Save current state
-      const savedActive = state.activePage;
-      const savedCanvasClass = $canvas.className;
-
-      // Get filename from cover page data
+      // Build filename from cover page
       let filename = 'ThermalReport';
       const coverPage = state.pages.find(p => p.type === 'cover');
       if (coverPage && coverPage.data) {
@@ -2730,38 +2836,30 @@
       try {
         for (let i = 0; i < state.pages.length; i++) {
           const page = state.pages[i];
-          const isLandscape = page.type === 'image' || page.type === 'annotation';
+const isLandscape = page.type === 'image' || page.type === 'annotation';
           const w = isLandscape ? 842 : 595;
           const h = isLandscape ? 595 : 842;
 
-          // Render page into canvas
-          state.activePage = i;
-          if (isLandscape) {
-            $canvas.classList.add('landscape');
-          } else {
-            $canvas.classList.remove('landscape');
-          }
+          // Create offscreen container — completely isolated from the UI
+          const offscreen = document.createElement('div');
+          document.body.appendChild(offscreen);
+          renderPageOffscreen(page, offscreen);
 
-          $canvas.style.width = w + 'px';
-          $canvas.style.height = h + 'px';
+          // Wait for images to load & layout to settle
+          await new Promise(r => setTimeout(r, 250));
 
-          if (page.type === 'cover') renderCoverPage(page);
-          else if (page.type === 'image') renderImagePage(page);
-          else if (page.type === 'conclusion') renderConclusionPage(page);
-
-          // Wait a frame for render
-          await new Promise(r => setTimeout(r, 100));
-
-          // Capture with html2canvas
-          const canvasImg = await html2canvas($canvas, {
+          // Capture
+          const canvasImg = await html2canvas(offscreen, {
             scale: 2,
             useCORS: true,
             backgroundColor: '#ffffff',
             width: w,
             height: h,
+            logging: false,
           });
 
-          // A4 dimensions in mm: 210×297
+          document.body.removeChild(offscreen);
+
           const orientation = isLandscape ? 'landscape' : 'portrait';
           const pdfW = isLandscape ? 297 : 210;
           const pdfH = isLandscape ? 210 : 297;
@@ -2776,7 +2874,6 @@
           pdf.addImage(imgData, 'JPEG', 0, 0, pdfW, pdfH);
         }
 
-        // Download
         pdf.save(filename + '.pdf');
         setStatus('saved', '已儲存 ✅');
         console.log('✅ PDF exported:', filename + '.pdf');
@@ -2785,11 +2882,6 @@
         setStatus('saved', '匯出失敗');
         alert('PDF 匯出失敗：' + err.message);
       }
-
-      // Restore
-      state.activePage = savedActive;
-      $canvas.className = savedCanvasClass;
-      renderCanvas();
     }
 
     // ━━━ Utility ━━━

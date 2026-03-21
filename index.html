@@ -1140,21 +1140,28 @@
       box-shadow: 0 2px 8px rgba(220,38,38,0.4);
     }
 
-    .marker-label {
+    .marker-label-wrap {
       position: absolute;
+      z-index: 20;
+      display: flex;
+      align-items: stretch;
+    }
+
+    .marker-label {
+      width: 80px;
       min-width: 40px;
       padding: 4px 8px;
       background: #fff;
       border: 1.5px solid #333;
-      border-radius: 4px;
+      border-radius: 4px 0 0 4px;
       font-size: 11px;
       font-family: var(--font-ui);
       color: var(--text-on-white);
       cursor: move;
-      z-index: 20;
       outline: none;
       box-shadow: 0 1px 4px rgba(0,0,0,0.12);
       white-space: nowrap;
+      box-sizing: border-box;
     }
 
     .marker-label:focus {
@@ -1164,6 +1171,22 @@
 
     .marker-label::placeholder {
       color: rgba(15,23,42,0.25);
+    }
+
+    .marker-resize-handle {
+      width: 6px;
+      cursor: ew-resize;
+      background: rgba(15,23,42,0.08);
+      border: 1.5px solid #333;
+      border-left: none;
+      border-radius: 0 4px 4px 0;
+      flex-shrink: 0;
+      transition: background 0.15s;
+    }
+
+    .marker-resize-handle:hover,
+    .marker-resize-handle:active {
+      background: rgba(56,189,248,0.25);
     }
 
     .annotation-drag-line {
@@ -2113,7 +2136,7 @@
         if (e.button !== 0) return; // left click only
         if (!page.data.photo_url_or_base64) return;
         // Ignore if clicking an existing marker or label
-        if (e.target.closest('.marker-dot') || e.target.closest('.marker-label')) return;
+        if (e.target.closest('.marker-dot') || e.target.closest('.marker-label') || e.target.closest('.marker-label-wrap') || e.target.closest('.marker-resize-handle')) return;
 
         const rect = zone.getBoundingClientRect();
         const x = ((e.clientX - rect.left) / rect.width) * 100;
@@ -2226,7 +2249,7 @@
       if (!workspace || !zone || !svg) return;
 
       // Remove old markers & labels (but keep photo zone and SVGs)
-      workspace.querySelectorAll('.marker-dot, .marker-label').forEach(el => el.remove());
+      workspace.querySelectorAll('.marker-dot, .marker-label, .marker-label-wrap').forEach(el => el.remove());
       svg.innerHTML = '';
 
       const markers = page.data.markers;
@@ -2283,7 +2306,7 @@
           dot.style.top = newDotY + 'px';
           // Update SVG line if label exists
           if (m.label_x >= 0 && m.label_y >= 0) {
-            const lbl = workspace.querySelector(`.marker-label[data-id="${m.id}"]`);
+            const lbl = workspace.querySelector(`.marker-label-wrap[data-id="${m.id}"]`);
             if (lbl) {
               updateAnnotationLine(svg, m.id, newDotX, newDotY,
                 parseFloat(lbl.style.left) + lbl.offsetWidth / 2,
@@ -2312,14 +2335,29 @@
           const labelX = (m.label_x / 100) * wsRect.width;
           const labelY = (m.label_y / 100) * wsRect.height;
 
+          // Wrapper for label + resize handle
+          const wrap = document.createElement('div');
+          wrap.className = 'marker-label-wrap';
+          wrap.style.left = labelX + 'px';
+          wrap.style.top = labelY + 'px';
+          wrap.dataset.id = m.id;
+
           const label = document.createElement('input');
           label.type = 'text';
           label.className = 'marker-label';
           label.placeholder = `TC${idx + 1} - 元件名稱`;
           label.value = m.label || '';
           label.dataset.id = m.id;
-          label.style.left = labelX + 'px';
-          label.style.top = labelY + 'px';
+          // Restore saved width or default 80px
+          const savedW = m.label_w || 80;
+          label.style.width = savedW + 'px';
+
+          // Resize handle
+          const resizeHandle = document.createElement('div');
+          resizeHandle.className = 'marker-resize-handle';
+
+          wrap.appendChild(label);
+          wrap.appendChild(resizeHandle);
 
           // Editable
           label.addEventListener('input', () => {
@@ -2327,16 +2365,15 @@
             scheduleSave(state.activePage);
           });
 
-          // Draggable label
+          // Draggable label (drag from the input area)
           let labelDragging = false;
           let labelOffX = 0, labelOffY = 0;
 
           label.addEventListener('mousedown', (e) => {
             if (e.target === label && e.button === 0) {
-              // Only drag if not focusing for text editing
               labelDragging = true;
-              labelOffX = e.clientX - label.getBoundingClientRect().left;
-              labelOffY = e.clientY - label.getBoundingClientRect().top;
+              labelOffX = e.clientX - wrap.getBoundingClientRect().left;
+              labelOffY = e.clientY - wrap.getBoundingClientRect().top;
               e.preventDefault();
             }
           });
@@ -2345,19 +2382,49 @@
             if (!labelDragging) return;
             const newX = e.clientX - wsRect.left - labelOffX;
             const newY = e.clientY - wsRect.top - labelOffY;
-            label.style.left = newX + 'px';
-            label.style.top = newY + 'px';
+            wrap.style.left = newX + 'px';
+            wrap.style.top = newY + 'px';
             // Update SVG line
-            updateAnnotationLine(svg, m.id, dotX, dotY, newX + label.offsetWidth / 2, newY + label.offsetHeight / 2);
+            updateAnnotationLine(svg, m.id, dotX, dotY, newX + wrap.offsetWidth / 2, newY + wrap.offsetHeight / 2);
           });
 
           document.addEventListener('mouseup', () => {
             if (!labelDragging) return;
             labelDragging = false;
-            // Save new position as %
             const rect = workspace.getBoundingClientRect();
-            m.label_x = (parseFloat(label.style.left) / rect.width) * 100;
-            m.label_y = (parseFloat(label.style.top) / rect.height) * 100;
+            m.label_x = (parseFloat(wrap.style.left) / rect.width) * 100;
+            m.label_y = (parseFloat(wrap.style.top) / rect.height) * 100;
+            scheduleSave(state.activePage);
+          });
+
+          // Resize handle drag
+          let resizing = false;
+          let resizeStartX = 0, resizeStartW = 0;
+
+          resizeHandle.addEventListener('mousedown', (e) => {
+            if (e.button !== 0) return;
+            e.preventDefault();
+            e.stopPropagation();
+            resizing = true;
+            resizeStartX = e.clientX;
+            resizeStartW = label.offsetWidth;
+          });
+
+          document.addEventListener('mousemove', (e) => {
+            if (!resizing) return;
+            const delta = e.clientX - resizeStartX;
+            const newW = Math.max(40, resizeStartW + delta);
+            label.style.width = newW + 'px';
+            // Update SVG line to track center
+            updateAnnotationLine(svg, m.id, dotX, dotY,
+              parseFloat(wrap.style.left) + wrap.offsetWidth / 2,
+              parseFloat(wrap.style.top) + wrap.offsetHeight / 2);
+          });
+
+          document.addEventListener('mouseup', () => {
+            if (!resizing) return;
+            resizing = false;
+            m.label_w = label.offsetWidth;
             scheduleSave(state.activePage);
           });
 
@@ -2368,11 +2435,11 @@
             label.select();
           });
 
-          workspace.appendChild(label);
+          workspace.appendChild(wrap);
 
-          // Draw SVG leader line
-          const labelCenterX = labelX + 40; // approximate center
-          const labelCenterY = labelY + 10;
+          // Draw SVG leader line (use saved width + handle 6px for center calc)
+          const labelCenterX = labelX + (savedW + 6) / 2;
+          const labelCenterY = labelY + (wrap.offsetHeight || 24) / 2;
           drawAnnotationLine(svg, m.id, dotX, dotY, labelCenterX, labelCenterY);
         }
       });
@@ -2799,8 +2866,9 @@
         if (m.label_x >= 0 && m.label_y >= 0) {
           const lx = (m.label_x / 100) * wsW;
           const ly = (m.label_y / 100) * wsH;
-          dots += `<div style="position:absolute;left:${lx}px;top:${ly}px;min-width:40px;padding:4px 8px;background:#fff;border:1.5px solid #333;border-radius:4px;font-size:11px;color:rgba(15,23,42,0.90);z-index:20;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,0.12);">${escHtml(m.label || 'TC' + (idx + 1))}</div>`;
-          svgLines += `<line x1="${dx}" y1="${dy}" x2="${lx + 40}" y2="${ly + 10}" stroke="#dc2626" stroke-width="1.5"/>`;
+          const lw = m.label_w || 80;
+          dots += `<div style="position:absolute;left:${lx}px;top:${ly}px;width:${lw}px;min-width:40px;padding:4px 8px;background:#fff;border:1.5px solid #333;border-radius:4px;font-size:11px;color:rgba(15,23,42,0.90);z-index:20;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,0.12);box-sizing:border-box;">${escHtml(m.label || 'TC' + (idx + 1))}</div>`;
+          svgLines += `<line x1="${dx}" y1="${dy}" x2="${lx + lw / 2}" y2="${ly + 10}" stroke="#dc2626" stroke-width="1.5"/>`;
         }
       });
 

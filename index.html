@@ -996,6 +996,188 @@
       border-bottom-color: var(--color-primary);
     }
 
+    /* ━━━ Annotation Page Module ━━━ */
+    .annotation-page {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      font-family: var(--font-ui);
+      color: var(--text-on-white);
+      overflow: hidden;
+      position: relative;
+    }
+
+    .annotation-title {
+      font-size: 16px;
+      font-weight: 700;
+      border: none;
+      outline: none;
+      background: transparent;
+      color: var(--text-on-white);
+      width: 100%;
+      padding: 12px 16px 8px;
+      font-family: var(--font-ui);
+      flex-shrink: 0;
+      z-index: 5;
+    }
+
+    .annotation-title::placeholder {
+      color: rgba(15,23,42,0.28);
+    }
+
+    .annotation-title:hover {
+      background: rgba(56,189,248,0.04);
+    }
+
+    .annotation-title:focus {
+      background: rgba(56,189,248,0.06);
+    }
+
+    .annotation-workspace {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .annotation-photo-zone {
+      position: absolute;
+      top: 60px;
+      left: 80px;
+      right: 80px;
+      bottom: 60px;
+      border: 2px dashed rgba(15,23,42,0.15);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      overflow: hidden;
+      transition: border-color var(--transition-fast), background var(--transition-fast);
+    }
+
+    .annotation-photo-zone:hover {
+      border-color: rgba(56,189,248,0.4);
+      background: rgba(56,189,248,0.03);
+    }
+
+    .annotation-photo-zone.dragover {
+      border-color: var(--color-primary);
+      background: rgba(56,189,248,0.08);
+    }
+
+    .annotation-photo-zone.has-photo {
+      border: 1px solid rgba(15,23,42,0.08);
+      cursor: crosshair;
+    }
+
+    .annotation-photo-zone.has-photo:hover {
+      background: transparent;
+    }
+
+    .annotation-photo-zone img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      pointer-events: none;
+    }
+
+    .annotation-photo-placeholder {
+      text-align: center;
+      color: rgba(15,23,42,0.25);
+      font-size: 13px;
+      pointer-events: none;
+    }
+
+    .annotation-photo-placeholder .icon {
+      font-size: 32px;
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    .annotation-svg-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    .annotation-svg-overlay line {
+      stroke: #dc2626;
+      stroke-width: 1.5;
+      pointer-events: none;
+    }
+
+    .marker-dot {
+      position: absolute;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: #dc2626;
+      border: 2px solid #fff;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-weight: 700;
+      color: #fff;
+      cursor: pointer;
+      z-index: 15;
+      transform: translate(-50%, -50%);
+      user-select: none;
+    }
+
+    .marker-dot:hover {
+      transform: translate(-50%, -50%) scale(1.15);
+      box-shadow: 0 2px 8px rgba(220,38,38,0.4);
+    }
+
+    .marker-label {
+      position: absolute;
+      min-width: 80px;
+      padding: 4px 8px;
+      background: #fff;
+      border: 1.5px solid #333;
+      border-radius: 4px;
+      font-size: 11px;
+      font-family: var(--font-ui);
+      color: var(--text-on-white);
+      cursor: move;
+      z-index: 20;
+      outline: none;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.12);
+      white-space: nowrap;
+    }
+
+    .marker-label:focus {
+      border-color: var(--color-primary);
+      box-shadow: 0 0 0 2px rgba(56,189,248,0.2);
+    }
+
+    .marker-label::placeholder {
+      color: rgba(15,23,42,0.25);
+    }
+
+    .annotation-drag-line {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 12;
+    }
+
+    .annotation-drag-line line {
+      stroke: #dc2626;
+      stroke-width: 1.5;
+      stroke-dasharray: 4 3;
+    }
+
     /* ━━━ Preview Overlay ━━━ */
     .preview-overlay {
       display: none;
@@ -1077,6 +1259,7 @@
           <div class="dropdown-menu" id="toolbar-add-menu">
             <button class="dropdown-item" data-type="cover">🏠 封面頁</button>
             <button class="dropdown-item" data-type="image">🖼 圖片頁</button>
+            <button class="dropdown-item" data-type="annotation">📍 標註頁</button>
             <button class="dropdown-item" data-type="conclusion">📝 結論頁</button>
           </div>
         </div>
@@ -1100,6 +1283,7 @@
             <div class="dropdown-menu" id="sidebar-add-menu">
               <button class="dropdown-item" data-type="cover">🏠 封面頁</button>
               <button class="dropdown-item" data-type="image">🖼 圖片頁</button>
+              <button class="dropdown-item" data-type="annotation">📍 標註頁</button>
               <button class="dropdown-item" data-type="conclusion">📝 結論頁</button>
             </div>
           </div>
@@ -1292,6 +1476,7 @@
           const type = item.dataset.type;
           if (type === 'cover') addCoverPage();
           else if (type === 'image') addImagePage();
+          else if (type === 'annotation') addAnnotationPage();
           else if (type === 'conclusion') addConclusionPage();
         });
       });
@@ -1345,6 +1530,7 @@
           }
           label = '圖片頁 ' + imgCount;
         }
+        if (page.type === 'annotation') { icon = '📍'; label = '標註頁'; }
         if (page.type === 'conclusion') { icon = '📝'; label = '結論頁'; }
 
         el.textContent = icon + ' ' + label;
@@ -1435,7 +1621,7 @@
 
       const page = state.pages[state.activePage];
       // Switch canvas orientation
-      if (page.type === 'image') {
+      if (page.type === 'image' || page.type === 'annotation') {
         $canvas.classList.add('landscape');
       } else {
         $canvas.classList.remove('landscape');
@@ -1445,6 +1631,8 @@
         renderCoverPage(page);
       } else if (page.type === 'image') {
         renderImagePage(page);
+      } else if (page.type === 'annotation') {
+        renderAnnotationPage(page);
       } else if (page.type === 'conclusion') {
         renderConclusionPage(page);
       }
@@ -1589,6 +1777,8 @@
             await handleCoverImage(page, file);
           } else if (page.type === 'image') {
             await handleImagePagePaste(page, file);
+          } else if (page.type === 'annotation') {
+            await handleAnnotationPhoto(page, file);
           }
           return;
         }
@@ -1803,6 +1993,361 @@
       if (imgs.length >= 4) return; // already full
       const nextPos = imgs.length;
       await handleImagePageImage(page, nextPos, file);
+    }
+
+    // ━━━ Annotation Page Module ━━━
+    let annotationDragState = null; // { markerId, startX, startY } during leader-line drag
+
+    function addAnnotationPage() {
+      const page = {
+        id: 'page_' + Date.now(),
+        type: 'annotation',
+        order: state.pages.length,
+        data: {
+          title: '',
+          photo_url_or_base64: '',
+          markers: [] // { id, x, y, label, label_x, label_y }
+        }
+      };
+      state.pages.push(page);
+      renderPageList();
+      selectPage(state.pages.length - 1);
+      scheduleSave(state.pages.length - 1);
+    }
+
+    function renderAnnotationPage(page) {
+      const d = page.data;
+      const hasPhoto = !!d.photo_url_or_base64;
+
+      $canvas.innerHTML = `
+        <div class="annotation-page">
+          <input class="annotation-title" type="text" placeholder="TC Thermocouple Placement"
+                 value="${escapeAttr(d.title)}" data-field="title">
+          <div class="annotation-workspace" id="anno-workspace">
+            <div class="annotation-photo-zone ${hasPhoto ? 'has-photo' : ''}" id="anno-photo-zone">
+              ${hasPhoto
+                ? `<img src="${escapeAttr(d.photo_url_or_base64)}" alt="Annotation photo">`
+                : `<div class="annotation-photo-placeholder">
+                     <span class="icon">📷</span>
+                     拖拉、點擊選檔或 Ctrl+V 貼上照片
+                   </div>`
+              }
+              <input type="file" accept="image/*" id="anno-file-input" style="display:none">
+            </div>
+            <svg class="annotation-svg-overlay" id="anno-svg"></svg>
+            <svg class="annotation-drag-line" id="anno-drag-svg" style="display:none">
+              <line x1="0" y1="0" x2="0" y2="0"/>
+            </svg>
+          </div>
+        </div>
+      `;
+
+      // Title binding
+      const titleEl = $canvas.querySelector('[data-field="title"]');
+      titleEl?.addEventListener('input', () => {
+        d.title = titleEl.value;
+        scheduleSave(state.activePage);
+      });
+
+      // Photo upload handlers
+      setupAnnotationPhotoHandlers(page);
+
+      // Render existing markers
+      if (hasPhoto && d.markers.length > 0) {
+        renderAnnotationMarkers(page);
+      }
+
+      // Click-to-add-marker on photo
+      if (hasPhoto) {
+        setupAnnotationClickHandler(page);
+      }
+    }
+
+    function setupAnnotationPhotoHandlers(page) {
+      const zone = document.getElementById('anno-photo-zone');
+      const fileInput = document.getElementById('anno-file-input');
+      if (!zone || !fileInput) return;
+
+      zone.addEventListener('click', (e) => {
+        if (page.data.photo_url_or_base64) return; // photo already placed, click = add marker
+        fileInput.click();
+      });
+
+      fileInput.addEventListener('change', async () => {
+        if (fileInput.files.length > 0) {
+          await handleAnnotationPhoto(page, fileInput.files[0]);
+        }
+      });
+
+      zone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        zone.classList.add('dragover');
+      });
+      zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+      zone.addEventListener('drop', async (e) => {
+        e.preventDefault();
+        zone.classList.remove('dragover');
+        const file = e.dataTransfer.files[0];
+        if (file && file.type.startsWith('image/')) {
+          await handleAnnotationPhoto(page, file);
+        }
+      });
+    }
+
+    async function handleAnnotationPhoto(page, file) {
+      const imageData = await processImage(file);
+      page.data.photo_url_or_base64 = imageData;
+      renderAnnotationPage(page);
+      scheduleSave(state.activePage);
+    }
+
+    function setupAnnotationClickHandler(page) {
+      const zone = document.getElementById('anno-photo-zone');
+      if (!zone) return;
+
+      zone.addEventListener('mousedown', (e) => {
+        if (e.button !== 0) return; // left click only
+        if (!page.data.photo_url_or_base64) return;
+        // Ignore if clicking an existing marker or label
+        if (e.target.closest('.marker-dot') || e.target.closest('.marker-label')) return;
+
+        const rect = zone.getBoundingClientRect();
+        const x = ((e.clientX - rect.left) / rect.width) * 100;
+        const y = ((e.clientY - rect.top) / rect.height) * 100;
+
+        // Generate marker
+        const id = 'm_' + Date.now();
+        const num = page.data.markers.length + 1;
+        const marker = {
+          id,
+          x: Math.round(x * 100) / 100,
+          y: Math.round(y * 100) / 100,
+          label: '',
+          label_x: -1, // unset → will be placed on drag release
+          label_y: -1,
+        };
+
+        page.data.markers.push(marker);
+
+        // Start drag to place label
+        const workspace = document.getElementById('anno-workspace');
+        const wsRect = workspace.getBoundingClientRect();
+        const dotAbsX = e.clientX - wsRect.left;
+        const dotAbsY = e.clientY - wsRect.top;
+
+        annotationDragState = { markerId: id, dotAbsX, dotAbsY };
+
+        // Show drag line
+        const dragSvg = document.getElementById('anno-drag-svg');
+        dragSvg.style.display = 'block';
+        const line = dragSvg.querySelector('line');
+        line.setAttribute('x1', dotAbsX);
+        line.setAttribute('y1', dotAbsY);
+        line.setAttribute('x2', dotAbsX);
+        line.setAttribute('y2', dotAbsY);
+
+        // Render markers (dot will appear)
+        renderAnnotationMarkers(page);
+        scheduleSave(state.activePage);
+      });
+
+      // Mouse move for drag line
+      const workspace = document.getElementById('anno-workspace');
+      workspace.addEventListener('mousemove', (e) => {
+        if (!annotationDragState) return;
+        const wsRect = workspace.getBoundingClientRect();
+        const mx = e.clientX - wsRect.left;
+        const my = e.clientY - wsRect.top;
+        const dragSvg = document.getElementById('anno-drag-svg');
+        const line = dragSvg.querySelector('line');
+        line.setAttribute('x2', mx);
+        line.setAttribute('y2', my);
+      });
+
+      // Mouse up for placing label
+      workspace.addEventListener('mouseup', (e) => {
+        if (!annotationDragState) return;
+        const ds = annotationDragState;
+        annotationDragState = null;
+
+        const dragSvg = document.getElementById('anno-drag-svg');
+        dragSvg.style.display = 'none';
+
+        const wsRect = workspace.getBoundingClientRect();
+        const labelAbsX = e.clientX - wsRect.left;
+        const labelAbsY = e.clientY - wsRect.top;
+
+        // Convert to % of workspace
+        const lxPct = (labelAbsX / wsRect.width) * 100;
+        const lyPct = (labelAbsY / wsRect.height) * 100;
+
+        // Update marker data
+        const marker = page.data.markers.find(m => m.id === ds.markerId);
+        if (marker) {
+          // If label was barely dragged, auto-place to the right/left
+          const dist = Math.sqrt((labelAbsX - ds.dotAbsX) ** 2 + (labelAbsY - ds.dotAbsY) ** 2);
+          if (dist < 15) {
+            // Auto place: if dot is in left half, place label right; else left
+            const zone = document.getElementById('anno-photo-zone');
+            const zRect = zone.getBoundingClientRect();
+            const dotClientX = ds.dotAbsX + wsRect.left;
+            const midX = zRect.left + zRect.width / 2;
+            if (dotClientX < midX) {
+              marker.label_x = 85;
+            } else {
+              marker.label_x = 2;
+            }
+            marker.label_y = Math.max(2, Math.min(90, lyPct));
+          } else {
+            marker.label_x = Math.max(0, Math.min(95, lxPct));
+            marker.label_y = Math.max(0, Math.min(95, lyPct));
+          }
+        }
+
+        renderAnnotationMarkers(page);
+        scheduleSave(state.activePage);
+
+        // Focus the new label
+        setTimeout(() => {
+          const labelEl = document.querySelector(`.marker-label[data-id="${ds.markerId}"]`);
+          if (labelEl) labelEl.focus();
+        }, 50);
+      });
+    }
+
+    function renderAnnotationMarkers(page) {
+      const workspace = document.getElementById('anno-workspace');
+      const zone = document.getElementById('anno-photo-zone');
+      const svg = document.getElementById('anno-svg');
+      if (!workspace || !zone || !svg) return;
+
+      // Remove old markers & labels (but keep photo zone and SVGs)
+      workspace.querySelectorAll('.marker-dot, .marker-label').forEach(el => el.remove());
+      svg.innerHTML = '';
+
+      const markers = page.data.markers;
+      const zoneRect = zone.getBoundingClientRect();
+      const wsRect = workspace.getBoundingClientRect();
+
+      // Compute zone offset relative to workspace
+      const zoneOffX = zoneRect.left - wsRect.left;
+      const zoneOffY = zoneRect.top - wsRect.top;
+
+      markers.forEach((m, idx) => {
+        // Dot position: x,y are % of photo zone
+        const dotX = zoneOffX + (m.x / 100) * zoneRect.width;
+        const dotY = zoneOffY + (m.y / 100) * zoneRect.height;
+
+        // Create dot
+        const dot = document.createElement('div');
+        dot.className = 'marker-dot';
+        dot.style.left = dotX + 'px';
+        dot.style.top = dotY + 'px';
+        dot.textContent = idx + 1;
+        dot.dataset.id = m.id;
+
+        // Right-click to delete
+        dot.addEventListener('contextmenu', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (confirm(`刪除標記 #${idx + 1}？`)) {
+            page.data.markers = page.data.markers.filter(mk => mk.id !== m.id);
+            renderAnnotationMarkers(page);
+            scheduleSave(state.activePage);
+          }
+        });
+
+        workspace.appendChild(dot);
+
+        // Label (only if placed)
+        if (m.label_x >= 0 && m.label_y >= 0) {
+          const labelX = (m.label_x / 100) * wsRect.width;
+          const labelY = (m.label_y / 100) * wsRect.height;
+
+          const label = document.createElement('input');
+          label.type = 'text';
+          label.className = 'marker-label';
+          label.placeholder = `TC${idx + 1} - 元件名稱`;
+          label.value = m.label || '';
+          label.dataset.id = m.id;
+          label.style.left = labelX + 'px';
+          label.style.top = labelY + 'px';
+
+          // Editable
+          label.addEventListener('input', () => {
+            m.label = label.value;
+            scheduleSave(state.activePage);
+          });
+
+          // Draggable label
+          let labelDragging = false;
+          let labelOffX = 0, labelOffY = 0;
+
+          label.addEventListener('mousedown', (e) => {
+            if (e.target === label && e.button === 0) {
+              // Only drag if not focusing for text editing
+              labelDragging = true;
+              labelOffX = e.clientX - label.getBoundingClientRect().left;
+              labelOffY = e.clientY - label.getBoundingClientRect().top;
+              e.preventDefault();
+            }
+          });
+
+          document.addEventListener('mousemove', (e) => {
+            if (!labelDragging) return;
+            const newX = e.clientX - wsRect.left - labelOffX;
+            const newY = e.clientY - wsRect.top - labelOffY;
+            label.style.left = newX + 'px';
+            label.style.top = newY + 'px';
+            // Update SVG line
+            updateAnnotationLine(svg, m.id, dotX, dotY, newX + label.offsetWidth / 2, newY + label.offsetHeight / 2);
+          });
+
+          document.addEventListener('mouseup', () => {
+            if (!labelDragging) return;
+            labelDragging = false;
+            // Save new position as %
+            const rect = workspace.getBoundingClientRect();
+            m.label_x = (parseFloat(label.style.left) / rect.width) * 100;
+            m.label_y = (parseFloat(label.style.top) / rect.height) * 100;
+            scheduleSave(state.activePage);
+          });
+
+          // Double-click to edit text
+          label.addEventListener('dblclick', (e) => {
+            e.stopPropagation();
+            label.focus();
+            label.select();
+          });
+
+          workspace.appendChild(label);
+
+          // Draw SVG leader line
+          const labelCenterX = labelX + 40; // approximate center
+          const labelCenterY = labelY + 10;
+          drawAnnotationLine(svg, m.id, dotX, dotY, labelCenterX, labelCenterY);
+        }
+      });
+    }
+
+    function drawAnnotationLine(svg, markerId, x1, y1, x2, y2) {
+      const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      line.setAttribute('x1', x1);
+      line.setAttribute('y1', y1);
+      line.setAttribute('x2', x2);
+      line.setAttribute('y2', y2);
+      line.dataset.markerId = markerId;
+      svg.appendChild(line);
+    }
+
+    function updateAnnotationLine(svg, markerId, x1, y1, x2, y2) {
+      const line = svg.querySelector(`line[data-marker-id="${markerId}"]`);
+      if (line) {
+        line.setAttribute('x1', x1);
+        line.setAttribute('y1', y1);
+        line.setAttribute('x2', x2);
+        line.setAttribute('y2', y2);
+      }
     }
 
     // ━━━ Conclusion Page Module ━━━
@@ -2055,7 +2600,7 @@
       const page = state.pages[previewIdx];
       if (!page) return;
 
-      const isLandscape = page.type === 'image';
+      const isLandscape = page.type === 'image' || page.type === 'annotation';
       const w = isLandscape ? 842 : 595;
       const h = isLandscape ? 595 : 842;
 
@@ -2106,6 +2651,7 @@
 
       if (page.type === 'cover') renderCoverPage(page);
       else if (page.type === 'image') renderImagePage(page);
+      else if (page.type === 'annotation') renderAnnotationPage(page);
       else if (page.type === 'conclusion') renderConclusionPage(page);
 
       // Clone the rendered content
@@ -2184,7 +2730,7 @@
       try {
         for (let i = 0; i < state.pages.length; i++) {
           const page = state.pages[i];
-          const isLandscape = page.type === 'image';
+          const isLandscape = page.type === 'image' || page.type === 'annotation';
           const w = isLandscape ? 842 : 595;
           const h = isLandscape ? 595 : 842;
 

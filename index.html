@@ -2648,12 +2648,15 @@
     // ━━━ PDF Export ━━━
 
     // Offscreen renderer: builds static HTML for a page (no event bindings)
+    // NOTE: html2canvas has a known bug with letter-spacing — all builders must avoid it
+    const PDF_FONT = '-apple-system, BlinkMacSystemFont, "Helvetica Neue", "PingFang TC", sans-serif';
+
     function renderPageOffscreen(page, container) {
       const isLandscape = page.type === 'image' || page.type === 'annotation';
       const w = isLandscape ? 842 : 595;
       const h = isLandscape ? 595 : 842;
 
-      container.style.cssText = `position:fixed;left:-9999px;top:0;width:${w}px;height:${h}px;background:#fff;z-index:-1;overflow:hidden;font-family:${getComputedStyle(document.body).fontFamily};`;
+      container.style.cssText = `position:fixed;left:-9999px;top:0;width:${w}px;height:${h}px;background:#fff;z-index:-1;overflow:hidden;font-family:${PDF_FONT};letter-spacing:normal;`;
 
       if (page.type === 'cover') {
         container.innerHTML = buildCoverHTML(page.data);
@@ -2670,23 +2673,23 @@
 
     function buildCoverHTML(d) {
       const hasImg = !!d.cover_image;
-      return `<div style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;padding:40px 48px 32px;color:rgba(15,23,42,0.90);overflow:hidden;">
-        <div style="font-size:14px;letter-spacing:0.08em;text-transform:uppercase;color:rgba(15,23,42,0.50);padding:6px 8px;margin-bottom:16px;text-align:center;width:100%;">${escHtml(d.dept)}</div>
+      return `<div style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;padding:40px 48px 32px;color:rgba(15,23,42,0.90);overflow:hidden;font-family:${PDF_FONT};">
+        <div style="font-size:14px;text-transform:uppercase;color:rgba(15,23,42,0.50);padding:6px 8px;margin-bottom:16px;text-align:center;width:100%;">${escHtml(d.dept)}</div>
         ${hasImg
-          ? `<div style="width:380px;height:240px;margin-bottom:24px;flex-shrink:0;display:flex;align-items:center;justify-content:center;overflow:hidden;">
+          ? `<div style="width:380px;height:240px;margin-bottom:24px;flex-shrink:0;display:flex;align-items:center;justify-content:center;overflow:hidden;border-radius:8px;">
                <img src="${escapeAttr(d.cover_image)}" style="max-width:100%;max-height:100%;object-fit:contain;">
              </div>`
           : `<div style="width:380px;height:240px;margin-bottom:24px;flex-shrink:0;"></div>`}
         <div style="font-size:26px;font-weight:700;text-align:center;padding:8px;margin-bottom:4px;width:100%;">${escHtml(d.project_name)}</div>
         <div style="font-size:17px;font-weight:500;text-align:center;color:rgba(15,23,42,0.65);padding:6px 8px;margin-bottom:24px;width:100%;">${escHtml(d.model)}</div>
         <div style="display:grid;grid-template-columns:auto 1fr;gap:8px 16px;align-items:center;width:100%;max-width:380px;margin-top:auto;padding-top:16px;">
-          <span style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:rgba(15,23,42,0.45);text-align:right;">Stage</span>
+          <span style="font-size:12px;font-weight:600;text-transform:uppercase;color:rgba(15,23,42,0.45);text-align:right;">Stage</span>
           <span style="font-size:14px;padding:4px 8px;">${escHtml(d.stage)}</span>
-          <span style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:rgba(15,23,42,0.45);text-align:right;">Version</span>
+          <span style="font-size:12px;font-weight:600;text-transform:uppercase;color:rgba(15,23,42,0.45);text-align:right;">Version</span>
           <span style="font-size:14px;padding:4px 8px;">${escHtml(d.report_version)}</span>
-          <span style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:rgba(15,23,42,0.45);text-align:right;">Date</span>
+          <span style="font-size:12px;font-weight:600;text-transform:uppercase;color:rgba(15,23,42,0.45);text-align:right;">Date</span>
           <span style="font-size:14px;padding:4px 8px;">${escHtml(d.date)}</span>
-          <span style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:rgba(15,23,42,0.45);text-align:right;">Tested By</span>
+          <span style="font-size:12px;font-weight:600;text-transform:uppercase;color:rgba(15,23,42,0.45);text-align:right;">Tested By</span>
           <span style="font-size:14px;padding:4px 8px;">${escHtml(d.tested_by)}</span>
         </div>
       </div>`;
@@ -2775,7 +2778,7 @@
 
       let actRows = acts.map(a => `<tr><td style="${tdStyle}">${escHtml(a.description)}</td><td style="${tdStyle}">${escHtml(a.owner)}</td><td style="${tdStyle}">${escHtml(a.due_date)}</td></tr>`).join('');
 
-      const secTitle = 'font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:rgba(15,23,42,0.38);margin-bottom:8px;';
+      const secTitle = 'font-size:11px;font-weight:700;text-transform:uppercase;color:rgba(15,23,42,0.38);margin-bottom:8px;';
 
       return `<div style="width:100%;height:100%;display:flex;flex-direction:column;padding:32px 40px 24px;gap:20px;color:rgba(15,23,42,0.90);overflow-y:auto;">
         <div>
@@ -2845,8 +2848,15 @@ const isLandscape = page.type === 'image' || page.type === 'annotation';
           document.body.appendChild(offscreen);
           renderPageOffscreen(page, offscreen);
 
-          // Wait for images to load & layout to settle
-          await new Promise(r => setTimeout(r, 250));
+          // Wait for all images to load before capturing
+          const imgs = offscreen.querySelectorAll('img');
+          if (imgs.length > 0) {
+            await Promise.all(Array.from(imgs).map(img =>
+              img.complete ? Promise.resolve() : new Promise(r => { img.onload = r; img.onerror = r; })
+            ));
+          }
+          // Extra frame for layout settle
+          await new Promise(r => setTimeout(r, 100));
 
           // Capture
           const canvasImg = await html2canvas(offscreen, {

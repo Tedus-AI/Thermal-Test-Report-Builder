@@ -2656,41 +2656,52 @@
       const w = isLandscape ? 842 : 595;
       const h = isLandscape ? 595 : 842;
 
-      container.style.cssText = `position:fixed;left:-9999px;top:0;width:${w}px;height:${h}px;background:#fff;z-index:-1;overflow:hidden;font-family:${PDF_FONT};letter-spacing:normal;`;
+      container.style.cssText = `position:fixed;left:-9999px;top:0;width:${w}px;height:${h}px;background:#fff;z-index:-1;overflow:hidden;font-family:${PDF_FONT};letter-spacing:0px;word-spacing:0px;`;
+
+      // Inject a hard CSS reset to kill any inherited letter-spacing (html2canvas bug workaround)
+      const resetStyle = document.createElement('style');
+      resetStyle.textContent = '*, *::before, *::after { letter-spacing: 0px !important; word-spacing: 0px !important; text-transform: none !important; }';
+      container.appendChild(resetStyle);
+
+      const content = document.createElement('div');
+      content.style.cssText = `width:100%;height:100%;letter-spacing:0px;word-spacing:0px;`;
 
       if (page.type === 'cover') {
-        container.innerHTML = buildCoverHTML(page.data);
+        content.innerHTML = buildCoverHTML(page.data);
       } else if (page.type === 'image') {
-        container.innerHTML = buildImagePageHTML(page.data);
+        content.innerHTML = buildImagePageHTML(page.data);
       } else if (page.type === 'annotation') {
-        container.innerHTML = buildAnnotationHTML(page.data);
+        content.innerHTML = buildAnnotationHTML(page.data);
       } else if (page.type === 'conclusion') {
-        container.innerHTML = buildConclusionHTML(page.data);
+        content.innerHTML = buildConclusionHTML(page.data);
       }
+      container.appendChild(content);
     }
 
     // ── Static HTML builders (pure layout, no inputs/events) ──
 
     function buildCoverHTML(d) {
       const hasImg = !!d.cover_image;
-      return `<div style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;padding:40px 48px 32px;color:rgba(15,23,42,0.90);overflow:hidden;font-family:${PDF_FONT};">
-        <div style="font-size:14px;text-transform:uppercase;color:rgba(15,23,42,0.50);padding:6px 8px;margin-bottom:16px;text-align:center;width:100%;">${escHtml(d.dept)}</div>
+      // Uppercase text in JS to avoid html2canvas text-transform bug
+      const deptUpper = (d.dept || '').toUpperCase();
+      return `<div style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;padding:40px 48px 32px;color:rgba(15,23,42,0.90);overflow:hidden;font-family:${PDF_FONT};letter-spacing:0px;word-spacing:0px;">
+        <div style="font-size:14px;letter-spacing:0px;word-spacing:0px;color:rgba(15,23,42,0.50);padding:6px 8px;margin-bottom:16px;text-align:center;width:100%;">${escHtml(deptUpper)}</div>
         ${hasImg
           ? `<div style="width:380px;height:240px;margin-bottom:24px;flex-shrink:0;display:flex;align-items:center;justify-content:center;overflow:hidden;border-radius:8px;">
                <img src="${escapeAttr(d.cover_image)}" style="max-width:100%;max-height:100%;object-fit:contain;">
              </div>`
           : `<div style="width:380px;height:240px;margin-bottom:24px;flex-shrink:0;"></div>`}
-        <div style="font-size:26px;font-weight:700;text-align:center;padding:8px;margin-bottom:4px;width:100%;">${escHtml(d.project_name)}</div>
-        <div style="font-size:17px;font-weight:500;text-align:center;color:rgba(15,23,42,0.65);padding:6px 8px;margin-bottom:24px;width:100%;">${escHtml(d.model)}</div>
-        <div style="display:grid;grid-template-columns:auto 1fr;gap:8px 16px;align-items:center;width:100%;max-width:380px;margin-top:auto;padding-top:16px;">
-          <span style="font-size:12px;font-weight:600;text-transform:uppercase;color:rgba(15,23,42,0.45);text-align:right;">Stage</span>
-          <span style="font-size:14px;padding:4px 8px;">${escHtml(d.stage)}</span>
-          <span style="font-size:12px;font-weight:600;text-transform:uppercase;color:rgba(15,23,42,0.45);text-align:right;">Version</span>
-          <span style="font-size:14px;padding:4px 8px;">${escHtml(d.report_version)}</span>
-          <span style="font-size:12px;font-weight:600;text-transform:uppercase;color:rgba(15,23,42,0.45);text-align:right;">Date</span>
-          <span style="font-size:14px;padding:4px 8px;">${escHtml(d.date)}</span>
-          <span style="font-size:12px;font-weight:600;text-transform:uppercase;color:rgba(15,23,42,0.45);text-align:right;">Tested By</span>
-          <span style="font-size:14px;padding:4px 8px;">${escHtml(d.tested_by)}</span>
+        <div style="font-size:26px;font-weight:700;text-align:center;letter-spacing:0px;word-spacing:0px;padding:8px;margin-bottom:4px;width:100%;">${escHtml(d.project_name)}</div>
+        <div style="font-size:17px;font-weight:500;text-align:center;letter-spacing:0px;word-spacing:0px;color:rgba(15,23,42,0.65);padding:6px 8px;margin-bottom:24px;width:100%;">${escHtml(d.model)}</div>
+        <div style="display:grid;grid-template-columns:auto 1fr;gap:8px 16px;align-items:center;width:100%;max-width:380px;margin-top:auto;padding-top:16px;letter-spacing:0px;word-spacing:0px;">
+          <span style="font-size:12px;font-weight:600;letter-spacing:0px;word-spacing:0px;color:rgba(15,23,42,0.45);text-align:right;">STAGE</span>
+          <span style="font-size:14px;letter-spacing:0px;word-spacing:0px;padding:4px 8px;">${escHtml(d.stage)}</span>
+          <span style="font-size:12px;font-weight:600;letter-spacing:0px;word-spacing:0px;color:rgba(15,23,42,0.45);text-align:right;">VERSION</span>
+          <span style="font-size:14px;letter-spacing:0px;word-spacing:0px;padding:4px 8px;">${escHtml(d.report_version)}</span>
+          <span style="font-size:12px;font-weight:600;letter-spacing:0px;word-spacing:0px;color:rgba(15,23,42,0.45);text-align:right;">DATE</span>
+          <span style="font-size:14px;letter-spacing:0px;word-spacing:0px;padding:4px 8px;">${escHtml(d.date)}</span>
+          <span style="font-size:12px;font-weight:600;letter-spacing:0px;word-spacing:0px;color:rgba(15,23,42,0.45);text-align:right;">TESTED BY</span>
+          <span style="font-size:14px;letter-spacing:0px;word-spacing:0px;padding:4px 8px;">${escHtml(d.tested_by)}</span>
         </div>
       </div>`;
     }
@@ -2719,8 +2730,8 @@
         cells = '<div style="display:flex;align-items:center;justify-content:center;flex:1;"></div>';
       }
 
-      return `<div style="width:100%;height:100%;display:flex;flex-direction:column;padding:20px 24px 16px;overflow:hidden;color:rgba(15,23,42,0.90);">
-        <div style="font-size:18px;font-weight:700;padding:6px 8px;margin-bottom:12px;">${escHtml(d.title)}</div>
+      return `<div style="width:100%;height:100%;display:flex;flex-direction:column;padding:20px 24px 16px;overflow:hidden;color:rgba(15,23,42,0.90);letter-spacing:0px;word-spacing:0px;">
+        <div style="font-size:18px;font-weight:700;letter-spacing:0px;word-spacing:0px;padding:6px 8px;margin-bottom:12px;">${escHtml(d.title)}</div>
         <div style="${gridStyle}">${cells}</div>
       </div>`;
     }
@@ -2745,8 +2756,8 @@
         }
       });
 
-      return `<div style="width:100%;height:100%;display:flex;flex-direction:column;overflow:hidden;position:relative;color:rgba(15,23,42,0.90);">
-        <div style="font-size:16px;font-weight:700;padding:12px 16px 8px;flex-shrink:0;">${escHtml(d.title)}</div>
+      return `<div style="width:100%;height:100%;display:flex;flex-direction:column;overflow:hidden;position:relative;color:rgba(15,23,42,0.90);letter-spacing:0px;word-spacing:0px;">
+        <div style="font-size:16px;font-weight:700;letter-spacing:0px;word-spacing:0px;padding:12px 16px 8px;flex-shrink:0;">${escHtml(d.title)}</div>
         <div style="flex:1;position:relative;overflow:hidden;">
           ${hasPhoto ? `<div style="position:absolute;top:${pzT}px;left:${pzL}px;width:${pzW}px;height:${pzH}px;border:1px solid rgba(15,23,42,0.08);border-radius:6px;overflow:hidden;display:flex;align-items:center;justify-content:center;">
             <img src="${escapeAttr(d.photo_url_or_base64)}" style="width:100%;height:100%;object-fit:contain;">
@@ -2762,8 +2773,8 @@
       const issues = (d.issues || []).filter(s => s);
       const acts = d.actions || [];
 
-      const thStyle = 'text-align:left;font-size:11px;font-weight:600;color:rgba(15,23,42,0.45);padding:6px 8px;border-bottom:2px solid rgba(15,23,42,0.10);';
-      const tdStyle = 'padding:5px 8px;border-bottom:1px solid rgba(15,23,42,0.06);font-size:12px;';
+      const thStyle = 'text-align:left;font-size:11px;font-weight:600;letter-spacing:0px;word-spacing:0px;color:rgba(15,23,42,0.45);padding:6px 8px;border-bottom:2px solid rgba(15,23,42,0.10);';
+      const tdStyle = 'padding:5px 8px;border-bottom:1px solid rgba(15,23,42,0.06);font-size:12px;letter-spacing:0px;word-spacing:0px;';
 
       let compRows = comp.map(r => {
         let bg = '';
@@ -2778,25 +2789,25 @@
 
       let actRows = acts.map(a => `<tr><td style="${tdStyle}">${escHtml(a.description)}</td><td style="${tdStyle}">${escHtml(a.owner)}</td><td style="${tdStyle}">${escHtml(a.due_date)}</td></tr>`).join('');
 
-      const secTitle = 'font-size:11px;font-weight:700;text-transform:uppercase;color:rgba(15,23,42,0.38);margin-bottom:8px;';
+      const secTitle = 'font-size:11px;font-weight:700;letter-spacing:0px;word-spacing:0px;color:rgba(15,23,42,0.38);margin-bottom:8px;';
 
-      return `<div style="width:100%;height:100%;display:flex;flex-direction:column;padding:32px 40px 24px;gap:20px;color:rgba(15,23,42,0.90);overflow-y:auto;">
+      return `<div style="width:100%;height:100%;display:flex;flex-direction:column;padding:32px 40px 24px;gap:20px;color:rgba(15,23,42,0.90);overflow-y:auto;letter-spacing:0px;word-spacing:0px;">
         <div>
-          <div style="${secTitle}">Conclusion</div>
+          <div style="${secTitle}">CONCLUSION</div>
           <div style="min-height:60px;padding:10px 12px;border:1px solid rgba(15,23,42,0.10);border-radius:6px;font-size:13px;line-height:1.7;">${d.summary || ''}</div>
         </div>
         ${comp.length > 0 ? `<div>
-          <div style="${secTitle}">Compliance Summary</div>
+          <div style="${secTitle}">COMPLIANCE SUMMARY</div>
           <table style="width:100%;border-collapse:collapse;font-size:12px;"><thead><tr>
             <th style="${thStyle}">Component</th><th style="${thStyle}">Max Tc</th><th style="${thStyle}">Spec</th><th style="${thStyle}">Verdict</th>
           </tr></thead><tbody>${compRows}</tbody></table>
         </div>` : ''}
         ${issues.length > 0 ? `<div>
-          <div style="${secTitle}">Issues Found</div>
+          <div style="${secTitle}">ISSUES FOUND</div>
           <ul style="list-style:none;padding:0;">${issuesHtml}</ul>
         </div>` : ''}
         ${acts.length > 0 ? `<div>
-          <div style="${secTitle}">Next Action</div>
+          <div style="${secTitle}">NEXT ACTION</div>
           <table style="width:100%;border-collapse:collapse;font-size:12px;"><thead><tr>
             <th style="${thStyle}">Action</th><th style="${thStyle}">Owner</th><th style="${thStyle}">Due Date</th>
           </tr></thead><tbody>${actRows}</tbody></table>

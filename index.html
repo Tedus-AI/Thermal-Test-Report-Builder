@@ -610,6 +610,174 @@
       cursor: pointer;
       appearance: auto;
     }
+
+    /* ━━━ Image Page Module (A4 Landscape 842×595) ━━━ */
+    #editor-canvas.landscape {
+      width: 842px;
+      height: 595px;
+    }
+
+    .image-page {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      padding: 20px 24px 16px;
+      font-family: var(--font-ui);
+      color: var(--text-on-white);
+      overflow: hidden;
+    }
+
+    .image-page-title {
+      font-size: 18px;
+      font-weight: 700;
+      border: none;
+      outline: none;
+      background: transparent;
+      color: var(--text-on-white);
+      width: 100%;
+      padding: 6px 8px;
+      margin-bottom: 12px;
+      font-family: var(--font-ui);
+      flex-shrink: 0;
+    }
+
+    .image-page-title::placeholder {
+      color: rgba(15,23,42,0.28);
+    }
+
+    .image-page-title:hover {
+      background: rgba(56,189,248,0.04);
+    }
+
+    .image-page-title:focus {
+      background: rgba(56,189,248,0.06);
+      border-radius: 4px;
+    }
+
+    .image-grid {
+      flex: 1;
+      display: grid;
+      gap: 10px;
+      min-height: 0;
+    }
+
+    .image-grid.layout-0 {
+      grid-template-columns: 1fr;
+      grid-template-rows: 1fr;
+    }
+
+    .image-grid.layout-1 {
+      grid-template-columns: 1fr;
+      grid-template-rows: 1fr;
+    }
+
+    .image-grid.layout-2 {
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: 1fr;
+    }
+
+    .image-grid.layout-3,
+    .image-grid.layout-4 {
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: 1fr 1fr;
+    }
+
+    .image-cell {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      min-width: 0;
+    }
+
+    .image-drop-zone {
+      flex: 1;
+      border: 2px dashed rgba(15,23,42,0.15);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      transition: border-color var(--transition-fast), background var(--transition-fast);
+      min-height: 0;
+    }
+
+    .image-drop-zone:hover {
+      border-color: rgba(56,189,248,0.4);
+      background: rgba(56,189,248,0.03);
+    }
+
+    .image-drop-zone.dragover {
+      border-color: var(--color-primary);
+      background: rgba(56,189,248,0.08);
+    }
+
+    .image-drop-zone.has-image {
+      border: 1px solid rgba(15,23,42,0.08);
+    }
+
+    .image-drop-zone img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+
+    .image-drop-placeholder {
+      text-align: center;
+      color: rgba(15,23,42,0.25);
+      font-size: 13px;
+      pointer-events: none;
+    }
+
+    .image-drop-placeholder .plus-icon {
+      font-size: 28px;
+      display: block;
+      margin-bottom: 4px;
+      font-weight: 300;
+      color: rgba(15,23,42,0.20);
+    }
+
+    .image-cell-actions {
+      display: none;
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      gap: 4px;
+      z-index: 5;
+    }
+
+    .image-drop-zone.has-image:hover .image-cell-actions {
+      display: flex;
+    }
+
+    .image-caption {
+      font-size: 12px;
+      color: rgba(15,23,42,0.55);
+      border: none;
+      outline: none;
+      background: transparent;
+      width: 100%;
+      padding: 4px 6px;
+      margin-top: 4px;
+      font-family: var(--font-ui);
+      border-bottom: 1px dashed rgba(15,23,42,0.12);
+      flex-shrink: 0;
+    }
+
+    .image-caption::placeholder {
+      color: rgba(15,23,42,0.25);
+    }
+
+    .image-caption:hover {
+      background: rgba(56,189,248,0.03);
+    }
+
+    .image-caption:focus {
+      background: rgba(56,189,248,0.05);
+      border-bottom-color: var(--color-primary);
+    }
   </style>
 </head>
 <body>
@@ -622,6 +790,7 @@
           <button class="glass-btn" id="toolbar-add-btn">+ 新增頁面 ▾</button>
           <div class="dropdown-menu" id="toolbar-add-menu">
             <button class="dropdown-item" data-type="cover">🏠 封面頁</button>
+            <button class="dropdown-item" data-type="image">🖼 圖片頁</button>
           </div>
         </div>
         <button class="glass-btn">預覽</button>
@@ -643,6 +812,7 @@
             <button class="sidebar-add-btn" id="sidebar-add-btn">+ 新增頁面</button>
             <div class="dropdown-menu" id="sidebar-add-menu">
               <button class="dropdown-item" data-type="cover">🏠 封面頁</button>
+              <button class="dropdown-item" data-type="image">🖼 圖片頁</button>
             </div>
           </div>
         </div>
@@ -789,7 +959,7 @@
 
       try {
         setStatus('saving', '上傳圖片中...');
-        const path = `reports/${state.reportId}/cover_${Date.now()}_${file.name}`;
+        const path = `reports/${state.reportId}/img_${Date.now()}_${file.name}`;
         const sRef = window._storageRef(window._storage, path);
         await window._uploadBytes(sRef, file);
         const url = await window._getDownloadURL(sRef);
@@ -821,6 +991,7 @@
           menu.classList.remove('open');
           const type = item.dataset.type;
           if (type === 'cover') addCoverPage();
+          else if (type === 'image') addImagePage();
         });
       });
     }
@@ -865,6 +1036,15 @@
         let icon = '📄';
         let label = '未知頁面';
         if (page.type === 'cover') { icon = '🏠'; label = '封面頁'; }
+        if (page.type === 'image') {
+          icon = '🖼';
+          // Count which image page number this is
+          let imgCount = 0;
+          for (let j = 0; j <= idx; j++) {
+            if (state.pages[j].type === 'image') imgCount++;
+          }
+          label = '圖片頁 ' + imgCount;
+        }
 
         el.textContent = icon + ' ' + label;
 
@@ -920,13 +1100,23 @@
     // ━━━ Canvas rendering ━━━
     function renderCanvas() {
       if (state.activePage === null || state.activePage < 0 || !state.pages[state.activePage]) {
+        $canvas.classList.remove('landscape');
         $canvas.innerHTML = '<span class="canvas-placeholder">← 請從左側選擇或新增頁面</span>';
         return;
       }
 
       const page = state.pages[state.activePage];
+      // Switch canvas orientation
+      if (page.type === 'image') {
+        $canvas.classList.add('landscape');
+      } else {
+        $canvas.classList.remove('landscape');
+      }
+
       if (page.type === 'cover') {
         renderCoverPage(page);
+      } else if (page.type === 'image') {
+        renderImagePage(page);
       }
     }
 
@@ -1055,7 +1245,6 @@
     async function handlePaste(e) {
       if (state.activePage === null) return;
       const page = state.pages[state.activePage];
-      if (page.type !== 'cover') return;
 
       const items = e.clipboardData?.items;
       if (!items) return;
@@ -1064,7 +1253,13 @@
         if (item.type.startsWith('image/')) {
           e.preventDefault();
           const file = item.getAsFile();
-          if (file) await handleCoverImage(page, file);
+          if (!file) return;
+
+          if (page.type === 'cover') {
+            await handleCoverImage(page, file);
+          } else if (page.type === 'image') {
+            await handleImagePagePaste(page, file);
+          }
           return;
         }
       }
@@ -1075,6 +1270,209 @@
       page.data.cover_image = imageData;
       renderCoverPage(page);
       scheduleSave(state.activePage);
+    }
+
+    // ━━━ Image Page Module ━━━
+    function addImagePage() {
+      const page = {
+        id: 'page_' + Date.now(),
+        type: 'image',
+        order: state.pages.length,
+        data: {
+          title: '',
+          images: [] // [{position: 0-3, url_or_base64: '', caption: ''}]
+        }
+      };
+      state.pages.push(page);
+      renderPageList();
+      selectPage(state.pages.length - 1);
+      scheduleSave(state.pages.length - 1);
+    }
+
+    function renderImagePage(page) {
+      const d = page.data;
+      const imgs = d.images || [];
+      const count = imgs.length;
+      const layoutClass = 'layout-' + Math.min(count, 4);
+
+      // Determine which cells to show
+      let cellCount;
+      if (count === 0) cellCount = 1;       // single full placeholder
+      else if (count < 4) cellCount = count + 1; // existing + 1 placeholder
+      else cellCount = 4;
+
+      // For layout-0 (no images), show single big placeholder
+      // For layout-1 (1 image), show just the 1 cell (full)
+      // For layout-2, show 2 cells top row
+      // For layout-3, show 3 cells + 1 placeholder
+      // For layout-4, show 4 cells
+
+      let gridCells = '';
+
+      if (count === 0) {
+        // Single full-page placeholder
+        gridCells = buildImageCell(null, 0, page);
+      } else {
+        // Render existing images in order
+        for (let i = 0; i < count; i++) {
+          gridCells += buildImageCell(imgs[i], i, page);
+        }
+        // Add placeholder for next slot if < 4
+        if (count < 4) {
+          gridCells += buildImageCell(null, count, page);
+        }
+      }
+
+      $canvas.innerHTML = `
+        <div class="image-page">
+          <input class="image-page-title" type="text" placeholder="點此輸入標題"
+                 value="${escapeAttr(d.title)}" data-field="title">
+          <div class="image-grid ${layoutClass}">
+            ${gridCells}
+          </div>
+        </div>
+      `;
+
+      // Bind title
+      const titleInput = $canvas.querySelector('[data-field="title"]');
+      if (titleInput) {
+        titleInput.addEventListener('input', () => {
+          page.data.title = titleInput.value;
+          scheduleSave(state.activePage);
+        });
+      }
+
+      // Bind caption inputs
+      $canvas.querySelectorAll('.image-caption').forEach(cap => {
+        cap.addEventListener('input', () => {
+          const pos = parseInt(cap.dataset.pos);
+          if (page.data.images[pos]) {
+            page.data.images[pos].caption = cap.value;
+            scheduleSave(state.activePage);
+          }
+        });
+      });
+
+      // Bind image zone interactions
+      setupImagePageHandlers(page);
+    }
+
+    function buildImageCell(imgData, position, page) {
+      const hasImage = imgData && imgData.url_or_base64;
+
+      if (hasImage) {
+        return `
+          <div class="image-cell">
+            <div class="image-drop-zone has-image" data-pos="${position}">
+              <img src="${escapeAttr(imgData.url_or_base64)}" alt="Image ${position + 1}">
+              <div class="image-cell-actions">
+                <button class="photo-action-btn img-replace-btn" data-pos="${position}">替換</button>
+                <button class="photo-action-btn danger img-delete-btn" data-pos="${position}">刪除</button>
+              </div>
+              <input type="file" accept="image/*" class="img-file-input" data-pos="${position}" style="display:none">
+            </div>
+            <input class="image-caption" type="text" placeholder="點此輸入說明"
+                   value="${escapeAttr(imgData.caption || '')}" data-pos="${position}">
+          </div>
+        `;
+      } else {
+        return `
+          <div class="image-cell">
+            <div class="image-drop-zone" data-pos="${position}">
+              <div class="image-drop-placeholder">
+                <span class="plus-icon">+</span>
+                點此或拖拉圖片
+              </div>
+              <input type="file" accept="image/*" class="img-file-input" data-pos="${position}" style="display:none">
+            </div>
+          </div>
+        `;
+      }
+    }
+
+    function setupImagePageHandlers(page) {
+      const zones = $canvas.querySelectorAll('.image-drop-zone');
+
+      zones.forEach(zone => {
+        const pos = parseInt(zone.dataset.pos);
+        const fileInput = zone.querySelector('.img-file-input');
+
+        // Click to select
+        zone.addEventListener('click', (e) => {
+          if (e.target.closest('.photo-action-btn')) return;
+          fileInput.click();
+        });
+
+        fileInput.addEventListener('change', async () => {
+          if (fileInput.files.length > 0) {
+            await handleImagePageImage(page, pos, fileInput.files[0]);
+          }
+        });
+
+        // Drag & Drop
+        zone.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          zone.classList.add('dragover');
+        });
+
+        zone.addEventListener('dragleave', () => {
+          zone.classList.remove('dragover');
+        });
+
+        zone.addEventListener('drop', async (e) => {
+          e.preventDefault();
+          zone.classList.remove('dragover');
+          const file = e.dataTransfer.files[0];
+          if (file && file.type.startsWith('image/')) {
+            await handleImagePageImage(page, pos, file);
+          }
+        });
+
+        // Replace / Delete
+        const replaceBtn = zone.querySelector('.img-replace-btn');
+        const deleteBtn = zone.querySelector('.img-delete-btn');
+
+        if (replaceBtn) {
+          replaceBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            fileInput.click();
+          });
+        }
+
+        if (deleteBtn) {
+          deleteBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            page.data.images.splice(pos, 1);
+            renderImagePage(page);
+            scheduleSave(state.activePage);
+          });
+        }
+      });
+    }
+
+    async function handleImagePageImage(page, position, file) {
+      const imageData = await processImage(file);
+
+      // If position exists, replace; otherwise add
+      if (page.data.images[position]) {
+        page.data.images[position].url_or_base64 = imageData;
+      } else {
+        // Fill up to position
+        while (page.data.images.length < position) {
+          page.data.images.push({ position: page.data.images.length, url_or_base64: '', caption: '' });
+        }
+        page.data.images.push({ position: position, url_or_base64: imageData, caption: '' });
+      }
+
+      renderImagePage(page);
+      scheduleSave(state.activePage);
+    }
+
+    async function handleImagePagePaste(page, file) {
+      const imgs = page.data.images || [];
+      if (imgs.length >= 4) return; // already full
+      const nextPos = imgs.length;
+      await handleImagePageImage(page, nextPos, file);
     }
 
     // ━━━ Utility ━━━
@@ -1116,21 +1514,24 @@
         console.log('✅ SortableJS initialized on #page-list');
       }
 
-      // Try to load existing pages from Firestore
+      // Try to load existing pages from Firestore (scan up to 20 slots)
       await waitForFirebase();
       try {
-        const existingData = await loadPageFromFirestore(0);
-        if (existingData && existingData.type === 'cover') {
+        for (let i = 0; i < 20; i++) {
+          const existingData = await loadPageFromFirestore(i);
+          if (!existingData) break;
           state.pages.push({
-            id: 'page_loaded_0',
+            id: 'page_loaded_' + i,
             type: existingData.type,
-            order: existingData.order ?? 0,
+            order: existingData.order ?? i,
             data: existingData.data,
           });
+        }
+        if (state.pages.length > 0) {
           renderPageList();
           selectPage(0);
           setStatus('saved', '已儲存 ✅');
-          console.log('✅ Loaded existing cover page from Firestore');
+          console.log('✅ Loaded', state.pages.length, 'page(s) from Firestore');
         }
       } catch (err) {
         console.warn('Could not load existing data:', err);

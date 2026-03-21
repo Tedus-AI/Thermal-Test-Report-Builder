@@ -8,8 +8,8 @@
   <!-- Firebase SDK 10.x via CDN -->
   <script type="module">
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js';
-    import { getFirestore, enableIndexedDbPersistence } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js';
-    import { getStorage } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-storage.js';
+    import { getFirestore, enableIndexedDbPersistence, doc, setDoc, getDoc, deleteDoc, collection, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js';
+    import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-storage.js';
 
     const firebaseConfig = {
       apiKey: "AIzaSyBBhIIGUe3yzxarC3OHoIhuFr5Yg8IfAoo",
@@ -24,7 +24,6 @@
     const db = getFirestore(app);
     const storage = getStorage(app);
 
-    // Enable offline persistence
     enableIndexedDbPersistence(db).catch((err) => {
       if (err.code === 'failed-precondition') {
         console.warn('Persistence failed: multiple tabs open');
@@ -33,10 +32,18 @@
       }
     });
 
-    // Expose to global scope for future modules
     window._app = app;
     window._db = db;
     window._storage = storage;
+    window._doc = doc;
+    window._setDoc = setDoc;
+    window._getDoc = getDoc;
+    window._deleteDoc = deleteDoc;
+    window._collection = collection;
+    window._serverTimestamp = serverTimestamp;
+    window._storageRef = storageRef;
+    window._uploadBytes = uploadBytes;
+    window._getDownloadURL = getDownloadURL;
 
     console.log('✅ Firebase initialized (Firestore + Storage + Offline Persistence)');
   </script>
@@ -117,7 +124,6 @@
       position: relative;
     }
 
-    /* Ambient glow layers */
     body::before,
     body::after {
       content: '';
@@ -127,13 +133,8 @@
       z-index: 0;
     }
 
-    body::before {
-      background: var(--bg-glow-1);
-    }
-
-    body::after {
-      background: var(--bg-glow-2);
-    }
+    body::before { background: var(--bg-glow-1); }
+    body::after { background: var(--bg-glow-2); }
 
     /* ━━━ Layout ━━━ */
     .app {
@@ -199,6 +200,7 @@
       cursor: pointer;
       transition: background var(--transition-fast), box-shadow var(--transition-fast);
       white-space: nowrap;
+      position: relative;
     }
 
     .glass-btn:hover {
@@ -211,7 +213,81 @@
       background: var(--glass-bg-active);
     }
 
-    /* ━━━ Body (Sidebar + Editor) ━━━ */
+    /* ━━━ Dropdown Menu ━━━ */
+    .dropdown-wrap { position: relative; }
+
+    .dropdown-menu {
+      display: none;
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0;
+      min-width: 180px;
+      background: rgba(15, 23, 42, 0.92);
+      backdrop-filter: blur(var(--glass-blur-heavy));
+      -webkit-backdrop-filter: blur(var(--glass-blur-heavy));
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius-md);
+      box-shadow: var(--glass-shadow);
+      padding: var(--space-1) 0;
+      z-index: 200;
+    }
+
+    .dropdown-menu.open { display: block; }
+
+    .dropdown-item {
+      display: block;
+      width: 100%;
+      padding: var(--space-2) var(--space-4);
+      font-size: 13px;
+      font-family: var(--font-ui);
+      color: var(--text-primary);
+      background: transparent;
+      border: none;
+      text-align: left;
+      cursor: pointer;
+      transition: background var(--transition-fast);
+    }
+
+    .dropdown-item:hover {
+      background: var(--color-primary-glass);
+    }
+
+    /* ━━━ Context Menu ━━━ */
+    .context-menu {
+      display: none;
+      position: fixed;
+      min-width: 140px;
+      background: rgba(15, 23, 42, 0.95);
+      backdrop-filter: blur(var(--glass-blur-heavy));
+      -webkit-backdrop-filter: blur(var(--glass-blur-heavy));
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius-md);
+      box-shadow: var(--glass-shadow);
+      padding: var(--space-1) 0;
+      z-index: 300;
+    }
+
+    .context-menu.open { display: block; }
+
+    .context-item {
+      display: block;
+      width: 100%;
+      padding: var(--space-2) var(--space-4);
+      font-size: 13px;
+      font-family: var(--font-ui);
+      color: var(--color-danger);
+      background: transparent;
+      border: none;
+      text-align: left;
+      cursor: pointer;
+      transition: background var(--transition-fast);
+    }
+
+    .context-item:hover {
+      background: rgba(239,68,68,0.15);
+    }
+
+    /* ━━━ Body ━━━ */
     .body {
       display: flex;
       flex: 1;
@@ -246,6 +322,35 @@
       padding: 0 var(--space-3);
     }
 
+    .page-item {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      padding: var(--space-2) var(--space-3);
+      margin-bottom: var(--space-1);
+      font-size: 13px;
+      color: var(--text-primary);
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: background var(--transition-fast), border-color var(--transition-fast);
+      user-select: none;
+    }
+
+    .page-item:hover {
+      background: var(--glass-bg-hover);
+    }
+
+    .page-item.active {
+      background: var(--color-primary-glass);
+      border-color: var(--color-primary);
+    }
+
+    .page-item.sortable-ghost {
+      opacity: 0.4;
+    }
+
     .sidebar-footer {
       padding: var(--space-3) var(--space-4);
       border-top: 1px solid var(--glass-border);
@@ -265,10 +370,18 @@
       border-radius: var(--radius-sm);
       cursor: pointer;
       transition: background var(--transition-fast);
+      position: relative;
     }
 
     .sidebar-add-btn:hover {
       background: var(--color-primary-glass);
+    }
+
+    /* Sidebar bottom dropdown opens upward */
+    .sidebar-footer .dropdown-menu {
+      top: auto;
+      bottom: calc(100% + 4px);
+      left: var(--space-3);
     }
 
     /* ━━━ Editor Area ━━━ */
@@ -294,6 +407,8 @@
       align-items: center;
       justify-content: center;
       flex-shrink: 0;
+      position: relative;
+      overflow: hidden;
     }
 
     .canvas-placeholder {
@@ -311,6 +426,189 @@
       border-radius: var(--radius-full);
       background: var(--color-success);
       margin-right: var(--space-2);
+      transition: background var(--transition-fast);
+    }
+
+    .status-dot.saving { background: var(--color-warning); }
+    .status-dot.offline { background: var(--color-warning); }
+
+    /* ━━━ Cover Page Module ━━━ */
+    .cover-page {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 48px 32px;
+      font-family: var(--font-ui);
+      color: var(--text-on-white);
+      overflow-y: auto;
+    }
+
+    .cover-page input,
+    .cover-page select {
+      font-family: var(--font-ui);
+      color: var(--text-on-white);
+      border: none;
+      outline: none;
+      background: transparent;
+      width: 100%;
+      text-align: center;
+    }
+
+    .cover-page input::placeholder {
+      color: rgba(15,23,42,0.30);
+    }
+
+    .cover-page input:hover,
+    .cover-page select:hover {
+      background: rgba(56,189,248,0.04);
+    }
+
+    .cover-page input:focus,
+    .cover-page select:focus {
+      background: rgba(56,189,248,0.06);
+      border-radius: 4px;
+    }
+
+    .cover-dept {
+      font-size: 14px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: rgba(15,23,42,0.50);
+      padding: 6px 8px;
+      margin-bottom: 16px;
+    }
+
+    .cover-photo-zone {
+      width: 380px;
+      height: 240px;
+      border: 2px dashed rgba(15,23,42,0.18);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      margin-bottom: 24px;
+      position: relative;
+      overflow: hidden;
+      transition: border-color var(--transition-fast), background var(--transition-fast);
+      flex-shrink: 0;
+    }
+
+    .cover-photo-zone:hover {
+      border-color: rgba(56,189,248,0.4);
+      background: rgba(56,189,248,0.03);
+    }
+
+    .cover-photo-zone.dragover {
+      border-color: var(--color-primary);
+      background: rgba(56,189,248,0.08);
+    }
+
+    .cover-photo-zone.has-image {
+      border: none;
+    }
+
+    .cover-photo-placeholder {
+      text-align: center;
+      color: rgba(15,23,42,0.30);
+      font-size: 13px;
+      pointer-events: none;
+    }
+
+    .cover-photo-placeholder .icon {
+      font-size: 32px;
+      display: block;
+      margin-bottom: 8px;
+    }
+
+    .cover-photo-zone img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+
+    .cover-photo-actions {
+      display: none;
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      gap: 4px;
+    }
+
+    .cover-photo-zone.has-image:hover .cover-photo-actions {
+      display: flex;
+    }
+
+    .photo-action-btn {
+      padding: 4px 10px;
+      font-size: 11px;
+      font-family: var(--font-ui);
+      color: #fff;
+      background: rgba(0,0,0,0.55);
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background var(--transition-fast);
+    }
+
+    .photo-action-btn:hover {
+      background: rgba(0,0,0,0.75);
+    }
+
+    .photo-action-btn.danger:hover {
+      background: rgba(239,68,68,0.8);
+    }
+
+    .cover-project-name {
+      font-size: 26px;
+      font-weight: 700;
+      padding: 8px;
+      margin-bottom: 4px;
+      letter-spacing: -0.01em;
+    }
+
+    .cover-model {
+      font-size: 17px;
+      font-weight: 500;
+      padding: 6px 8px;
+      margin-bottom: 24px;
+      color: rgba(15,23,42,0.65);
+    }
+
+    .cover-meta-grid {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 8px 16px;
+      align-items: center;
+      width: 100%;
+      max-width: 380px;
+      margin-top: auto;
+      padding-top: 16px;
+    }
+
+    .cover-meta-label {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: rgba(15,23,42,0.45);
+      text-align: right;
+      white-space: nowrap;
+    }
+
+    .cover-meta-grid input,
+    .cover-meta-grid select {
+      text-align: left;
+      font-size: 14px;
+      padding: 4px 8px;
+      border-radius: 4px;
+    }
+
+    .cover-meta-grid select {
+      cursor: pointer;
+      appearance: auto;
     }
   </style>
 </head>
@@ -320,12 +618,18 @@
     <header class="toolbar">
       <div class="toolbar-left">🌡 Thermal Report Builder</div>
       <div class="toolbar-center">
-        <button class="glass-btn">+ 新增頁面 ▾</button>
+        <div class="dropdown-wrap">
+          <button class="glass-btn" id="toolbar-add-btn">+ 新增頁面 ▾</button>
+          <div class="dropdown-menu" id="toolbar-add-menu">
+            <button class="dropdown-item" data-type="cover">🏠 封面頁</button>
+          </div>
+        </div>
         <button class="glass-btn">預覽</button>
         <button class="glass-btn">匯出 PDF</button>
       </div>
-      <div class="toolbar-right">
-        <span class="status-dot"></span>就緒
+      <div class="toolbar-right" id="status-bar">
+        <span class="status-dot" id="status-dot"></span>
+        <span id="status-text">就緒</span>
       </div>
     </header>
 
@@ -335,31 +639,505 @@
         <div class="sidebar-header">頁面列表</div>
         <div id="page-list"></div>
         <div class="sidebar-footer">
-          <button class="sidebar-add-btn">+ 新增頁面</button>
+          <div class="dropdown-wrap">
+            <button class="sidebar-add-btn" id="sidebar-add-btn">+ 新增頁面</button>
+            <div class="dropdown-menu" id="sidebar-add-menu">
+              <button class="dropdown-item" data-type="cover">🏠 封面頁</button>
+            </div>
+          </div>
         </div>
       </aside>
 
       <!-- Editor -->
       <main class="editor-area">
         <div id="editor-canvas">
-          <span class="canvas-placeholder">← 請從左側選擇或新增頁面</span>
+          <span class="canvas-placeholder" id="canvas-placeholder">← 請從左側選擇或新增頁面</span>
         </div>
       </main>
     </div>
   </div>
 
+  <!-- Context Menu -->
+  <div class="context-menu" id="context-menu">
+    <button class="context-item" id="context-delete">🗑 刪除此頁面</button>
+  </div>
+
   <script>
-    // Initialize SortableJS on page list
-    document.addEventListener('DOMContentLoaded', () => {
-      const pageList = document.getElementById('page-list');
-      if (pageList && typeof Sortable !== 'undefined') {
-        Sortable.create(pageList, {
+    // ━━━ App State ━━━
+    const state = {
+      reportId: null,
+      pages: [],          // [{id, type, order, data}]
+      activePage: null,   // index into pages[]
+      saveTimer: null,
+    };
+
+    // ━━━ DOM refs ━━━
+    const $pageList = document.getElementById('page-list');
+    const $canvas = document.getElementById('editor-canvas');
+    const $placeholder = document.getElementById('canvas-placeholder');
+    const $statusDot = document.getElementById('status-dot');
+    const $statusText = document.getElementById('status-text');
+    const $contextMenu = document.getElementById('context-menu');
+
+    // ━━━ Status helpers ━━━
+    function setStatus(type, text) {
+      $statusDot.className = 'status-dot' + (type === 'saving' ? ' saving' : type === 'offline' ? ' offline' : '');
+      $statusText.textContent = text;
+    }
+
+    // ━━━ Report ID management ━━━
+    function getOrCreateReportId() {
+      let id = localStorage.getItem('thermal_current_report');
+      if (!id) {
+        id = 'rpt_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+        localStorage.setItem('thermal_current_report', id);
+      }
+      return id;
+    }
+
+    // ━━━ Firebase helpers (wait for module to load) ━━━
+    function waitForFirebase() {
+      return new Promise((resolve) => {
+        const check = () => {
+          if (window._db) resolve();
+          else setTimeout(check, 50);
+        };
+        check();
+      });
+    }
+
+    async function savePageToFirestore(pageIndex) {
+      if (!window._db) return;
+      const page = state.pages[pageIndex];
+      if (!page) return;
+
+      setStatus('saving', '儲存中...');
+
+      try {
+        const docRef = window._doc(window._db, 'thermal_reports', state.reportId, 'pages', String(page.order));
+        await window._setDoc(docRef, {
+          type: page.type,
+          order: page.order,
+          data: page.data,
+          updated_at: new Date().toISOString(),
+        });
+        setStatus('saved', '已儲存 ✅');
+        console.log('✅ Saved page', page.order, 'to Firestore');
+      } catch (err) {
+        console.error('Save error:', err);
+        if (err.code === 'unavailable' || err.message.includes('offline')) {
+          setStatus('offline', '離線模式 ⚠️');
+        } else {
+          setStatus('saved', '已儲存 ✅');
+        }
+      }
+    }
+
+    async function loadPageFromFirestore(pageOrder) {
+      if (!window._db) return null;
+      try {
+        const docRef = window._doc(window._db, 'thermal_reports', state.reportId, 'pages', String(pageOrder));
+        const snap = await window._getDoc(docRef);
+        if (snap.exists()) {
+          return snap.data();
+        }
+      } catch (err) {
+        console.warn('Load error:', err);
+      }
+      return null;
+    }
+
+    async function deletePageFromFirestore(pageOrder) {
+      if (!window._db) return;
+      try {
+        const docRef = window._doc(window._db, 'thermal_reports', state.reportId, 'pages', String(pageOrder));
+        await window._deleteDoc(docRef);
+        console.log('🗑 Deleted page', pageOrder, 'from Firestore');
+      } catch (err) {
+        console.warn('Delete error:', err);
+      }
+    }
+
+    // ━━━ Debounced auto-save ━━━
+    function scheduleSave(pageIndex) {
+      if (state.saveTimer) clearTimeout(state.saveTimer);
+      state.saveTimer = setTimeout(() => savePageToFirestore(pageIndex), 1000);
+    }
+
+    // ━━━ Image handling (base64 / Storage) ━━━
+    function fileToDataURL(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    async function processImage(file) {
+      const MAX_BASE64_SIZE = 500 * 1024; // 500KB
+
+      if (file.size < MAX_BASE64_SIZE) {
+        return await fileToDataURL(file);
+      }
+
+      // Upload to Firebase Storage
+      if (!window._storage) {
+        // Fallback to base64 if storage unavailable
+        return await fileToDataURL(file);
+      }
+
+      try {
+        setStatus('saving', '上傳圖片中...');
+        const path = `reports/${state.reportId}/cover_${Date.now()}_${file.name}`;
+        const sRef = window._storageRef(window._storage, path);
+        await window._uploadBytes(sRef, file);
+        const url = await window._getDownloadURL(sRef);
+        setStatus('saved', '已儲存 ✅');
+        return url;
+      } catch (err) {
+        console.warn('Storage upload failed, falling back to base64:', err);
+        return await fileToDataURL(file);
+      }
+    }
+
+    // ━━━ Dropdown logic ━━━
+    function setupDropdown(btnId, menuId) {
+      const btn = document.getElementById(btnId);
+      const menu = document.getElementById(menuId);
+
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        // Close all other dropdowns
+        document.querySelectorAll('.dropdown-menu.open').forEach(m => {
+          if (m !== menu) m.classList.remove('open');
+        });
+        menu.classList.toggle('open');
+      });
+
+      menu.querySelectorAll('.dropdown-item').forEach(item => {
+        item.addEventListener('click', (e) => {
+          e.stopPropagation();
+          menu.classList.remove('open');
+          const type = item.dataset.type;
+          if (type === 'cover') addCoverPage();
+        });
+      });
+    }
+
+    // Close dropdowns / context menu on outside click
+    document.addEventListener('click', () => {
+      document.querySelectorAll('.dropdown-menu.open').forEach(m => m.classList.remove('open'));
+      $contextMenu.classList.remove('open');
+    });
+
+    // ━━━ Page management ━━━
+    function addCoverPage() {
+      const today = new Date().toISOString().slice(0, 10);
+      const page = {
+        id: 'page_' + Date.now(),
+        type: 'cover',
+        order: state.pages.length,
+        data: {
+          project_name: '',
+          model: '',
+          stage: 'DVT',
+          tested_by: '',
+          date: today,
+          dept: '',
+          report_version: 'v1.0',
+          cover_image: '',
+        }
+      };
+      state.pages.push(page);
+      renderPageList();
+      selectPage(state.pages.length - 1);
+      scheduleSave(state.pages.length - 1);
+    }
+
+    function renderPageList() {
+      $pageList.innerHTML = '';
+      state.pages.forEach((page, idx) => {
+        const el = document.createElement('div');
+        el.className = 'page-item' + (idx === state.activePage ? ' active' : '');
+        el.dataset.index = idx;
+
+        let icon = '📄';
+        let label = '未知頁面';
+        if (page.type === 'cover') { icon = '🏠'; label = '封面頁'; }
+
+        el.textContent = icon + ' ' + label;
+
+        el.addEventListener('click', () => selectPage(idx));
+        el.addEventListener('contextmenu', (e) => {
+          e.preventDefault();
+          showContextMenu(e, idx);
+        });
+
+        $pageList.appendChild(el);
+      });
+    }
+
+    function selectPage(idx) {
+      state.activePage = idx;
+      renderPageList();
+      renderCanvas();
+    }
+
+    // ━━━ Context menu ━━━
+    let contextTarget = null;
+
+    function showContextMenu(e, pageIdx) {
+      contextTarget = pageIdx;
+      $contextMenu.style.left = e.clientX + 'px';
+      $contextMenu.style.top = e.clientY + 'px';
+      $contextMenu.classList.add('open');
+    }
+
+    document.getElementById('context-delete').addEventListener('click', () => {
+      $contextMenu.classList.remove('open');
+      if (contextTarget === null) return;
+
+      if (!confirm('確定要刪除此頁面嗎？')) return;
+
+      const page = state.pages[contextTarget];
+      deletePageFromFirestore(page.order);
+      state.pages.splice(contextTarget, 1);
+
+      // Re-index orders
+      state.pages.forEach((p, i) => p.order = i);
+
+      if (state.activePage >= state.pages.length) {
+        state.activePage = state.pages.length - 1;
+      }
+      if (state.pages.length === 0) state.activePage = null;
+
+      renderPageList();
+      renderCanvas();
+      contextTarget = null;
+    });
+
+    // ━━━ Canvas rendering ━━━
+    function renderCanvas() {
+      if (state.activePage === null || state.activePage < 0 || !state.pages[state.activePage]) {
+        $canvas.innerHTML = '<span class="canvas-placeholder">← 請從左側選擇或新增頁面</span>';
+        return;
+      }
+
+      const page = state.pages[state.activePage];
+      if (page.type === 'cover') {
+        renderCoverPage(page);
+      }
+    }
+
+    function renderCoverPage(page) {
+      const d = page.data;
+      const hasImage = !!d.cover_image;
+
+      $canvas.innerHTML = `
+        <div class="cover-page">
+          <input class="cover-dept" type="text" placeholder="公司 / 部門名稱"
+                 value="${escapeAttr(d.dept)}" data-field="dept">
+
+          <div class="cover-photo-zone ${hasImage ? 'has-image' : ''}" id="cover-photo-zone">
+            ${hasImage
+              ? `<img src="${escapeAttr(d.cover_image)}" alt="Cover">
+                 <div class="cover-photo-actions">
+                   <button class="photo-action-btn" id="photo-replace">替換</button>
+                   <button class="photo-action-btn danger" id="photo-delete">刪除</button>
+                 </div>`
+              : `<div class="cover-photo-placeholder">
+                   <span class="icon">📷</span>
+                   拖拉圖片、點擊選檔，或 Ctrl+V 貼上
+                 </div>`
+            }
+            <input type="file" accept="image/*" id="cover-file-input" style="display:none">
+          </div>
+
+          <input class="cover-project-name" type="text" placeholder="案名（Project Name）"
+                 value="${escapeAttr(d.project_name)}" data-field="project_name">
+          <input class="cover-model" type="text" placeholder="產品型號（Model）"
+                 value="${escapeAttr(d.model)}" data-field="model">
+
+          <div class="cover-meta-grid">
+            <span class="cover-meta-label">Stage</span>
+            <select data-field="stage">
+              ${['Prototype','EVT','DVT','PVT','MP'].map(s =>
+                `<option value="${s}" ${d.stage === s ? 'selected' : ''}>${s}</option>`
+              ).join('')}
+            </select>
+
+            <span class="cover-meta-label">Version</span>
+            <input type="text" placeholder="v1.0" value="${escapeAttr(d.report_version)}" data-field="report_version">
+
+            <span class="cover-meta-label">Date</span>
+            <input type="date" value="${escapeAttr(d.date)}" data-field="date">
+
+            <span class="cover-meta-label">Tested By</span>
+            <input type="text" placeholder="工程師姓名" value="${escapeAttr(d.tested_by)}" data-field="tested_by">
+          </div>
+        </div>
+      `;
+
+      // Bind field change events
+      $canvas.querySelectorAll('[data-field]').forEach(el => {
+        const eventType = el.tagName === 'SELECT' ? 'change' : 'input';
+        el.addEventListener(eventType, (e) => {
+          page.data[el.dataset.field] = el.value;
+          scheduleSave(state.activePage);
+        });
+      });
+
+      // Image handling
+      setupCoverImageHandlers(page);
+    }
+
+    function setupCoverImageHandlers(page) {
+      const zone = document.getElementById('cover-photo-zone');
+      const fileInput = document.getElementById('cover-file-input');
+      if (!zone || !fileInput) return;
+
+      // Click to select file
+      zone.addEventListener('click', (e) => {
+        if (e.target.closest('.photo-action-btn')) return;
+        fileInput.click();
+      });
+
+      fileInput.addEventListener('change', async () => {
+        if (fileInput.files.length > 0) {
+          await handleCoverImage(page, fileInput.files[0]);
+        }
+      });
+
+      // Drag & Drop
+      zone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        zone.classList.add('dragover');
+      });
+
+      zone.addEventListener('dragleave', () => {
+        zone.classList.remove('dragover');
+      });
+
+      zone.addEventListener('drop', async (e) => {
+        e.preventDefault();
+        zone.classList.remove('dragover');
+        const file = e.dataTransfer.files[0];
+        if (file && file.type.startsWith('image/')) {
+          await handleCoverImage(page, file);
+        }
+      });
+
+      // Replace / Delete buttons
+      const replaceBtn = document.getElementById('photo-replace');
+      const deleteBtn = document.getElementById('photo-delete');
+
+      if (replaceBtn) {
+        replaceBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          fileInput.click();
+        });
+      }
+
+      if (deleteBtn) {
+        deleteBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          page.data.cover_image = '';
+          renderCoverPage(page);
+          scheduleSave(state.activePage);
+        });
+      }
+
+      // Ctrl+V paste
+      document.addEventListener('paste', handlePaste);
+    }
+
+    async function handlePaste(e) {
+      if (state.activePage === null) return;
+      const page = state.pages[state.activePage];
+      if (page.type !== 'cover') return;
+
+      const items = e.clipboardData?.items;
+      if (!items) return;
+
+      for (const item of items) {
+        if (item.type.startsWith('image/')) {
+          e.preventDefault();
+          const file = item.getAsFile();
+          if (file) await handleCoverImage(page, file);
+          return;
+        }
+      }
+    }
+
+    async function handleCoverImage(page, file) {
+      const imageData = await processImage(file);
+      page.data.cover_image = imageData;
+      renderCoverPage(page);
+      scheduleSave(state.activePage);
+    }
+
+    // ━━━ Utility ━━━
+    function escapeAttr(str) {
+      if (!str) return '';
+      return str.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    // ━━━ Init ━━━
+    async function init() {
+      state.reportId = getOrCreateReportId();
+      console.log('📋 Report ID:', state.reportId);
+
+      // Setup dropdowns
+      setupDropdown('toolbar-add-btn', 'toolbar-add-menu');
+      setupDropdown('sidebar-add-btn', 'sidebar-add-menu');
+
+      // Setup SortableJS
+      if (typeof Sortable !== 'undefined') {
+        Sortable.create($pageList, {
           animation: 150,
           ghostClass: 'sortable-ghost',
+          onEnd: (evt) => {
+            const moved = state.pages.splice(evt.oldIndex, 1)[0];
+            state.pages.splice(evt.newIndex, 0, moved);
+            state.pages.forEach((p, i) => p.order = i);
+            if (state.activePage === evt.oldIndex) {
+              state.activePage = evt.newIndex;
+            } else if (state.activePage > evt.oldIndex && state.activePage <= evt.newIndex) {
+              state.activePage--;
+            } else if (state.activePage < evt.oldIndex && state.activePage >= evt.newIndex) {
+              state.activePage++;
+            }
+            renderPageList();
+            // Save all reordered pages
+            state.pages.forEach((_, i) => scheduleSave(i));
+          }
         });
         console.log('✅ SortableJS initialized on #page-list');
       }
-    });
+
+      // Try to load existing pages from Firestore
+      await waitForFirebase();
+      try {
+        const existingData = await loadPageFromFirestore(0);
+        if (existingData && existingData.type === 'cover') {
+          state.pages.push({
+            id: 'page_loaded_0',
+            type: existingData.type,
+            order: existingData.order ?? 0,
+            data: existingData.data,
+          });
+          renderPageList();
+          selectPage(0);
+          setStatus('saved', '已儲存 ✅');
+          console.log('✅ Loaded existing cover page from Firestore');
+        }
+      } catch (err) {
+        console.warn('Could not load existing data:', err);
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', init);
   </script>
 </body>
 </html>

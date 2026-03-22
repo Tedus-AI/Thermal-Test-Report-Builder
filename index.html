@@ -1867,6 +1867,29 @@
       border-color: rgba(56,189,248,0.6);
     }
 
+    .anno-replace-photo-btn {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      z-index: 30;
+      background: rgba(15,23,42,0.65);
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      padding: 4px 10px;
+      font-size: 11px;
+      cursor: pointer;
+      opacity: 0;
+      transition: opacity 0.2s;
+      pointer-events: auto;
+    }
+    .annotation-photo-zone.has-photo:hover .anno-replace-photo-btn {
+      opacity: 1;
+    }
+    .anno-replace-photo-btn:hover {
+      background: rgba(15,23,42,0.85);
+    }
+
     .annotation-photo-zone:hover {
       border-color: rgba(56,189,248,0.4);
       background: rgba(56,189,248,0.03);
@@ -2804,7 +2827,7 @@
 
       const page = state.pages[state.activePage];
       // Switch canvas orientation
-      if (page.type === 'image' || page.type === 'annotation' || page.type === 'sim_vs_meas') {
+      if (page.type === 'image' || page.type === 'annotation' || page.type === 'sim_vs_meas' || page.type === 'data') {
         $canvas.classList.add('landscape');
       } else {
         $canvas.classList.remove('landscape');
@@ -3261,6 +3284,7 @@
                  style="width:${annoW}px;height:${annoH}px;">
               ${hasPhoto
                 ? `<img src="${escapeAttr(d.photo_url_or_base64)}" alt="Annotation photo">
+                   <button class="anno-replace-photo-btn" id="anno-replace-btn">📷 更換圖片</button>
                    <div class="anno-photo-resize" id="anno-photo-resize"></div>`
                 : `<div class="annotation-photo-placeholder">
                      <span class="icon">📷</span>
@@ -3313,6 +3337,18 @@
           await handleAnnotationPhoto(page, fileInput.files[0]);
         }
       });
+
+      // Replace photo button
+      const replaceBtn = document.getElementById('anno-replace-btn');
+      if (replaceBtn) {
+        replaceBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          fileInput.click();
+        });
+        replaceBtn.addEventListener('mousedown', (e) => {
+          e.stopPropagation(); // prevent marker creation
+        });
+      }
 
       zone.addEventListener('dragover', (e) => {
         e.preventDefault();
@@ -3386,7 +3422,7 @@
         if (e.button !== 0) return; // left click only
         if (!page.data.photo_url_or_base64) return;
         // Ignore if clicking an existing marker or label
-        if (e.target.closest('.marker-dot') || e.target.closest('.marker-label') || e.target.closest('.marker-label-wrap') || e.target.closest('.marker-resize-handle')) return;
+        if (e.target.closest('.marker-dot') || e.target.closest('.marker-label') || e.target.closest('.marker-label-wrap') || e.target.closest('.marker-resize-handle') || e.target.closest('.anno-replace-photo-btn') || e.target.closest('.anno-photo-resize')) return;
 
         const rect = zone.getBoundingClientRect();
         const x = ((e.clientX - rect.left) / rect.width) * 100;
@@ -4048,6 +4084,87 @@
         });
       }
 
+      // ── Helper: update computed cells in-place without re-render ──
+      function updateRowComputed(ri) {
+        const comp = d.components[ri];
+        if (!comp) return;
+        const tr = tbody?.querySelector(`tr[data-row-idx="${ri}"]`);
+        if (!tr) return;
+
+        const tcSpec = parseFloat(comp.tc_spec) || 0;
+        const derating = parseFloat(comp.derating) || 0.9;
+        const derated = tcSpec * derating;
+
+        // Update Derated cell (7th td, index 6)
+        const tds = tr.querySelectorAll('td');
+        // Find derated cell — it's the one after TIM Type input
+        const deratedCell = tds[6]; // 0:cat,1:#,2:name,3:specType,4:tcSpec,5:derating,6:derated
+        if (deratedCell) deratedCell.textContent = derated > 0 ? derated.toFixed(1) : '—';
+
+        // Update margin cells and P/F
+        let rowFail = false;
+        d.ta_conditions.forEach((ta, ti) => {
+          const key = 'ta_' + ta;
+          const measured = comp.readings[key];
+          const measuredNum = parseFloat(measured);
+          let marginStr = '—';
+          let marginClass = 'dt-readonly';
+
+          if (!isNaN(measuredNum) && derated > 0) {
+            const margin = ((derated - measuredNum) / derated) * 100;
+            marginStr = margin.toFixed(1) + '%';
+            if (margin >= 10) marginClass = 'dt-margin-pass';
+            else if (margin >= 0) marginClass = 'dt-margin-warn';
+            else { marginClass = 'dt-margin-fail'; rowFail = true; }
+          }
+
+          // Margin cell: after TIM Type(7) + ta pairs (each ta = 2 cells: input + margin)
+          const marginIdx = 8 + ti * 2 + 1; // 7=tim_type, 8=first ta input, 9=first margin...
+          const marginCell = tds[marginIdx];
+          if (marginCell) {
+            marginCell.textContent = marginStr;
+            marginCell.className = 'dt-ta-col ' + marginClass;
+          }
+        });
+
+        // P/F cell
+        const pfIdx = 8 + d.ta_conditions.length * 2;
+        const pfCell = tds[pfIdx];
+        if (pfCell) {
+          const pfText = rowFail ? '❌ Fail' : (tcSpec > 0 ? '✔ Pass' : '—');
+          pfCell.textContent = pfText;
+          pfCell.className = rowFail ? 'dt-passfail-fail' : 'dt-passfail-pass';
+        }
+
+        // Row fail class
+        tr.classList.toggle('row-fail', rowFail);
+
+        // Update auto-number and category boundary (only for category change)
+        updateAutoNumbers();
+      }
+
+      function updateAutoNumbers() {
+        const catCounters2 = { RF: 0, Digital: 0, PWR: 0 };
+        let prevCat2 = null;
+        tbody?.querySelectorAll('tr[data-row-idx]').forEach(tr => {
+          const idx = parseInt(tr.dataset.rowIdx);
+          const comp = d.components[idx];
+          if (!comp) return;
+          const cat = comp.category;
+          catCounters2[cat] = (catCounters2[cat] || 0) + 1;
+          const autoNum = cat + '-' + catCounters2[cat];
+          const tds = tr.querySelectorAll('td');
+          if (tds[1]) tds[1].textContent = autoNum;
+          // Category boundary
+          if (prevCat2 !== null && cat !== prevCat2) {
+            tr.classList.add('category-boundary');
+          } else {
+            tr.classList.remove('category-boundary');
+          }
+          prevCat2 = cat;
+        });
+      }
+
       // ── Component field bindings ──
       $canvas.querySelectorAll('[data-comp-field]').forEach(el => {
         const eventType = el.tagName === 'SELECT' ? 'change' : 'input';
@@ -4056,9 +4173,9 @@
           const field = el.dataset.compField;
           d.components[ri][field] = el.value;
           scheduleSave(state.activePage);
-          // Re-render for computed fields when category/tc_spec/derating change
+          // Update computed cells in-place without re-render
           if (['category', 'tc_spec', 'derating'].includes(field)) {
-            renderDataPage(page);
+            updateRowComputed(ri);
           }
         });
       });
@@ -4070,8 +4187,8 @@
           const key = el.dataset.taKey;
           d.components[ri].readings[key] = el.value;
           scheduleSave(state.activePage);
-          // Update margin cell live
-          renderDataPage(page);
+          // Update margin cell in-place
+          updateRowComputed(ri);
         });
       });
 
@@ -4766,7 +4883,7 @@
       const page = state.pages[previewIdx];
       if (!page) return;
 
-      const isLandscape = page.type === 'image' || page.type === 'annotation' || page.type === 'sim_vs_meas';
+      const isLandscape = page.type === 'image' || page.type === 'annotation' || page.type === 'sim_vs_meas' || page.type === 'data';
       const w = isLandscape ? 842 : 595;
       const h = isLandscape ? 595 : 842;
 
@@ -4820,7 +4937,7 @@
     const PDF_FONT = '-apple-system, BlinkMacSystemFont, "Helvetica Neue", "PingFang TC", sans-serif';
 
     function renderPageOffscreen(page, container) {
-      const isLandscape = page.type === 'image' || page.type === 'annotation' || page.type === 'sim_vs_meas';
+      const isLandscape = page.type === 'image' || page.type === 'annotation' || page.type === 'sim_vs_meas' || page.type === 'data';
       const w = isLandscape ? 842 : 595;
       const h = isLandscape ? 595 : 842;
 
@@ -5177,7 +5294,7 @@
       try {
         for (let i = 0; i < state.pages.length; i++) {
           const page = state.pages[i];
-const isLandscape = page.type === 'image' || page.type === 'annotation' || page.type === 'sim_vs_meas';
+const isLandscape = page.type === 'image' || page.type === 'annotation' || page.type === 'sim_vs_meas' || page.type === 'data';
           const w = isLandscape ? 842 : 595;
           const h = isLandscape ? 595 : 842;
 

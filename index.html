@@ -1820,14 +1820,14 @@
       flex: 1;
       position: relative;
       overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
 
     .annotation-photo-zone {
-      position: absolute;
-      top: 60px;
-      left: 80px;
-      right: 80px;
-      bottom: 60px;
+      width: 680px;
+      height: 430px;
       border: 2px dashed rgba(15,23,42,0.15);
       border-radius: 6px;
       display: flex;
@@ -1835,7 +1835,36 @@
       justify-content: center;
       cursor: pointer;
       overflow: hidden;
+      position: relative;
+      flex-shrink: 0;
       transition: border-color var(--transition-fast), background var(--transition-fast);
+    }
+
+    .anno-photo-resize {
+      position: absolute;
+      bottom: 0;
+      right: 0;
+      width: 20px;
+      height: 20px;
+      cursor: nwse-resize;
+      z-index: 25;
+      display: none;
+    }
+    .anno-photo-resize::after {
+      content: '';
+      position: absolute;
+      bottom: 4px;
+      right: 4px;
+      width: 8px;
+      height: 8px;
+      border-right: 2px solid rgba(15,23,42,0.25);
+      border-bottom: 2px solid rgba(15,23,42,0.25);
+    }
+    .annotation-photo-zone.has-photo .anno-photo-resize {
+      display: block;
+    }
+    .annotation-photo-zone.has-photo:hover .anno-photo-resize::after {
+      border-color: rgba(56,189,248,0.6);
     }
 
     .annotation-photo-zone:hover {
@@ -3220,15 +3249,19 @@
     function renderAnnotationPage(page) {
       const d = page.data;
       const hasPhoto = !!d.photo_url_or_base64;
+      const annoW = d.anno_photo_w || 680;
+      const annoH = d.anno_photo_h || 430;
 
       $canvas.innerHTML = `
         <div class="annotation-page">
           <input class="annotation-title" type="text" placeholder="TC Thermocouple Placement"
                  value="${escapeAttr(d.title)}" data-field="title">
           <div class="annotation-workspace" id="anno-workspace">
-            <div class="annotation-photo-zone ${hasPhoto ? 'has-photo' : ''}" id="anno-photo-zone">
+            <div class="annotation-photo-zone ${hasPhoto ? 'has-photo' : ''}" id="anno-photo-zone"
+                 style="width:${annoW}px;height:${annoH}px;">
               ${hasPhoto
-                ? `<img src="${escapeAttr(d.photo_url_or_base64)}" alt="Annotation photo">`
+                ? `<img src="${escapeAttr(d.photo_url_or_base64)}" alt="Annotation photo">
+                   <div class="anno-photo-resize" id="anno-photo-resize"></div>`
                 : `<div class="annotation-photo-placeholder">
                      <span class="icon">📷</span>
                      拖拉、點擊選檔或 Ctrl+V 貼上照片
@@ -3294,6 +3327,48 @@
           await handleAnnotationPhoto(page, file);
         }
       });
+
+      // Resize handle
+      const resizeHandle = document.getElementById('anno-photo-resize');
+      if (resizeHandle) {
+        resizeHandle.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const startX = e.clientX;
+          const startY = e.clientY;
+          const startW = zone.offsetWidth;
+          const startH = zone.offsetHeight;
+          const aspect = startW / startH;
+
+          const onMove = (ev) => {
+            const dx = ev.clientX - startX;
+            const dy = ev.clientY - startY;
+            let newW = Math.max(300, startW + dx * 2);
+            let newH = Math.round(newW / aspect);
+            // Clamp to workspace
+            const ws = document.getElementById('anno-workspace');
+            const maxW = ws ? ws.offsetWidth - 20 : 800;
+            const maxH = ws ? ws.offsetHeight - 20 : 550;
+            if (newW > maxW) { newW = maxW; newH = Math.round(newW / aspect); }
+            if (newH > maxH) { newH = maxH; newW = Math.round(newH * aspect); }
+            zone.style.width = newW + 'px';
+            zone.style.height = newH + 'px';
+          };
+
+          const onUp = () => {
+            document.removeEventListener('mousemove', onMove);
+            document.removeEventListener('mouseup', onUp);
+            page.data.anno_photo_w = zone.offsetWidth;
+            page.data.anno_photo_h = zone.offsetHeight;
+            scheduleSave(state.activePage);
+            // Re-render markers at new size
+            renderAnnotationMarkers(page);
+          };
+
+          document.addEventListener('mousemove', onMove);
+          document.addEventListener('mouseup', onUp);
+        });
+      }
     }
 
     async function handleAnnotationPhoto(page, file) {
@@ -4845,7 +4920,11 @@
       const markers = d.markers || [];
       // Workspace: 842 × ~555 (full height minus title ~40px)
       const wsW = 842, wsH = 555;
-      const pzL = 80, pzT = 60, pzW = wsW - 160, pzH = wsH - 120;
+      const pzW = d.anno_photo_w || 680;
+      const pzH = d.anno_photo_h || 430;
+      // Center the photo zone within the workspace
+      const pzL = Math.round((wsW - pzW) / 2);
+      const pzT = Math.round((wsH - pzH) / 2);
 
       let dots = '', svgLines = '';
       markers.forEach((m, idx) => {
@@ -4863,7 +4942,7 @@
 
       return `<div style="width:100%;height:100%;display:flex;flex-direction:column;overflow:hidden;position:relative;color:rgba(15,23,42,0.90);letter-spacing:0px;word-spacing:0px;">
         <div style="font-size:16px;font-weight:700;letter-spacing:0px;word-spacing:0px;padding:12px 16px 8px;flex-shrink:0;">${escHtml(d.title)}</div>
-        <div style="flex:1;position:relative;overflow:hidden;">
+        <div style="flex:1;position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;">
           ${hasPhoto ? `<div style="position:absolute;top:${pzT}px;left:${pzL}px;width:${pzW}px;height:${pzH}px;border:1px solid rgba(15,23,42,0.08);border-radius:6px;overflow:hidden;display:flex;align-items:center;justify-content:center;">
             <img src="${escapeAttr(d.photo_url_or_base64)}" style="width:100%;height:100%;object-fit:contain;">
           </div>` : ''}

@@ -1055,6 +1055,217 @@
       color: rgba(15,23,42,0.25);
     }
 
+    /* ━━━ Data Table ━━━ */
+    .data-table-wrap {
+      flex: 1;
+      overflow: auto;
+      border: 1px solid rgba(15,23,42,0.10);
+      border-radius: 6px;
+    }
+
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11px;
+      table-layout: auto;
+      min-width: 100%;
+    }
+
+    .data-table th {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      text-align: left;
+      font-size: 9px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: rgba(15,23,42,0.50);
+      padding: 5px 6px;
+      background: rgba(15,23,42,0.03);
+      border-bottom: 2px solid rgba(15,23,42,0.10);
+      white-space: nowrap;
+    }
+
+    .data-table th.ta-group-header {
+      text-align: center;
+      border-left: 2px solid rgba(15,23,42,0.08);
+      font-size: 10px;
+      color: rgba(14,116,144,0.7);
+      background: rgba(6,182,212,0.04);
+    }
+
+    .data-table th.ta-sub-header {
+      font-size: 8px;
+      text-align: center;
+    }
+
+    .data-table td {
+      padding: 3px 5px;
+      border-bottom: 1px solid rgba(15,23,42,0.05);
+      vertical-align: middle;
+      white-space: nowrap;
+    }
+
+    .data-table tr.row-fail td {
+      background: rgba(254,226,226,0.4) !important;
+    }
+
+    .data-table tr.category-boundary td {
+      border-top: 2px solid rgba(15,23,42,0.12);
+    }
+
+    /* Category color strip */
+    .dt-cat-strip {
+      width: 3px;
+      height: 18px;
+      border-radius: 2px;
+      display: inline-block;
+      vertical-align: middle;
+      margin-right: 2px;
+    }
+    .dt-cat-strip.cat-rf   { background: #3b82f6; }
+    .dt-cat-strip.cat-digital { background: #8b5cf6; }
+    .dt-cat-strip.cat-pwr  { background: #f97316; }
+
+    .data-table input,
+    .data-table select {
+      font-family: var(--font-ui);
+      font-size: 11px;
+      color: var(--text-on-white);
+      border: none;
+      outline: none;
+      background: transparent;
+      padding: 2px 3px;
+      width: 100%;
+      min-width: 0;
+    }
+
+    .data-table input::placeholder { color: rgba(15,23,42,0.20); }
+    .data-table input:focus,
+    .data-table select:focus { background: rgba(56,189,248,0.05); }
+
+    .data-table select { cursor: pointer; appearance: auto; width: auto; min-width: 50px; }
+
+    .dt-readonly {
+      background: rgba(15,23,42,0.03) !important;
+      color: rgba(15,23,42,0.55);
+      font-weight: 600;
+      text-align: center;
+      padding: 2px 4px;
+      font-size: 11px;
+    }
+
+    .dt-margin-pass  { background: #dcfce7 !important; color: #15803d !important; font-weight: 600; text-align: center; }
+    .dt-margin-warn  { background: #fef9c3 !important; color: #a16207 !important; font-weight: 600; text-align: center; }
+    .dt-margin-fail  { background: #fee2e2 !important; color: #b91c1c !important; font-weight: 600; text-align: center; }
+
+    .dt-passfail-pass { color: #15803d; font-weight: 700; }
+    .dt-passfail-fail { color: #b91c1c; font-weight: 700; }
+
+    .dt-tc-input { width: 55px; text-align: center; }
+
+    .data-table td.dt-ta-col {
+      border-left: 1px solid rgba(15,23,42,0.06);
+      text-align: center;
+    }
+    .data-table td.dt-ta-col-first {
+      border-left: 2px solid rgba(15,23,42,0.08);
+    }
+
+    .dt-add-row-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      margin-top: 8px;
+      padding: 4px 12px;
+      font-size: 11px;
+      font-family: var(--font-ui);
+      color: rgba(56,189,248,0.8);
+      background: transparent;
+      border: 1px dashed rgba(56,189,248,0.25);
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background var(--transition-fast), border-color var(--transition-fast);
+    }
+    .dt-add-row-btn:hover {
+      background: rgba(56,189,248,0.06);
+      border-color: rgba(56,189,248,0.5);
+    }
+
+    /* Sensor section */
+    .sensor-section {
+      margin-top: 10px;
+      border: 1px solid rgba(15,23,42,0.08);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    .sensor-toggle {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      width: 100%;
+      padding: 6px 10px;
+      font-size: 11px;
+      font-weight: 600;
+      font-family: var(--font-ui);
+      color: rgba(15,23,42,0.50);
+      background: rgba(15,23,42,0.02);
+      border: none;
+      cursor: pointer;
+      text-align: left;
+    }
+    .sensor-toggle:hover { background: rgba(15,23,42,0.04); }
+
+    .sensor-toggle .arrow {
+      display: inline-block;
+      transition: transform 0.15s;
+      font-size: 10px;
+    }
+    .sensor-toggle .arrow.open { transform: rotate(90deg); }
+
+    .sensor-body {
+      padding: 8px;
+      display: none;
+    }
+    .sensor-body.open { display: block; }
+
+    .sensor-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11px;
+    }
+    .sensor-table th {
+      text-align: left;
+      font-size: 9px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: rgba(15,23,42,0.45);
+      padding: 4px 6px;
+      border-bottom: 1px solid rgba(15,23,42,0.08);
+      white-space: nowrap;
+    }
+    .sensor-table td {
+      padding: 3px 5px;
+      border-bottom: 1px solid rgba(15,23,42,0.04);
+    }
+    .sensor-table input,
+    .sensor-table select {
+      font-family: var(--font-ui);
+      font-size: 11px;
+      color: var(--text-on-white);
+      border: none;
+      outline: none;
+      background: transparent;
+      padding: 2px 3px;
+      width: 100%;
+    }
+    .sensor-table input::placeholder { color: rgba(15,23,42,0.20); }
+    .sensor-table input:focus { background: rgba(56,189,248,0.05); }
+    .sensor-table select { cursor: pointer; appearance: auto; width: auto; }
+
     /* ━━━ Image Page Module (A4 Landscape 842×595) ━━━ */
     #editor-canvas.landscape {
       --canvas-aspect: 842 / 595;
@@ -2766,13 +2977,117 @@
       const d = page.data;
       if (!d.header) d.header = {};
       if (!d.ta_conditions) d.ta_conditions = [25, 55];
+      if (!d.components) d.components = [];
+      if (!d.sensors) d.sensors = [];
       const h = d.header;
 
       const mountOptions = ['Pole Mount', 'Wall Mount', 'Free-standing'];
       const stageOptions = ['Prototype', 'EVT', 'DVT', 'PVT', 'MP'];
+      const categoryOptions = ['RF', 'Digital', 'PWR'];
+      const specTypeOptions = ['Recommended', 'Absolute'];
+      const deratingOptions = ['0.80', '0.85', '0.90', '0.95', '1.00'];
+      const sensorTypeOptions = ['Tj only', 'Tj+Tc'];
 
       const taTagsHTML = d.ta_conditions.map((temp, i) =>
         `<span class="ta-tag">Ta = ${temp}°C<button class="ta-tag-remove" data-ta-idx="${i}" title="刪除">✕</button></span>`
+      ).join('');
+
+      // ── Build component rows ──
+      // Assign auto-increment numbers per category
+      const catCounters = { RF: 0, Digital: 0, PWR: 0 };
+      const compRows = d.components.map((comp, ri) => {
+        if (!comp.readings) comp.readings = {};
+        if (!comp.category) comp.category = 'RF';
+        if (!comp.derating) comp.derating = '0.90';
+        const cat = comp.category;
+        catCounters[cat] = (catCounters[cat] || 0) + 1;
+        const autoNum = cat + '-' + catCounters[cat];
+        const catClass = cat === 'RF' ? 'cat-rf' : cat === 'Digital' ? 'cat-digital' : 'cat-pwr';
+
+        const tcSpec = parseFloat(comp.tc_spec) || 0;
+        const derating = parseFloat(comp.derating) || 0.9;
+        const derated = tcSpec * derating;
+
+        // Check pass/fail across all Ta
+        let rowFail = false;
+        const taCells = d.ta_conditions.map((ta, ti) => {
+          const key = 'ta_' + ta;
+          const measured = comp.readings[key];
+          const measuredNum = parseFloat(measured);
+          let marginStr = '—';
+          let marginClass = 'dt-readonly';
+
+          if (!isNaN(measuredNum) && derated > 0) {
+            const margin = ((derated - measuredNum) / derated) * 100;
+            marginStr = margin.toFixed(1) + '%';
+            if (margin >= 10) marginClass = 'dt-margin-pass';
+            else if (margin >= 0) marginClass = 'dt-margin-warn';
+            else { marginClass = 'dt-margin-fail'; rowFail = true; }
+          }
+
+          const isFirst = ti === 0;
+          return `<td class="dt-ta-col${isFirst ? ' dt-ta-col-first' : ''}">
+                    <input type="number" step="any" class="dt-tc-input" value="${measured !== undefined && measured !== '' ? escapeAttr(String(measured)) : ''}"
+                           placeholder="—" data-comp="${ri}" data-ta-key="${key}">
+                  </td>
+                  <td class="dt-ta-col ${marginClass}">${marginStr}</td>`;
+        }).join('');
+
+        const pfText = rowFail ? '❌ Fail' : (d.components.length > 0 && tcSpec > 0 ? '✔ Pass' : '—');
+        const pfClass = rowFail ? 'dt-passfail-fail' : 'dt-passfail-pass';
+
+        return `<tr class="${rowFail ? 'row-fail' : ''}" data-row-idx="${ri}">
+          <td><span class="dt-cat-strip ${catClass}"></span>
+            <select data-comp="${ri}" data-comp-field="category">${categoryOptions.map(c =>
+              `<option value="${c}" ${cat === c ? 'selected' : ''}>${c}</option>`).join('')}
+            </select></td>
+          <td class="dt-readonly">${autoNum}</td>
+          <td><input type="text" placeholder="元件名稱" value="${escapeAttr(comp.name || '')}" data-comp="${ri}" data-comp-field="name"></td>
+          <td><select data-comp="${ri}" data-comp-field="spec_type">${specTypeOptions.map(s =>
+              `<option value="${s}" ${comp.spec_type === s ? 'selected' : ''}>${s}</option>`).join('')}
+            </select></td>
+          <td><input type="number" step="any" style="width:50px;text-align:center;" placeholder="—" value="${comp.tc_spec !== undefined && comp.tc_spec !== '' ? escapeAttr(String(comp.tc_spec)) : ''}" data-comp="${ri}" data-comp-field="tc_spec"></td>
+          <td><select data-comp="${ri}" data-comp-field="derating">${deratingOptions.map(v =>
+              `<option value="${v}" ${comp.derating === v ? 'selected' : ''}>${v}</option>`).join('')}
+            </select></td>
+          <td class="dt-readonly">${derated > 0 ? derated.toFixed(1) : '—'}</td>
+          <td><input type="text" placeholder="e.g. Coolzorb" value="${escapeAttr(comp.tim_type || '')}" data-comp="${ri}" data-comp-field="tim_type" style="min-width:70px;"></td>
+          ${taCells}
+          <td class="${pfClass}">${pfText}</td>
+          <td><input type="text" placeholder="備註" value="${escapeAttr(comp.note || '')}" data-comp="${ri}" data-comp-field="note"></td>
+        </tr>`;
+      });
+
+      // Insert category boundary classes
+      // (done via JS after render for simplicity)
+
+      // ── Ta sub-headers ──
+      const taHeaders1 = d.ta_conditions.map((ta, ti) =>
+        `<th class="ta-group-header" colspan="2"${ti === 0 ? ' style="border-left:2px solid rgba(15,23,42,0.08);"' : ''}>Ta = ${ta}°C</th>`
+      ).join('');
+      const taHeaders2 = d.ta_conditions.map(() =>
+        `<th class="ta-sub-header">Tc 實測</th><th class="ta-sub-header">Margin</th>`
+      ).join('');
+
+      // ── Sensor rows ──
+      const sensorRows = d.sensors.map((s, si) => {
+        if (!s.readings) s.readings = {};
+        const taSensorCells = d.ta_conditions.map(ta => {
+          const key = 'ta_' + ta;
+          return `<td><input type="text" placeholder="—" value="${escapeAttr(s.readings[key] || '')}" data-sensor="${si}" data-sensor-ta="${key}"></td>`;
+        }).join('');
+        return `<tr>
+          <td><input type="text" placeholder="Sensor 名稱" value="${escapeAttr(s.name || '')}" data-sensor="${si}" data-sensor-field="name"></td>
+          <td><select data-sensor="${si}" data-sensor-field="type">${sensorTypeOptions.map(t =>
+              `<option value="${t}" ${s.type === t ? 'selected' : ''}>${t}</option>`).join('')}
+            </select></td>
+          ${taSensorCells}
+          <td><input type="text" placeholder="備註" value="${escapeAttr(s.note || '')}" data-sensor="${si}" data-sensor-field="note"></td>
+        </tr>`;
+      }).join('');
+
+      const sensorTaHeaders = d.ta_conditions.map(ta =>
+        `<th>Ta ${ta}°C</th>`
       ).join('');
 
       $canvas.innerHTML = `
@@ -2780,12 +3095,10 @@
           <div class="data-page-title">Thermal Test Data</div>
 
           <div class="data-header-grid">
-            <!-- Left column -->
             <div class="data-field">
               <span class="data-field-label">Test Date</span>
               <input type="date" value="${escapeAttr(h.test_date || '')}" data-header="test_date">
             </div>
-
             <div class="data-field">
               <span class="data-field-label">Thermal Equilibrium Time</span>
               <div class="data-field-unit">
@@ -2793,7 +3106,6 @@
                 <span class="unit-label">min</span>
               </div>
             </div>
-
             <div class="data-field">
               <span class="data-field-label">Stage</span>
               <select data-header="stage">
@@ -2802,7 +3114,6 @@
                 ).join('')}
               </select>
             </div>
-
             <div class="data-field">
               <span class="data-field-label">Mounting</span>
               <select data-header="mounting" id="data-mounting-select">
@@ -2815,17 +3126,14 @@
                 ? `<input type="text" class="data-custom-mounting" placeholder="自訂安裝方式" value="${escapeAttr(h.mounting)}" style="margin-top:4px;">`
                 : ''}
             </div>
-
             <div class="data-field">
               <span class="data-field-label">SW Version</span>
               <input type="text" placeholder="e.g. v2.1.0" value="${escapeAttr(h.sw_version || '')}" data-header="sw_version">
             </div>
-
             <div class="data-field">
               <span class="data-field-label">Location</span>
               <input type="text" placeholder="Lab / Chamber / Outdoor" value="${escapeAttr(h.location || '')}" data-header="location">
             </div>
-
             <div class="data-field">
               <span class="data-field-label">Waveform Ver.</span>
               <input type="text" placeholder="e.g. WF3.2" value="${escapeAttr(h.waveform_ver || '')}" data-header="waveform_ver">
@@ -2841,50 +3149,102 @@
             </div>
           </div>
 
-          <!-- Placeholder for future data table -->
-          <div class="data-body-placeholder">
-            數據表將在下一步實作
+          <!-- Data Table -->
+          <div class="data-table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th rowspan="2">類別</th>
+                  <th rowspan="2">#</th>
+                  <th rowspan="2">元件名稱</th>
+                  <th rowspan="2">Spec Type</th>
+                  <th rowspan="2">Tc Spec</th>
+                  <th rowspan="2">Derating</th>
+                  <th rowspan="2">Derated</th>
+                  <th rowspan="2">TIM Type</th>
+                  ${taHeaders1}
+                  <th rowspan="2">P/F</th>
+                  <th rowspan="2">備註</th>
+                </tr>
+                <tr>${taHeaders2}</tr>
+              </thead>
+              <tbody id="dt-tbody">
+                ${compRows.join('')}
+              </tbody>
+            </table>
+          </div>
+          <button class="dt-add-row-btn" id="dt-add-row">+ 新增元件</button>
+
+          <!-- Embedded Sensor Section -->
+          <div class="sensor-section">
+            <button class="sensor-toggle" id="sensor-toggle">
+              <span class="arrow" id="sensor-arrow">▶</span> Embedded Sensor Readings
+            </button>
+            <div class="sensor-body" id="sensor-body">
+              <table class="sensor-table">
+                <thead>
+                  <tr>
+                    <th>Sensor 名稱</th>
+                    <th>類型</th>
+                    ${sensorTaHeaders}
+                    <th>備註</th>
+                  </tr>
+                </thead>
+                <tbody id="sensor-tbody">${sensorRows}</tbody>
+              </table>
+              <button class="dt-add-row-btn" id="sensor-add-row" style="margin-top:6px;">+ 新增 Sensor</button>
+            </div>
           </div>
         </div>
       `;
 
-      // Bind header field changes
+      // ── Mark category boundaries ──
+      const tbody = document.getElementById('dt-tbody');
+      if (tbody) {
+        let prevCat = null;
+        tbody.querySelectorAll('tr').forEach(tr => {
+          const idx = parseInt(tr.dataset.rowIdx);
+          if (!isNaN(idx) && d.components[idx]) {
+            const cat = d.components[idx].category;
+            if (prevCat !== null && cat !== prevCat) {
+              tr.classList.add('category-boundary');
+            }
+            prevCat = cat;
+          }
+        });
+      }
+
+      // ── Bind header fields ──
       $canvas.querySelectorAll('[data-header]').forEach(el => {
         const eventType = el.tagName === 'SELECT' ? 'change' : 'input';
         el.addEventListener(eventType, () => {
           d.header[el.dataset.header] = el.value;
-
-          // Sync stage to cover page
           if (el.dataset.header === 'stage') {
             const coverPage = state.pages.find(p => p.type === 'cover');
             if (coverPage) {
               coverPage.data.stage = el.value;
-              const coverIdx = state.pages.indexOf(coverPage);
-              scheduleSave(coverIdx);
+              scheduleSave(state.pages.indexOf(coverPage));
             }
           }
-
           scheduleSave(state.activePage);
         });
       });
 
-      // Mounting custom logic
+      // Mounting custom
       const mountSelect = document.getElementById('data-mounting-select');
       if (mountSelect) {
         mountSelect.addEventListener('change', () => {
           if (mountSelect.value === '__custom') {
             d.header.mounting = '';
             renderDataPage(page);
-            // Focus the custom input
-            const customInput = $canvas.querySelector('.data-custom-mounting');
-            if (customInput) customInput.focus();
+            const ci = $canvas.querySelector('.data-custom-mounting');
+            if (ci) ci.focus();
           } else {
             d.header.mounting = mountSelect.value;
             scheduleSave(state.activePage);
           }
         });
       }
-
       const customMounting = $canvas.querySelector('.data-custom-mounting');
       if (customMounting) {
         customMounting.addEventListener('input', () => {
@@ -2893,17 +3253,14 @@
         });
       }
 
-      // Ta tag remove
+      // ── Ta tags ──
       $canvas.querySelectorAll('.ta-tag-remove').forEach(btn => {
         btn.addEventListener('click', () => {
-          const idx = parseInt(btn.dataset.taIdx);
-          d.ta_conditions.splice(idx, 1);
+          d.ta_conditions.splice(parseInt(btn.dataset.taIdx), 1);
           scheduleSave(state.activePage);
           renderDataPage(page);
         });
       });
-
-      // Ta add
       const taAddBtn = document.getElementById('ta-add-btn');
       if (taAddBtn) {
         taAddBtn.addEventListener('click', () => {
@@ -2914,6 +3271,113 @@
           d.ta_conditions.push(num);
           scheduleSave(state.activePage);
           renderDataPage(page);
+        });
+      }
+
+      // ── Component field bindings ──
+      $canvas.querySelectorAll('[data-comp-field]').forEach(el => {
+        const eventType = el.tagName === 'SELECT' ? 'change' : 'input';
+        el.addEventListener(eventType, () => {
+          const ri = parseInt(el.dataset.comp);
+          const field = el.dataset.compField;
+          d.components[ri][field] = el.value;
+          scheduleSave(state.activePage);
+          // Re-render for computed fields when category/tc_spec/derating change
+          if (['category', 'tc_spec', 'derating'].includes(field)) {
+            renderDataPage(page);
+          }
+        });
+      });
+
+      // ── Tc measured input bindings ──
+      $canvas.querySelectorAll('[data-ta-key]').forEach(el => {
+        el.addEventListener('input', () => {
+          const ri = parseInt(el.dataset.comp);
+          const key = el.dataset.taKey;
+          d.components[ri].readings[key] = el.value;
+          scheduleSave(state.activePage);
+          // Update margin cell live
+          renderDataPage(page);
+        });
+      });
+
+      // ── Add row ──
+      const addRowBtn = document.getElementById('dt-add-row');
+      if (addRowBtn) {
+        addRowBtn.addEventListener('click', () => {
+          const lastCat = d.components.length > 0
+            ? d.components[d.components.length - 1].category : 'RF';
+          d.components.push({
+            category: lastCat,
+            name: '',
+            spec_type: 'Recommended',
+            tc_spec: '',
+            derating: '0.90',
+            tim_type: '',
+            readings: {},
+            note: '',
+          });
+          scheduleSave(state.activePage);
+          renderDataPage(page);
+        });
+      }
+
+      // ── Row context menu (delete) ──
+      if (tbody) {
+        tbody.addEventListener('contextmenu', (e) => {
+          const tr = e.target.closest('tr[data-row-idx]');
+          if (!tr) return;
+          e.preventDefault();
+          const ri = parseInt(tr.dataset.rowIdx);
+          if (confirm('確定要刪除此元件列？')) {
+            d.components.splice(ri, 1);
+            scheduleSave(state.activePage);
+            renderDataPage(page);
+          }
+        });
+      }
+
+      // ── Sensor toggle ──
+      const sensorToggle = document.getElementById('sensor-toggle');
+      const sensorBody = document.getElementById('sensor-body');
+      const sensorArrow = document.getElementById('sensor-arrow');
+      if (sensorToggle) {
+        sensorToggle.addEventListener('click', () => {
+          sensorBody.classList.toggle('open');
+          sensorArrow.classList.toggle('open');
+        });
+      }
+
+      // ── Sensor field bindings ──
+      $canvas.querySelectorAll('[data-sensor-field]').forEach(el => {
+        const eventType = el.tagName === 'SELECT' ? 'change' : 'input';
+        el.addEventListener(eventType, () => {
+          const si = parseInt(el.dataset.sensor);
+          d.sensors[si][el.dataset.sensorField] = el.value;
+          scheduleSave(state.activePage);
+        });
+      });
+
+      $canvas.querySelectorAll('[data-sensor-ta]').forEach(el => {
+        el.addEventListener('input', () => {
+          const si = parseInt(el.dataset.sensor);
+          d.sensors[si].readings[el.dataset.sensorTa] = el.value;
+          scheduleSave(state.activePage);
+        });
+      });
+
+      // ── Add sensor row ──
+      const sensorAddBtn = document.getElementById('sensor-add-row');
+      if (sensorAddBtn) {
+        sensorAddBtn.addEventListener('click', () => {
+          d.sensors.push({ name: '', type: 'Tj only', readings: {}, note: '' });
+          scheduleSave(state.activePage);
+          renderDataPage(page);
+          // Auto-open sensor section
+          if (!sensorBody.classList.contains('open')) {
+            sensorBody.classList.add('open');
+            sensorArrow.classList.add('open');
+          }
         });
       }
     }

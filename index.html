@@ -2264,6 +2264,10 @@
       outline: none;
       transition: border-color var(--transition-fast);
     }
+    .hp-modal-field select option {
+      background: #1e293b;
+      color: #e2e8f0;
+    }
     .hp-modal-field input::placeholder { color: rgba(255,255,255,0.25); }
     .hp-modal-field input:focus,
     .hp-modal-field select:focus {
@@ -2787,10 +2791,10 @@
             <input type="file" accept="image/*" id="cover-file-input" style="display:none">
           </div>
 
-          <input class="cover-project-name" type="text" placeholder="案名（Project Name）"
-                 value="${escapeAttr(d.project_name)}" data-field="project_name">
-          <input class="cover-model" type="text" placeholder="產品型號（Model）"
+          <input class="cover-project-name" type="text" placeholder="產品型號（Model）"
                  value="${escapeAttr(d.model)}" data-field="model">
+          <input class="cover-model" type="text" placeholder="案名（Project Name）"
+                 value="${escapeAttr(d.project_name)}" data-field="project_name">
 
           <div class="cover-meta-grid">
             <span class="cover-meta-label">Stage</span>
@@ -4711,8 +4715,8 @@
                <img src="${escapeAttr(d.cover_image)}" style="max-width:100%;max-height:100%;object-fit:contain;">
              </div>`
           : `<div style="width:380px;height:240px;margin-bottom:24px;flex-shrink:0;"></div>`}
-        <div style="font-size:26px;font-weight:700;text-align:center;letter-spacing:0px;word-spacing:0px;padding:8px;margin-bottom:4px;width:100%;">${escHtml(d.project_name)}</div>
-        <div style="font-size:17px;font-weight:500;text-align:center;letter-spacing:0px;word-spacing:0px;color:rgba(15,23,42,0.65);padding:6px 8px;margin-bottom:24px;width:100%;">${escHtml(d.model)}</div>
+        <div style="font-size:26px;font-weight:700;text-align:center;letter-spacing:0px;word-spacing:0px;padding:8px;margin-bottom:4px;width:100%;">${escHtml(d.model)}</div>
+        <div style="font-size:17px;font-weight:500;text-align:center;letter-spacing:0px;word-spacing:0px;color:rgba(15,23,42,0.65);padding:6px 8px;margin-bottom:24px;width:100%;">${escHtml(d.project_name)}</div>
         <div style="display:grid;grid-template-columns:auto 1fr;gap:8px 16px;align-items:center;width:100%;max-width:380px;margin-top:auto;padding-top:16px;letter-spacing:0px;word-spacing:0px;">
           <span style="font-size:12px;font-weight:600;letter-spacing:0px;word-spacing:0px;color:rgba(15,23,42,0.45);text-align:right;">STAGE</span>
           <span style="font-size:14px;letter-spacing:0px;word-spacing:0px;padding:4px 8px;">${escHtml(d.stage)}</span>
@@ -5130,6 +5134,7 @@ const isLandscape = page.type === 'image' || page.type === 'annotation' || page.
       $hpGrid.innerHTML = reports.map(r => `
         <div class="hp-card" data-report-id="${escapeAttr(r.id)}">
           <div class="hp-card-title">${escapeAttr(r.project_name || '未命名報告')}</div>
+          ${r.model ? `<div class="hp-card-date" style="font-size:12px;margin-top:-4px;">${escapeAttr(r.model)}</div>` : ''}
           <div class="hp-card-meta">
             ${r.stage ? `<span class="hp-badge">${escapeAttr(r.stage)}</span>` : ''}
             ${r.date ? `<span class="hp-card-date">${escapeAttr(r.date)}</span>` : ''}
@@ -5184,6 +5189,10 @@ const isLandscape = page.type === 'image' || page.type === 'annotation' || page.
               <input type="text" id="hp-new-name" placeholder="輸入案名（Project Name）" autofocus>
             </div>
             <div class="hp-modal-field">
+              <label>產品型號</label>
+              <input type="text" id="hp-new-model" placeholder="輸入型號（Model）">
+            </div>
+            <div class="hp-modal-field">
               <label>Stage</label>
               <select id="hp-new-stage">
                 ${['Prototype','EVT','DVT','PVT','MP'].map(s =>
@@ -5210,10 +5219,11 @@ const isLandscape = page.type === 'image' || page.type === 'annotation' || page.
       overlay.querySelector('#hp-new-confirm').addEventListener('click', async () => {
         const name = overlay.querySelector('#hp-new-name').value.trim();
         if (!name) { overlay.querySelector('#hp-new-name').focus(); return; }
+        const model = overlay.querySelector('#hp-new-model').value.trim();
         const stage = overlay.querySelector('#hp-new-stage').value;
         const date = overlay.querySelector('#hp-new-date').value;
         document.body.removeChild(overlay);
-        await createNewReport(name, stage, date);
+        await createNewReport(name, model, stage, date);
       });
 
       // Enter key
@@ -5224,7 +5234,7 @@ const isLandscape = page.type === 'image' || page.type === 'annotation' || page.
       setTimeout(() => overlay.querySelector('#hp-new-name').focus(), 100);
     }
 
-    async function createNewReport(name, stage, date) {
+    async function createNewReport(name, model, stage, date) {
       const id = 'rpt_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
       const now = new Date().toISOString();
 
@@ -5234,6 +5244,7 @@ const isLandscape = page.type === 'image' || page.type === 'annotation' || page.
           const docRef = window._doc(window._db, 'thermal_reports', id);
           await window._setDoc(docRef, {
             project_name: name,
+            model: model,
             stage: stage,
             date: date,
             created_at: now,
@@ -5253,6 +5264,7 @@ const isLandscape = page.type === 'image' || page.type === 'annotation' || page.
       const cover = state.pages[0];
       if (cover) {
         cover.data.project_name = name;
+        cover.data.model = model;
         cover.data.stage = stage;
         cover.data.date = date;
         scheduleSave(0);
@@ -5395,6 +5407,7 @@ const isLandscape = page.type === 'image' || page.type === 'annotation' || page.
         };
         if (coverPage) {
           meta.project_name = coverPage.data.project_name || '';
+          meta.model = coverPage.data.model || '';
           meta.stage = coverPage.data.stage || '';
           meta.date = coverPage.data.date || '';
         }

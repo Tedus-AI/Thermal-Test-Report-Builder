@@ -530,8 +530,8 @@
     }
 
     .cover-photo-zone {
-      width: 380px;
-      height: 240px;
+      width: 460px;
+      height: 300px;
       border: 2px dashed rgba(15,23,42,0.18);
       border-radius: 8px;
       display: flex;
@@ -543,6 +543,33 @@
       overflow: hidden;
       transition: border-color var(--transition-fast), background var(--transition-fast);
       flex-shrink: 0;
+    }
+
+    .cover-photo-resize {
+      position: absolute;
+      bottom: 0;
+      right: 0;
+      width: 20px;
+      height: 20px;
+      cursor: nwse-resize;
+      z-index: 6;
+      display: none;
+    }
+    .cover-photo-resize::after {
+      content: '';
+      position: absolute;
+      bottom: 4px;
+      right: 4px;
+      width: 8px;
+      height: 8px;
+      border-right: 2px solid rgba(15,23,42,0.25);
+      border-bottom: 2px solid rgba(15,23,42,0.25);
+    }
+    .cover-photo-zone.has-image .cover-photo-resize {
+      display: block;
+    }
+    .cover-photo-zone.has-image:hover .cover-photo-resize::after {
+      border-color: rgba(56,189,248,0.6);
     }
 
     .cover-photo-zone:hover {
@@ -2618,6 +2645,8 @@
           dept: '',
           report_version: 'v1.0',
           cover_image: '',
+          cover_image_w: 460,
+          cover_image_h: 300,
         }
       };
       state.pages.push(page);
@@ -2770,19 +2799,23 @@
     function renderCoverPage(page) {
       const d = page.data;
       const hasImage = !!d.cover_image;
+      const imgW = d.cover_image_w || 460;
+      const imgH = d.cover_image_h || 300;
 
       $canvas.innerHTML = `
         <div class="cover-page">
           <input class="cover-dept" type="text" placeholder="公司 / 部門名稱"
                  value="${escapeAttr(d.dept)}" data-field="dept">
 
-          <div class="cover-photo-zone ${hasImage ? 'has-image' : ''}" id="cover-photo-zone">
+          <div class="cover-photo-zone ${hasImage ? 'has-image' : ''}" id="cover-photo-zone"
+               style="width:${imgW}px;height:${imgH}px;">
             ${hasImage
               ? `<img src="${escapeAttr(d.cover_image)}" alt="Cover">
                  <div class="cover-photo-actions">
                    <button class="photo-action-btn" id="photo-replace">替換</button>
                    <button class="photo-action-btn danger" id="photo-delete">刪除</button>
-                 </div>`
+                 </div>
+                 <div class="cover-photo-resize" id="cover-photo-resize"></div>`
               : `<div class="cover-photo-placeholder">
                    <span class="icon">📷</span>
                    拖拉圖片、點擊選檔，或 Ctrl+V 貼上
@@ -2882,6 +2915,46 @@
           page.data.cover_image = '';
           renderCoverPage(page);
           scheduleSave(state.activePage);
+        });
+      }
+
+      // Resize handle drag
+      const resizeHandle = document.getElementById('cover-photo-resize');
+      if (resizeHandle) {
+        resizeHandle.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const startX = e.clientX;
+          const startY = e.clientY;
+          const startW = zone.offsetWidth;
+          const startH = zone.offsetHeight;
+          const aspect = startW / startH;
+
+          const onMove = (ev) => {
+            const dx = ev.clientX - startX;
+            const dy = ev.clientY - startY;
+            // Use the larger delta to maintain aspect ratio
+            let newW = Math.max(200, startW + dx * 2); // *2 because zone is centered
+            let newH = Math.round(newW / aspect);
+            // Clamp to max canvas width
+            const maxW = $canvas.offsetWidth - 40;
+            if (newW > maxW) { newW = maxW; newH = Math.round(newW / aspect); }
+            if (newH > 500) { newH = 500; newW = Math.round(newH * aspect); }
+            zone.style.width = newW + 'px';
+            zone.style.height = newH + 'px';
+          };
+
+          const onUp = () => {
+            document.removeEventListener('mousemove', onMove);
+            document.removeEventListener('mouseup', onUp);
+            // Save the new size
+            page.data.cover_image_w = zone.offsetWidth;
+            page.data.cover_image_h = zone.offsetHeight;
+            scheduleSave(state.activePage);
+          };
+
+          document.addEventListener('mousemove', onMove);
+          document.addEventListener('mouseup', onUp);
         });
       }
 
@@ -4706,15 +4779,22 @@
 
     function buildCoverHTML(d) {
       const hasImg = !!d.cover_image;
+      const imgW = d.cover_image_w || 460;
+      const imgH = d.cover_image_h || 300;
+      // Scale to fit A4 width (595px - 96px padding = ~499px max)
+      const maxPdfW = 499;
+      const scale = imgW > maxPdfW ? maxPdfW / imgW : 1;
+      const pdfW = Math.round(imgW * scale);
+      const pdfH = Math.round(imgH * scale);
       // Uppercase text in JS to avoid html2canvas text-transform bug
       const deptUpper = (d.dept || '').toUpperCase();
       return `<div style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;padding:40px 48px 32px;color:rgba(15,23,42,0.90);overflow:hidden;font-family:${PDF_FONT};letter-spacing:0px;word-spacing:0px;">
         <div style="font-size:14px;letter-spacing:0px;word-spacing:0px;color:rgba(15,23,42,0.50);padding:6px 8px;margin-bottom:16px;text-align:center;width:100%;">${escHtml(deptUpper)}</div>
         ${hasImg
-          ? `<div style="width:380px;height:240px;margin-bottom:24px;flex-shrink:0;display:flex;align-items:center;justify-content:center;overflow:hidden;border-radius:8px;">
+          ? `<div style="width:${pdfW}px;height:${pdfH}px;margin-bottom:24px;flex-shrink:0;display:flex;align-items:center;justify-content:center;overflow:hidden;border-radius:8px;">
                <img src="${escapeAttr(d.cover_image)}" style="max-width:100%;max-height:100%;object-fit:contain;">
              </div>`
-          : `<div style="width:380px;height:240px;margin-bottom:24px;flex-shrink:0;"></div>`}
+          : `<div style="width:${pdfW}px;height:${pdfH}px;margin-bottom:24px;flex-shrink:0;"></div>`}
         <div style="font-size:26px;font-weight:700;text-align:center;letter-spacing:0px;word-spacing:0px;padding:8px;margin-bottom:4px;width:100%;">${escHtml(d.model)}</div>
         <div style="font-size:17px;font-weight:500;text-align:center;letter-spacing:0px;word-spacing:0px;color:rgba(15,23,42,0.65);padding:6px 8px;margin-bottom:24px;width:100%;">${escHtml(d.project_name)}</div>
         <div style="display:grid;grid-template-columns:auto 1fr;gap:8px 16px;align-items:center;width:100%;max-width:380px;margin-top:auto;padding-top:16px;letter-spacing:0px;word-spacing:0px;">

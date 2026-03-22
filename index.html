@@ -530,8 +530,8 @@
     }
 
     .cover-photo-zone {
-      width: 380px;
-      height: 240px;
+      width: 460px;
+      height: 300px;
       border: 2px dashed rgba(15,23,42,0.18);
       border-radius: 8px;
       display: flex;
@@ -543,6 +543,33 @@
       overflow: hidden;
       transition: border-color var(--transition-fast), background var(--transition-fast);
       flex-shrink: 0;
+    }
+
+    .cover-photo-resize {
+      position: absolute;
+      bottom: 0;
+      right: 0;
+      width: 20px;
+      height: 20px;
+      cursor: nwse-resize;
+      z-index: 6;
+      display: none;
+    }
+    .cover-photo-resize::after {
+      content: '';
+      position: absolute;
+      bottom: 4px;
+      right: 4px;
+      width: 8px;
+      height: 8px;
+      border-right: 2px solid rgba(15,23,42,0.25);
+      border-bottom: 2px solid rgba(15,23,42,0.25);
+    }
+    .cover-photo-zone.has-image .cover-photo-resize {
+      display: block;
+    }
+    .cover-photo-zone.has-image:hover .cover-photo-resize::after {
+      border-color: rgba(56,189,248,0.6);
     }
 
     .cover-photo-zone:hover {
@@ -1793,14 +1820,14 @@
       flex: 1;
       position: relative;
       overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
 
     .annotation-photo-zone {
-      position: absolute;
-      top: 60px;
-      left: 80px;
-      right: 80px;
-      bottom: 60px;
+      width: 680px;
+      height: 430px;
       border: 2px dashed rgba(15,23,42,0.15);
       border-radius: 6px;
       display: flex;
@@ -1808,7 +1835,59 @@
       justify-content: center;
       cursor: pointer;
       overflow: hidden;
+      position: relative;
+      flex-shrink: 0;
       transition: border-color var(--transition-fast), background var(--transition-fast);
+    }
+
+    .anno-photo-resize {
+      position: absolute;
+      bottom: 0;
+      right: 0;
+      width: 20px;
+      height: 20px;
+      cursor: nwse-resize;
+      z-index: 25;
+      display: none;
+    }
+    .anno-photo-resize::after {
+      content: '';
+      position: absolute;
+      bottom: 4px;
+      right: 4px;
+      width: 8px;
+      height: 8px;
+      border-right: 2px solid rgba(15,23,42,0.25);
+      border-bottom: 2px solid rgba(15,23,42,0.25);
+    }
+    .annotation-photo-zone.has-photo .anno-photo-resize {
+      display: block;
+    }
+    .annotation-photo-zone.has-photo:hover .anno-photo-resize::after {
+      border-color: rgba(56,189,248,0.6);
+    }
+
+    .anno-replace-photo-btn {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      z-index: 30;
+      background: rgba(15,23,42,0.65);
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      padding: 4px 10px;
+      font-size: 11px;
+      cursor: pointer;
+      opacity: 0;
+      transition: opacity 0.2s;
+      pointer-events: auto;
+    }
+    .annotation-photo-zone.has-photo:hover .anno-replace-photo-btn {
+      opacity: 1;
+    }
+    .anno-replace-photo-btn:hover {
+      background: rgba(15,23,42,0.85);
     }
 
     .annotation-photo-zone:hover {
@@ -2019,6 +2098,39 @@
       color: rgba(255,255,255,0.50);
       user-select: none;
     }
+
+    .preview-nav-btn {
+      position: absolute;
+      bottom: 24px;
+      z-index: 10002;
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      border: 1px solid rgba(255,255,255,0.2);
+      background: rgba(255,255,255,0.1);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      color: rgba(255,255,255,0.7);
+      font-size: 20px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s, color 0.15s, transform 0.15s;
+      user-select: none;
+    }
+    .preview-nav-btn:hover {
+      background: rgba(56,189,248,0.35);
+      color: #fff;
+      transform: scale(1.1);
+    }
+    .preview-nav-btn:disabled {
+      opacity: 0.2;
+      cursor: default;
+      pointer-events: none;
+    }
+    .preview-nav-btn.prev { left: 24px; }
+    .preview-nav-btn.next { right: 24px; }
 
     /* ━━━ PDF Export helper ━━━ */
     .pdf-render-stage {
@@ -2264,6 +2376,10 @@
       outline: none;
       transition: border-color var(--transition-fast);
     }
+    .hp-modal-field select option {
+      background: #1e293b;
+      color: #e2e8f0;
+    }
     .hp-modal-field input::placeholder { color: rgba(255,255,255,0.25); }
     .hp-modal-field input:focus,
     .hp-modal-field select:focus {
@@ -2394,6 +2510,8 @@
   <div class="preview-overlay" id="preview-overlay">
     <button class="preview-close" id="preview-close">✕</button>
     <div class="preview-canvas-wrap" id="preview-canvas-wrap"></div>
+    <button class="preview-nav-btn prev" id="preview-prev" title="上一頁">&#9664;</button>
+    <button class="preview-nav-btn next" id="preview-next" title="下一頁">&#9654;</button>
     <div class="preview-footer" id="preview-footer"></div>
   </div>
 
@@ -2614,6 +2732,8 @@
           dept: '',
           report_version: 'v1.0',
           cover_image: '',
+          cover_image_w: 460,
+          cover_image_h: 300,
         }
       };
       state.pages.push(page);
@@ -2742,7 +2862,7 @@
 
       const page = state.pages[state.activePage];
       // Switch canvas orientation
-      if (page.type === 'image' || page.type === 'annotation' || page.type === 'sim_vs_meas') {
+      if (page.type === 'image' || page.type === 'annotation' || page.type === 'sim_vs_meas' || page.type === 'data') {
         $canvas.classList.add('landscape');
       } else {
         $canvas.classList.remove('landscape');
@@ -2766,19 +2886,23 @@
     function renderCoverPage(page) {
       const d = page.data;
       const hasImage = !!d.cover_image;
+      const imgW = d.cover_image_w || 460;
+      const imgH = d.cover_image_h || 300;
 
       $canvas.innerHTML = `
         <div class="cover-page">
           <input class="cover-dept" type="text" placeholder="公司 / 部門名稱"
                  value="${escapeAttr(d.dept)}" data-field="dept">
 
-          <div class="cover-photo-zone ${hasImage ? 'has-image' : ''}" id="cover-photo-zone">
+          <div class="cover-photo-zone ${hasImage ? 'has-image' : ''}" id="cover-photo-zone"
+               style="width:${imgW}px;height:${imgH}px;">
             ${hasImage
               ? `<img src="${escapeAttr(d.cover_image)}" alt="Cover">
                  <div class="cover-photo-actions">
                    <button class="photo-action-btn" id="photo-replace">替換</button>
                    <button class="photo-action-btn danger" id="photo-delete">刪除</button>
-                 </div>`
+                 </div>
+                 <div class="cover-photo-resize" id="cover-photo-resize"></div>`
               : `<div class="cover-photo-placeholder">
                    <span class="icon">📷</span>
                    拖拉圖片、點擊選檔，或 Ctrl+V 貼上
@@ -2787,10 +2911,10 @@
             <input type="file" accept="image/*" id="cover-file-input" style="display:none">
           </div>
 
-          <input class="cover-project-name" type="text" placeholder="案名（Project Name）"
-                 value="${escapeAttr(d.project_name)}" data-field="project_name">
-          <input class="cover-model" type="text" placeholder="產品型號（Model）"
+          <input class="cover-project-name" type="text" placeholder="產品型號（Model）"
                  value="${escapeAttr(d.model)}" data-field="model">
+          <input class="cover-model" type="text" placeholder="案名（Project Name）"
+                 value="${escapeAttr(d.project_name)}" data-field="project_name">
 
           <div class="cover-meta-grid">
             <span class="cover-meta-label">Stage</span>
@@ -2878,6 +3002,46 @@
           page.data.cover_image = '';
           renderCoverPage(page);
           scheduleSave(state.activePage);
+        });
+      }
+
+      // Resize handle drag
+      const resizeHandle = document.getElementById('cover-photo-resize');
+      if (resizeHandle) {
+        resizeHandle.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const startX = e.clientX;
+          const startY = e.clientY;
+          const startW = zone.offsetWidth;
+          const startH = zone.offsetHeight;
+          const aspect = startW / startH;
+
+          const onMove = (ev) => {
+            const dx = ev.clientX - startX;
+            const dy = ev.clientY - startY;
+            // Use the larger delta to maintain aspect ratio
+            let newW = Math.max(200, startW + dx * 2); // *2 because zone is centered
+            let newH = Math.round(newW / aspect);
+            // Clamp to max canvas width
+            const maxW = $canvas.offsetWidth - 40;
+            if (newW > maxW) { newW = maxW; newH = Math.round(newW / aspect); }
+            if (newH > 500) { newH = 500; newW = Math.round(newH * aspect); }
+            zone.style.width = newW + 'px';
+            zone.style.height = newH + 'px';
+          };
+
+          const onUp = () => {
+            document.removeEventListener('mousemove', onMove);
+            document.removeEventListener('mouseup', onUp);
+            // Save the new size
+            page.data.cover_image_w = zone.offsetWidth;
+            page.data.cover_image_h = zone.offsetHeight;
+            scheduleSave(state.activePage);
+          };
+
+          document.addEventListener('mousemove', onMove);
+          document.addEventListener('mouseup', onUp);
         });
       }
 
@@ -3143,15 +3307,20 @@
     function renderAnnotationPage(page) {
       const d = page.data;
       const hasPhoto = !!d.photo_url_or_base64;
+      const annoW = d.anno_photo_w || 680;
+      const annoH = d.anno_photo_h || 430;
 
       $canvas.innerHTML = `
         <div class="annotation-page">
           <input class="annotation-title" type="text" placeholder="TC Thermocouple Placement"
                  value="${escapeAttr(d.title)}" data-field="title">
           <div class="annotation-workspace" id="anno-workspace">
-            <div class="annotation-photo-zone ${hasPhoto ? 'has-photo' : ''}" id="anno-photo-zone">
+            <div class="annotation-photo-zone ${hasPhoto ? 'has-photo' : ''}" id="anno-photo-zone"
+                 style="width:${annoW}px;height:${annoH}px;">
               ${hasPhoto
-                ? `<img src="${escapeAttr(d.photo_url_or_base64)}" alt="Annotation photo">`
+                ? `<img src="${escapeAttr(d.photo_url_or_base64)}" alt="Annotation photo">
+                   <button class="anno-replace-photo-btn" id="anno-replace-btn">📷 更換圖片</button>
+                   <div class="anno-photo-resize" id="anno-photo-resize"></div>`
                 : `<div class="annotation-photo-placeholder">
                      <span class="icon">📷</span>
                      拖拉、點擊選檔或 Ctrl+V 貼上照片
@@ -3204,6 +3373,18 @@
         }
       });
 
+      // Replace photo button
+      const replaceBtn = document.getElementById('anno-replace-btn');
+      if (replaceBtn) {
+        replaceBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          fileInput.click();
+        });
+        replaceBtn.addEventListener('mousedown', (e) => {
+          e.stopPropagation(); // prevent marker creation
+        });
+      }
+
       zone.addEventListener('dragover', (e) => {
         e.preventDefault();
         zone.classList.add('dragover');
@@ -3217,6 +3398,48 @@
           await handleAnnotationPhoto(page, file);
         }
       });
+
+      // Resize handle
+      const resizeHandle = document.getElementById('anno-photo-resize');
+      if (resizeHandle) {
+        resizeHandle.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const startX = e.clientX;
+          const startY = e.clientY;
+          const startW = zone.offsetWidth;
+          const startH = zone.offsetHeight;
+          const aspect = startW / startH;
+
+          const onMove = (ev) => {
+            const dx = ev.clientX - startX;
+            const dy = ev.clientY - startY;
+            let newW = Math.max(300, startW + dx * 2);
+            let newH = Math.round(newW / aspect);
+            // Clamp to workspace
+            const ws = document.getElementById('anno-workspace');
+            const maxW = ws ? ws.offsetWidth - 20 : 800;
+            const maxH = ws ? ws.offsetHeight - 20 : 550;
+            if (newW > maxW) { newW = maxW; newH = Math.round(newW / aspect); }
+            if (newH > maxH) { newH = maxH; newW = Math.round(newH * aspect); }
+            zone.style.width = newW + 'px';
+            zone.style.height = newH + 'px';
+          };
+
+          const onUp = () => {
+            document.removeEventListener('mousemove', onMove);
+            document.removeEventListener('mouseup', onUp);
+            page.data.anno_photo_w = zone.offsetWidth;
+            page.data.anno_photo_h = zone.offsetHeight;
+            scheduleSave(state.activePage);
+            // Re-render markers at new size
+            renderAnnotationMarkers(page);
+          };
+
+          document.addEventListener('mousemove', onMove);
+          document.addEventListener('mouseup', onUp);
+        });
+      }
     }
 
     async function handleAnnotationPhoto(page, file) {
@@ -3234,7 +3457,7 @@
         if (e.button !== 0) return; // left click only
         if (!page.data.photo_url_or_base64) return;
         // Ignore if clicking an existing marker or label
-        if (e.target.closest('.marker-dot') || e.target.closest('.marker-label') || e.target.closest('.marker-label-wrap') || e.target.closest('.marker-resize-handle')) return;
+        if (e.target.closest('.marker-dot') || e.target.closest('.marker-label') || e.target.closest('.marker-label-wrap') || e.target.closest('.marker-resize-handle') || e.target.closest('.anno-replace-photo-btn') || e.target.closest('.anno-photo-resize')) return;
 
         const rect = zone.getBoundingClientRect();
         const x = ((e.clientX - rect.left) / rect.width) * 100;
@@ -3896,6 +4119,87 @@
         });
       }
 
+      // ── Helper: update computed cells in-place without re-render ──
+      function updateRowComputed(ri) {
+        const comp = d.components[ri];
+        if (!comp) return;
+        const tr = tbody?.querySelector(`tr[data-row-idx="${ri}"]`);
+        if (!tr) return;
+
+        const tcSpec = parseFloat(comp.tc_spec) || 0;
+        const derating = parseFloat(comp.derating) || 0.9;
+        const derated = tcSpec * derating;
+
+        // Update Derated cell (7th td, index 6)
+        const tds = tr.querySelectorAll('td');
+        // Find derated cell — it's the one after TIM Type input
+        const deratedCell = tds[6]; // 0:cat,1:#,2:name,3:specType,4:tcSpec,5:derating,6:derated
+        if (deratedCell) deratedCell.textContent = derated > 0 ? derated.toFixed(1) : '—';
+
+        // Update margin cells and P/F
+        let rowFail = false;
+        d.ta_conditions.forEach((ta, ti) => {
+          const key = 'ta_' + ta;
+          const measured = comp.readings[key];
+          const measuredNum = parseFloat(measured);
+          let marginStr = '—';
+          let marginClass = 'dt-readonly';
+
+          if (!isNaN(measuredNum) && derated > 0) {
+            const margin = ((derated - measuredNum) / derated) * 100;
+            marginStr = margin.toFixed(1) + '%';
+            if (margin >= 10) marginClass = 'dt-margin-pass';
+            else if (margin >= 0) marginClass = 'dt-margin-warn';
+            else { marginClass = 'dt-margin-fail'; rowFail = true; }
+          }
+
+          // Margin cell: after TIM Type(7) + ta pairs (each ta = 2 cells: input + margin)
+          const marginIdx = 8 + ti * 2 + 1; // 7=tim_type, 8=first ta input, 9=first margin...
+          const marginCell = tds[marginIdx];
+          if (marginCell) {
+            marginCell.textContent = marginStr;
+            marginCell.className = 'dt-ta-col ' + marginClass;
+          }
+        });
+
+        // P/F cell
+        const pfIdx = 8 + d.ta_conditions.length * 2;
+        const pfCell = tds[pfIdx];
+        if (pfCell) {
+          const pfText = rowFail ? '❌ Fail' : (tcSpec > 0 ? '✔ Pass' : '—');
+          pfCell.textContent = pfText;
+          pfCell.className = rowFail ? 'dt-passfail-fail' : 'dt-passfail-pass';
+        }
+
+        // Row fail class
+        tr.classList.toggle('row-fail', rowFail);
+
+        // Update auto-number and category boundary (only for category change)
+        updateAutoNumbers();
+      }
+
+      function updateAutoNumbers() {
+        const catCounters2 = { RF: 0, Digital: 0, PWR: 0 };
+        let prevCat2 = null;
+        tbody?.querySelectorAll('tr[data-row-idx]').forEach(tr => {
+          const idx = parseInt(tr.dataset.rowIdx);
+          const comp = d.components[idx];
+          if (!comp) return;
+          const cat = comp.category;
+          catCounters2[cat] = (catCounters2[cat] || 0) + 1;
+          const autoNum = cat + '-' + catCounters2[cat];
+          const tds = tr.querySelectorAll('td');
+          if (tds[1]) tds[1].textContent = autoNum;
+          // Category boundary
+          if (prevCat2 !== null && cat !== prevCat2) {
+            tr.classList.add('category-boundary');
+          } else {
+            tr.classList.remove('category-boundary');
+          }
+          prevCat2 = cat;
+        });
+      }
+
       // ── Component field bindings ──
       $canvas.querySelectorAll('[data-comp-field]').forEach(el => {
         const eventType = el.tagName === 'SELECT' ? 'change' : 'input';
@@ -3904,9 +4208,9 @@
           const field = el.dataset.compField;
           d.components[ri][field] = el.value;
           scheduleSave(state.activePage);
-          // Re-render for computed fields when category/tc_spec/derating change
+          // Update computed cells in-place without re-render
           if (['category', 'tc_spec', 'derating'].includes(field)) {
-            renderDataPage(page);
+            updateRowComputed(ri);
           }
         });
       });
@@ -3918,8 +4222,8 @@
           const key = el.dataset.taKey;
           d.components[ri].readings[key] = el.value;
           scheduleSave(state.activePage);
-          // Update margin cell live
-          renderDataPage(page);
+          // Update margin cell in-place
+          updateRowComputed(ri);
         });
       });
 
@@ -4614,7 +4918,7 @@
       const page = state.pages[previewIdx];
       if (!page) return;
 
-      const isLandscape = page.type === 'image' || page.type === 'annotation' || page.type === 'sim_vs_meas';
+      const isLandscape = page.type === 'image' || page.type === 'annotation' || page.type === 'sim_vs_meas' || page.type === 'data';
       const w = isLandscape ? 842 : 595;
       const h = isLandscape ? 595 : 842;
 
@@ -4637,26 +4941,49 @@
       wrap.innerHTML = '';
       wrap.appendChild(el);
       footer.textContent = `第 ${previewIdx + 1} 頁 / 共 ${state.pages.length} 頁`;
+
+      // Update preview nav button states
+      const prevBtn = document.getElementById('preview-prev');
+      const nextBtn = document.getElementById('preview-next');
+      if (prevBtn) prevBtn.disabled = previewIdx <= 0;
+      if (nextBtn) nextBtn.disabled = previewIdx >= state.pages.length - 1;
     }
 
-    // Preview navigation
+    // Preview nav buttons
+    document.getElementById('preview-prev').addEventListener('click', () => {
+      if (previewIdx > 0) { previewIdx--; renderPreviewPage(); }
+    });
+    document.getElementById('preview-next').addEventListener('click', () => {
+      if (previewIdx < state.pages.length - 1) { previewIdx++; renderPreviewPage(); }
+    });
+
+    // Keyboard navigation
     document.addEventListener('keydown', (e) => {
       const overlay = document.getElementById('preview-overlay');
-      if (!overlay.classList.contains('open')) return;
+      const isPreviewOpen = overlay.classList.contains('open');
 
-      if (e.key === 'Escape') {
-        closePreview();
-      } else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
-        e.preventDefault();
-        if (previewIdx < state.pages.length - 1) {
-          previewIdx++;
-          renderPreviewPage();
+      // Skip if user is typing in an input/textarea/select
+      const tag = document.activeElement?.tagName;
+      const isTyping = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || document.activeElement?.isContentEditable;
+
+      if (isPreviewOpen) {
+        // Preview mode navigation
+        if (e.key === 'Escape') {
+          closePreview();
+        } else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+          e.preventDefault();
+          if (previewIdx < state.pages.length - 1) { previewIdx++; renderPreviewPage(); }
+        } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+          e.preventDefault();
+          if (previewIdx > 0) { previewIdx--; renderPreviewPage(); }
         }
-      } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+      } else if (!isTyping && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+        // Editor mode: left/right arrow to flip pages (only when not in an input)
         e.preventDefault();
-        if (previewIdx > 0) {
-          previewIdx--;
-          renderPreviewPage();
+        if (e.key === 'ArrowLeft' && state.activePage > 0) {
+          selectPage(state.activePage - 1);
+        } else if (e.key === 'ArrowRight' && state.activePage < state.pages.length - 1) {
+          selectPage(state.activePage + 1);
         }
       }
     });
@@ -4668,7 +4995,7 @@
     const PDF_FONT = '-apple-system, BlinkMacSystemFont, "Helvetica Neue", "PingFang TC", sans-serif';
 
     function renderPageOffscreen(page, container) {
-      const isLandscape = page.type === 'image' || page.type === 'annotation' || page.type === 'sim_vs_meas';
+      const isLandscape = page.type === 'image' || page.type === 'annotation' || page.type === 'sim_vs_meas' || page.type === 'data';
       const w = isLandscape ? 842 : 595;
       const h = isLandscape ? 595 : 842;
 
@@ -4702,17 +5029,24 @@
 
     function buildCoverHTML(d) {
       const hasImg = !!d.cover_image;
+      const imgW = d.cover_image_w || 460;
+      const imgH = d.cover_image_h || 300;
+      // Scale to fit A4 width (595px - 96px padding = ~499px max)
+      const maxPdfW = 499;
+      const scale = imgW > maxPdfW ? maxPdfW / imgW : 1;
+      const pdfW = Math.round(imgW * scale);
+      const pdfH = Math.round(imgH * scale);
       // Uppercase text in JS to avoid html2canvas text-transform bug
       const deptUpper = (d.dept || '').toUpperCase();
       return `<div style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;padding:40px 48px 32px;color:rgba(15,23,42,0.90);overflow:hidden;font-family:${PDF_FONT};letter-spacing:0px;word-spacing:0px;">
         <div style="font-size:14px;letter-spacing:0px;word-spacing:0px;color:rgba(15,23,42,0.50);padding:6px 8px;margin-bottom:16px;text-align:center;width:100%;">${escHtml(deptUpper)}</div>
         ${hasImg
-          ? `<div style="width:380px;height:240px;margin-bottom:24px;flex-shrink:0;display:flex;align-items:center;justify-content:center;overflow:hidden;border-radius:8px;">
+          ? `<div style="width:${pdfW}px;height:${pdfH}px;margin-bottom:24px;flex-shrink:0;display:flex;align-items:center;justify-content:center;overflow:hidden;border-radius:8px;">
                <img src="${escapeAttr(d.cover_image)}" style="max-width:100%;max-height:100%;object-fit:contain;">
              </div>`
-          : `<div style="width:380px;height:240px;margin-bottom:24px;flex-shrink:0;"></div>`}
-        <div style="font-size:26px;font-weight:700;text-align:center;letter-spacing:0px;word-spacing:0px;padding:8px;margin-bottom:4px;width:100%;">${escHtml(d.project_name)}</div>
-        <div style="font-size:17px;font-weight:500;text-align:center;letter-spacing:0px;word-spacing:0px;color:rgba(15,23,42,0.65);padding:6px 8px;margin-bottom:24px;width:100%;">${escHtml(d.model)}</div>
+          : `<div style="width:${pdfW}px;height:${pdfH}px;margin-bottom:24px;flex-shrink:0;"></div>`}
+        <div style="font-size:26px;font-weight:700;text-align:center;letter-spacing:0px;word-spacing:0px;padding:8px;margin-bottom:4px;width:100%;">${escHtml(d.model)}</div>
+        <div style="font-size:17px;font-weight:500;text-align:center;letter-spacing:0px;word-spacing:0px;color:rgba(15,23,42,0.65);padding:6px 8px;margin-bottom:24px;width:100%;">${escHtml(d.project_name)}</div>
         <div style="display:grid;grid-template-columns:auto 1fr;gap:8px 16px;align-items:center;width:100%;max-width:380px;margin-top:auto;padding-top:16px;letter-spacing:0px;word-spacing:0px;">
           <span style="font-size:12px;font-weight:600;letter-spacing:0px;word-spacing:0px;color:rgba(15,23,42,0.45);text-align:right;">STAGE</span>
           <span style="font-size:14px;letter-spacing:0px;word-spacing:0px;padding:4px 8px;">${escHtml(d.stage)}</span>
@@ -4761,7 +5095,11 @@
       const markers = d.markers || [];
       // Workspace: 842 × ~555 (full height minus title ~40px)
       const wsW = 842, wsH = 555;
-      const pzL = 80, pzT = 60, pzW = wsW - 160, pzH = wsH - 120;
+      const pzW = d.anno_photo_w || 680;
+      const pzH = d.anno_photo_h || 430;
+      // Center the photo zone within the workspace
+      const pzL = Math.round((wsW - pzW) / 2);
+      const pzT = Math.round((wsH - pzH) / 2);
 
       let dots = '', svgLines = '';
       markers.forEach((m, idx) => {
@@ -4779,7 +5117,7 @@
 
       return `<div style="width:100%;height:100%;display:flex;flex-direction:column;overflow:hidden;position:relative;color:rgba(15,23,42,0.90);letter-spacing:0px;word-spacing:0px;">
         <div style="font-size:16px;font-weight:700;letter-spacing:0px;word-spacing:0px;padding:12px 16px 8px;flex-shrink:0;">${escHtml(d.title)}</div>
-        <div style="flex:1;position:relative;overflow:hidden;">
+        <div style="flex:1;position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;">
           ${hasPhoto ? `<div style="position:absolute;top:${pzT}px;left:${pzL}px;width:${pzW}px;height:${pzH}px;border:1px solid rgba(15,23,42,0.08);border-radius:6px;overflow:hidden;display:flex;align-items:center;justify-content:center;">
             <img src="${escapeAttr(d.photo_url_or_base64)}" style="width:100%;height:100%;object-fit:contain;">
           </div>` : ''}
@@ -5014,7 +5352,7 @@
       try {
         for (let i = 0; i < state.pages.length; i++) {
           const page = state.pages[i];
-const isLandscape = page.type === 'image' || page.type === 'annotation' || page.type === 'sim_vs_meas';
+const isLandscape = page.type === 'image' || page.type === 'annotation' || page.type === 'sim_vs_meas' || page.type === 'data';
           const w = isLandscape ? 842 : 595;
           const h = isLandscape ? 595 : 842;
 
@@ -5130,6 +5468,7 @@ const isLandscape = page.type === 'image' || page.type === 'annotation' || page.
       $hpGrid.innerHTML = reports.map(r => `
         <div class="hp-card" data-report-id="${escapeAttr(r.id)}">
           <div class="hp-card-title">${escapeAttr(r.project_name || '未命名報告')}</div>
+          ${r.model ? `<div class="hp-card-date" style="font-size:12px;margin-top:-4px;">${escapeAttr(r.model)}</div>` : ''}
           <div class="hp-card-meta">
             ${r.stage ? `<span class="hp-badge">${escapeAttr(r.stage)}</span>` : ''}
             ${r.date ? `<span class="hp-card-date">${escapeAttr(r.date)}</span>` : ''}
@@ -5184,6 +5523,10 @@ const isLandscape = page.type === 'image' || page.type === 'annotation' || page.
               <input type="text" id="hp-new-name" placeholder="輸入案名（Project Name）" autofocus>
             </div>
             <div class="hp-modal-field">
+              <label>產品型號</label>
+              <input type="text" id="hp-new-model" placeholder="輸入型號（Model）">
+            </div>
+            <div class="hp-modal-field">
               <label>Stage</label>
               <select id="hp-new-stage">
                 ${['Prototype','EVT','DVT','PVT','MP'].map(s =>
@@ -5210,10 +5553,11 @@ const isLandscape = page.type === 'image' || page.type === 'annotation' || page.
       overlay.querySelector('#hp-new-confirm').addEventListener('click', async () => {
         const name = overlay.querySelector('#hp-new-name').value.trim();
         if (!name) { overlay.querySelector('#hp-new-name').focus(); return; }
+        const model = overlay.querySelector('#hp-new-model').value.trim();
         const stage = overlay.querySelector('#hp-new-stage').value;
         const date = overlay.querySelector('#hp-new-date').value;
         document.body.removeChild(overlay);
-        await createNewReport(name, stage, date);
+        await createNewReport(name, model, stage, date);
       });
 
       // Enter key
@@ -5224,7 +5568,7 @@ const isLandscape = page.type === 'image' || page.type === 'annotation' || page.
       setTimeout(() => overlay.querySelector('#hp-new-name').focus(), 100);
     }
 
-    async function createNewReport(name, stage, date) {
+    async function createNewReport(name, model, stage, date) {
       const id = 'rpt_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
       const now = new Date().toISOString();
 
@@ -5234,6 +5578,7 @@ const isLandscape = page.type === 'image' || page.type === 'annotation' || page.
           const docRef = window._doc(window._db, 'thermal_reports', id);
           await window._setDoc(docRef, {
             project_name: name,
+            model: model,
             stage: stage,
             date: date,
             created_at: now,
@@ -5253,6 +5598,7 @@ const isLandscape = page.type === 'image' || page.type === 'annotation' || page.
       const cover = state.pages[0];
       if (cover) {
         cover.data.project_name = name;
+        cover.data.model = model;
         cover.data.stage = stage;
         cover.data.date = date;
         scheduleSave(0);
@@ -5395,6 +5741,7 @@ const isLandscape = page.type === 'image' || page.type === 'annotation' || page.
         };
         if (coverPage) {
           meta.project_name = coverPage.data.project_name || '';
+          meta.model = coverPage.data.model || '';
           meta.stage = coverPage.data.stage || '';
           meta.date = coverPage.data.date || '';
         }

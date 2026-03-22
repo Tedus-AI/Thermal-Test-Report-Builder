@@ -1266,6 +1266,319 @@
     .sensor-table input:focus { background: rgba(56,189,248,0.05); }
     .sensor-table select { cursor: pointer; appearance: auto; width: auto; }
 
+    /* ━━━ Sim vs Meas Comparison Page ━━━ */
+    .sim-page {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      padding: 20px 24px 16px;
+      font-family: var(--font-ui);
+      color: var(--text-on-white);
+      overflow-y: auto;
+      gap: 10px;
+    }
+
+    .sim-page-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .sim-page-title {
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: rgba(15,23,42,0.50);
+    }
+
+    .sim-select-btn {
+      padding: 4px 12px;
+      font-size: 11px;
+      font-family: var(--font-ui);
+      color: rgba(56,189,248,0.85);
+      background: rgba(56,189,248,0.08);
+      border: 1px solid rgba(56,189,248,0.20);
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background var(--transition-fast);
+    }
+    .sim-select-btn:hover {
+      background: rgba(56,189,248,0.15);
+    }
+
+    /* Image pair zone */
+    .sim-images {
+      display: flex;
+      gap: 12px;
+      flex-shrink: 0;
+    }
+
+    .sim-img-zone {
+      flex: 1;
+      height: 170px;
+      border: 2px dashed rgba(15,23,42,0.14);
+      border-radius: 6px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      transition: border-color var(--transition-fast), background var(--transition-fast);
+    }
+    .sim-img-zone:hover {
+      border-color: rgba(56,189,248,0.35);
+      background: rgba(56,189,248,0.02);
+    }
+    .sim-img-zone.dragover {
+      border-color: var(--color-primary);
+      background: rgba(56,189,248,0.06);
+    }
+    .sim-img-zone.has-image {
+      border: 1px solid rgba(15,23,42,0.10);
+    }
+    .sim-img-zone.has-image img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+
+    .sim-img-placeholder {
+      text-align: center;
+      color: rgba(15,23,42,0.28);
+      font-size: 11px;
+      pointer-events: none;
+    }
+    .sim-img-placeholder .icon {
+      font-size: 24px;
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .sim-img-label {
+      font-size: 9px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: rgba(15,23,42,0.35);
+      margin-top: 4px;
+      text-align: center;
+    }
+
+    .sim-img-caption {
+      width: 100%;
+      font-family: var(--font-ui);
+      font-size: 10px;
+      color: var(--text-on-white);
+      border: none;
+      outline: none;
+      background: transparent;
+      text-align: center;
+      padding: 3px 4px;
+      border-top: 1px solid rgba(15,23,42,0.06);
+    }
+    .sim-img-caption::placeholder { color: rgba(15,23,42,0.20); }
+    .sim-img-caption:focus { background: rgba(56,189,248,0.03); }
+
+    .sim-img-actions {
+      position: absolute;
+      top: 4px;
+      right: 4px;
+      display: flex;
+      gap: 4px;
+      opacity: 0;
+      transition: opacity var(--transition-fast);
+    }
+    .sim-img-zone:hover .sim-img-actions { opacity: 1; }
+
+    .sim-img-action-btn {
+      padding: 2px 6px;
+      font-size: 9px;
+      font-family: var(--font-ui);
+      color: #fff;
+      background: rgba(0,0,0,0.5);
+      border: none;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+    .sim-img-action-btn.danger { background: rgba(220,38,38,0.7); }
+
+    /* Comparison table */
+    .sim-table-wrap {
+      flex: 1;
+      overflow: auto;
+      border: 1px solid rgba(15,23,42,0.10);
+      border-radius: 6px;
+    }
+
+    .sim-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 10px;
+    }
+
+    .sim-table th {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      text-align: left;
+      font-size: 8px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: rgba(15,23,42,0.50);
+      padding: 4px 6px;
+      background: rgba(15,23,42,0.03);
+      border-bottom: 2px solid rgba(15,23,42,0.10);
+      white-space: nowrap;
+    }
+
+    .sim-table td {
+      padding: 3px 5px;
+      border-bottom: 1px solid rgba(15,23,42,0.05);
+      vertical-align: middle;
+      white-space: nowrap;
+    }
+
+    .sim-table input {
+      font-family: var(--font-ui);
+      font-size: 10px;
+      color: var(--text-on-white);
+      border: none;
+      outline: none;
+      background: transparent;
+      padding: 2px 3px;
+      width: 100%;
+    }
+    .sim-table input::placeholder { color: rgba(15,23,42,0.20); }
+    .sim-table input:focus { background: rgba(56,189,248,0.05); }
+
+    .sim-table .sim-readonly {
+      color: rgba(15,23,42,0.55);
+      font-size: 10px;
+    }
+
+    .sim-dev-good  { background: #dcfce7 !important; color: #15803d !important; font-weight: 600; text-align: center; }
+    .sim-dev-warn  { background: #fef9c3 !important; color: #a16207 !important; font-weight: 600; text-align: center; }
+    .sim-dev-bad   { background: #fee2e2 !important; color: #b91c1c !important; font-weight: 600; text-align: center; }
+
+    .sim-table .sim-judge { text-align: center; font-size: 12px; }
+
+    /* Bottom note */
+    .sim-note-input {
+      width: 100%;
+      font-family: var(--font-ui);
+      font-size: 11px;
+      color: var(--text-on-white);
+      border: 1px solid rgba(15,23,42,0.10);
+      border-radius: 4px;
+      outline: none;
+      padding: 6px 8px;
+      background: transparent;
+      flex-shrink: 0;
+    }
+    .sim-note-input::placeholder { color: rgba(15,23,42,0.22); }
+    .sim-note-input:focus { border-color: rgba(56,189,248,0.4); }
+
+    /* Component selection modal */
+    .sim-modal-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 9000;
+      background: rgba(0,0,0,0.5);
+      backdrop-filter: blur(4px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .sim-modal {
+      width: 420px;
+      max-height: 70vh;
+      background: rgba(15,23,42,0.92);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255,255,255,0.10);
+      border-radius: 10px;
+      box-shadow: 0 16px 48px rgba(0,0,0,0.5);
+      color: #e2e8f0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .sim-modal-header {
+      padding: 14px 16px;
+      font-size: 14px;
+      font-weight: 700;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .sim-modal-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px 0;
+    }
+
+    .sim-modal-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 16px;
+      cursor: pointer;
+      transition: background var(--transition-fast);
+    }
+    .sim-modal-item:hover { background: rgba(255,255,255,0.05); }
+
+    .sim-modal-item input[type="checkbox"] {
+      accent-color: #38bdf8;
+      width: 16px;
+      height: 16px;
+      flex-shrink: 0;
+    }
+
+    .sim-modal-item-label {
+      font-size: 13px;
+    }
+
+    .sim-modal-item-cat {
+      font-size: 10px;
+      padding: 1px 6px;
+      border-radius: 3px;
+      font-weight: 600;
+    }
+    .sim-modal-item-cat.cat-rf { background: rgba(59,130,246,0.2); color: #60a5fa; }
+    .sim-modal-item-cat.cat-digital { background: rgba(139,92,246,0.2); color: #a78bfa; }
+    .sim-modal-item-cat.cat-pwr { background: rgba(249,115,22,0.2); color: #fb923c; }
+
+    .sim-modal-footer {
+      padding: 10px 16px;
+      border-top: 1px solid rgba(255,255,255,0.08);
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    .sim-modal-btn {
+      padding: 6px 16px;
+      font-size: 12px;
+      font-family: var(--font-ui);
+      border-radius: 5px;
+      border: 1px solid rgba(255,255,255,0.12);
+      cursor: pointer;
+      background: transparent;
+      color: #e2e8f0;
+      transition: background var(--transition-fast);
+    }
+    .sim-modal-btn:hover { background: rgba(255,255,255,0.08); }
+    .sim-modal-btn.primary {
+      background: rgba(56,189,248,0.25);
+      border-color: rgba(56,189,248,0.35);
+    }
+    .sim-modal-btn.primary:hover { background: rgba(56,189,248,0.4); }
+
     /* ━━━ Image Page Module (A4 Landscape 842×595) ━━━ */
     #editor-canvas.landscape {
       --canvas-aspect: 842 / 595;
@@ -1725,6 +2038,7 @@
             <button class="dropdown-item" data-type="image">🖼 圖片頁</button>
             <button class="dropdown-item" data-type="annotation">📍 標註頁</button>
             <button class="dropdown-item" data-type="data">📊 數據頁</button>
+            <button class="dropdown-item" data-type="sim_vs_meas">📉 比對頁</button>
             <button class="dropdown-item" data-type="conclusion">📝 結論頁</button>
           </div>
         </div>
@@ -1750,6 +2064,7 @@
               <button class="dropdown-item" data-type="image">🖼 圖片頁</button>
               <button class="dropdown-item" data-type="annotation">📍 標註頁</button>
               <button class="dropdown-item" data-type="data">📊 數據頁</button>
+              <button class="dropdown-item" data-type="sim_vs_meas">📉 比對頁</button>
               <button class="dropdown-item" data-type="conclusion">📝 結論頁</button>
             </div>
           </div>
@@ -1968,6 +2283,7 @@
           else if (type === 'image') addImagePage();
           else if (type === 'annotation') addAnnotationPage();
           else if (type === 'data') addDataPage();
+          else if (type === 'sim_vs_meas') addSimVsMeasPage();
           else if (type === 'conclusion') addConclusionPage();
         });
       });
@@ -2030,6 +2346,7 @@
           }
           label = '數據頁 ' + dataCount;
         }
+        if (page.type === 'sim_vs_meas') { icon = '📉'; label = '比對頁'; }
         if (page.type === 'conclusion') { icon = '📝'; label = '結論頁'; }
 
         el.textContent = icon + ' ' + label;
@@ -2122,7 +2439,7 @@
 
       const page = state.pages[state.activePage];
       // Switch canvas orientation
-      if (page.type === 'image' || page.type === 'annotation') {
+      if (page.type === 'image' || page.type === 'annotation' || page.type === 'sim_vs_meas') {
         $canvas.classList.add('landscape');
       } else {
         $canvas.classList.remove('landscape');
@@ -2136,6 +2453,8 @@
         renderAnnotationPage(page);
       } else if (page.type === 'data') {
         renderDataPage(page);
+      } else if (page.type === 'sim_vs_meas') {
+        renderSimVsMeasPage(page);
       } else if (page.type === 'conclusion') {
         renderConclusionPage(page);
       }
@@ -3382,6 +3701,366 @@
       }
     }
 
+    // ━━━ Sim vs Meas Comparison Page Module ━━━
+    function addSimVsMeasPage() {
+      const page = {
+        id: 'page_' + Date.now(),
+        type: 'sim_vs_meas',
+        order: state.pages.length,
+        data: {
+          title: '',
+          sim_image: '',
+          meas_image: '',
+          sim_note: '',
+          items: [],
+        }
+      };
+      state.pages.push(page);
+      renderPageList();
+      selectPage(state.pages.length - 1);
+      scheduleSave(state.pages.length - 1);
+    }
+
+    function getDataPageComponents() {
+      // Gather all components from all data pages
+      const result = [];
+      state.pages.forEach(p => {
+        if (p.type !== 'data') return;
+        const comps = p.data.components || [];
+        const tas = p.data.ta_conditions || [];
+        const catCounters = { RF: 0, Digital: 0, PWR: 0 };
+        comps.forEach(comp => {
+          const cat = comp.category || 'RF';
+          catCounters[cat] = (catCounters[cat] || 0) + 1;
+          const tcSpec = parseFloat(comp.tc_spec) || 0;
+          const derating = parseFloat(comp.derating) || 0.9;
+          const derated = tcSpec * derating;
+
+          // Find meas Tc at Ta=55 (or highest Ta)
+          let measTc = '';
+          const ta55Key = 'ta_55';
+          if (comp.readings && comp.readings[ta55Key] !== undefined && comp.readings[ta55Key] !== '') {
+            measTc = comp.readings[ta55Key];
+          } else if (tas.length > 0) {
+            // Fallback: use the last (highest) Ta
+            const lastTa = tas[tas.length - 1];
+            const lastKey = 'ta_' + lastTa;
+            if (comp.readings && comp.readings[lastKey] !== undefined) {
+              measTc = comp.readings[lastKey];
+            }
+          }
+
+          result.push({
+            category: cat,
+            component_name: comp.name || ('(' + cat + '-' + catCounters[cat] + ')'),
+            tc_derated: derated,
+            meas_tc: measTc,
+            sourceId: cat + '-' + catCounters[cat],
+          });
+        });
+      });
+      return result;
+    }
+
+    function showComponentSelectModal(page, callback) {
+      const available = getDataPageComponents();
+      if (available.length === 0) {
+        alert('尚無數據頁元件可選取。請先在數據頁新增元件。');
+        return;
+      }
+
+      // Track already-selected names
+      const existing = new Set((page.data.items || []).map(it => it.component_name));
+
+      const overlay = document.createElement('div');
+      overlay.className = 'sim-modal-overlay';
+
+      let itemsHTML = available.map((comp, i) => {
+        const checked = existing.has(comp.component_name) ? 'checked' : '';
+        const catClass = comp.category === 'RF' ? 'cat-rf' : comp.category === 'Digital' ? 'cat-digital' : 'cat-pwr';
+        return `<label class="sim-modal-item">
+          <input type="checkbox" value="${i}" ${checked}>
+          <span class="sim-modal-item-cat ${catClass}">${comp.category}</span>
+          <span class="sim-modal-item-label">${escapeAttr(comp.component_name)}</span>
+        </label>`;
+      }).join('');
+
+      overlay.innerHTML = `
+        <div class="sim-modal">
+          <div class="sim-modal-header">從數據頁選取元件</div>
+          <div class="sim-modal-body">${itemsHTML}</div>
+          <div class="sim-modal-footer">
+            <button class="sim-modal-btn" id="sim-modal-cancel">取消</button>
+            <button class="sim-modal-btn primary" id="sim-modal-confirm">確認選取</button>
+          </div>
+        </div>
+      `;
+
+      document.body.appendChild(overlay);
+
+      overlay.querySelector('#sim-modal-cancel').addEventListener('click', () => {
+        document.body.removeChild(overlay);
+      });
+
+      overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) document.body.removeChild(overlay);
+      });
+
+      overlay.querySelector('#sim-modal-confirm').addEventListener('click', () => {
+        const checked = overlay.querySelectorAll('input[type="checkbox"]:checked');
+        const selected = [];
+        checked.forEach(cb => {
+          const comp = available[parseInt(cb.value)];
+          // Preserve existing sim_tc / note if already present
+          const existingItem = (page.data.items || []).find(it => it.component_name === comp.component_name);
+          selected.push({
+            category: comp.category,
+            component_name: comp.component_name,
+            tc_derated: comp.tc_derated,
+            sim_tc: existingItem ? existingItem.sim_tc : '',
+            meas_tc: comp.meas_tc,
+            note: existingItem ? existingItem.note : '',
+          });
+        });
+        document.body.removeChild(overlay);
+        callback(selected);
+      });
+    }
+
+    function renderSimVsMeasPage(page) {
+      const d = page.data;
+      if (!d.items) d.items = [];
+
+      const hasSim = !!d.sim_image;
+      const hasMeas = !!d.meas_image;
+
+      // Refresh meas_tc from data pages
+      const latestComps = getDataPageComponents();
+      d.items.forEach(item => {
+        const match = latestComps.find(c => c.component_name === item.component_name && c.category === item.category);
+        if (match) {
+          item.meas_tc = match.meas_tc;
+          item.tc_derated = match.tc_derated;
+        }
+      });
+
+      // Build table rows
+      const rows = d.items.map((item, i) => {
+        const simTc = parseFloat(item.sim_tc);
+        const measTc = parseFloat(item.meas_tc);
+        let devC = '—', devPct = '—', judgeText = '—', devCClass = '', devPClass = '', judgeClass = '';
+
+        if (!isNaN(simTc) && !isNaN(measTc)) {
+          const dc = simTc - measTc;
+          devC = dc.toFixed(1);
+          if (measTc !== 0) {
+            const dp = (dc / measTc) * 100;
+            devPct = dp.toFixed(1) + '%';
+            const absDp = Math.abs(dp);
+            if (absDp <= 10) {
+              devCClass = devPClass = 'sim-dev-good';
+              judgeText = '✅'; judgeClass = 'sim-dev-good';
+            } else if (absDp <= 20) {
+              devCClass = devPClass = 'sim-dev-warn';
+              judgeText = '⚠️'; judgeClass = 'sim-dev-warn';
+            } else {
+              devCClass = devPClass = 'sim-dev-bad';
+              judgeText = '❌'; judgeClass = 'sim-dev-bad';
+            }
+          }
+        }
+
+        const catClass = item.category === 'RF' ? 'cat-rf' : item.category === 'Digital' ? 'cat-digital' : 'cat-pwr';
+
+        return `<tr data-sim-row="${i}">
+          <td><span class="dt-cat-strip ${catClass}"></span><span class="sim-readonly">${escapeAttr(item.category)}</span></td>
+          <td class="sim-readonly">${escapeAttr(item.component_name)}</td>
+          <td class="sim-readonly">${item.tc_derated ? parseFloat(item.tc_derated).toFixed(1) : '—'}</td>
+          <td><input type="number" step="any" style="width:55px;text-align:center;" placeholder="—" value="${item.sim_tc !== undefined && item.sim_tc !== '' ? escapeAttr(String(item.sim_tc)) : ''}" data-sim-idx="${i}" data-sim-field="sim_tc"></td>
+          <td class="sim-readonly">${!isNaN(measTc) ? measTc.toFixed(1) : '—'}</td>
+          <td class="${devCClass}" style="text-align:center;">${devC}</td>
+          <td class="${devPClass}" style="text-align:center;">${devPct}</td>
+          <td class="sim-judge ${judgeClass}">${judgeText}</td>
+          <td><input type="text" placeholder="備註" value="${escapeAttr(item.note || '')}" data-sim-idx="${i}" data-sim-field="note"></td>
+        </tr>`;
+      }).join('');
+
+      $canvas.innerHTML = `
+        <div class="sim-page">
+          <div class="sim-page-top">
+            <div class="sim-page-title">Simulation vs Measurement Comparison</div>
+            <button class="sim-select-btn" id="sim-select-comp">從數據頁選取元件</button>
+          </div>
+
+          <!-- Image pair -->
+          <div class="sim-images">
+            <div style="flex:1;display:flex;flex-direction:column;gap:2px;">
+              <div class="sim-img-zone ${hasSim ? 'has-image' : ''}" id="sim-img-zone-sim">
+                ${hasSim
+                  ? `<img src="${escapeAttr(d.sim_image)}" alt="FloTHERM">
+                     <div class="sim-img-actions">
+                       <button class="sim-img-action-btn" id="sim-replace-sim">替換</button>
+                       <button class="sim-img-action-btn danger" id="sim-delete-sim">刪除</button>
+                     </div>`
+                  : `<div class="sim-img-placeholder"><span class="icon">🖥</span>FloTHERM 截圖</div>`}
+                <input type="file" accept="image/*" id="sim-file-sim" style="display:none">
+              </div>
+              <div class="sim-img-label">FloTHERM Simulation</div>
+            </div>
+            <div style="flex:1;display:flex;flex-direction:column;gap:2px;">
+              <div class="sim-img-zone ${hasMeas ? 'has-image' : ''}" id="sim-img-zone-meas">
+                ${hasMeas
+                  ? `<img src="${escapeAttr(d.meas_image)}" alt="Measurement">
+                     <div class="sim-img-actions">
+                       <button class="sim-img-action-btn" id="sim-replace-meas">替換</button>
+                       <button class="sim-img-action-btn danger" id="sim-delete-meas">刪除</button>
+                     </div>`
+                  : `<div class="sim-img-placeholder"><span class="icon">📷</span>IR / TC 量測照片</div>`}
+                <input type="file" accept="image/*" id="sim-file-meas" style="display:none">
+              </div>
+              <div class="sim-img-label">Measurement (IR / TC)</div>
+            </div>
+          </div>
+
+          <!-- Comparison table -->
+          <div class="sim-table-wrap">
+            <table class="sim-table">
+              <thead>
+                <tr>
+                  <th>類別</th>
+                  <th>元件名稱</th>
+                  <th>Derated</th>
+                  <th>Sim Tc</th>
+                  <th>Meas Tc</th>
+                  <th>Dev (°C)</th>
+                  <th>Dev (%)</th>
+                  <th>判斷</th>
+                  <th>備註</th>
+                </tr>
+              </thead>
+              <tbody id="sim-tbody">${rows}</tbody>
+            </table>
+          </div>
+
+          <!-- Bottom note -->
+          <input class="sim-note-input" type="text" placeholder="請輸入模擬條件說明，如邊界條件假設、功耗設定..."
+                 value="${escapeAttr(d.sim_note || '')}" id="sim-note">
+        </div>
+      `;
+
+      // ── Select components button ──
+      document.getElementById('sim-select-comp').addEventListener('click', () => {
+        showComponentSelectModal(page, (selected) => {
+          d.items = selected;
+          scheduleSave(state.activePage);
+          renderSimVsMeasPage(page);
+        });
+      });
+
+      // ── Image handlers ──
+      setupSimImageZone(page, 'sim', 'sim_image');
+      setupSimImageZone(page, 'meas', 'meas_image');
+
+      // ── Sim Tc input ──
+      $canvas.querySelectorAll('[data-sim-field="sim_tc"]').forEach(el => {
+        el.addEventListener('input', () => {
+          const idx = parseInt(el.dataset.simIdx);
+          d.items[idx].sim_tc = el.value;
+          scheduleSave(state.activePage);
+          // Re-render for computed Dev columns
+          renderSimVsMeasPage(page);
+        });
+      });
+
+      // ── Note fields ──
+      $canvas.querySelectorAll('[data-sim-field="note"]').forEach(el => {
+        el.addEventListener('input', () => {
+          const idx = parseInt(el.dataset.simIdx);
+          d.items[idx].note = el.value;
+          scheduleSave(state.activePage);
+        });
+      });
+
+      // ── Bottom sim note ──
+      const simNote = document.getElementById('sim-note');
+      if (simNote) {
+        simNote.addEventListener('input', () => {
+          d.sim_note = simNote.value;
+          scheduleSave(state.activePage);
+        });
+      }
+
+      // ── Row right-click delete ──
+      const simTbody = document.getElementById('sim-tbody');
+      if (simTbody) {
+        simTbody.addEventListener('contextmenu', (e) => {
+          const tr = e.target.closest('tr[data-sim-row]');
+          if (!tr) return;
+          e.preventDefault();
+          const ri = parseInt(tr.dataset.simRow);
+          if (confirm('確定要移除此比對元件？')) {
+            d.items.splice(ri, 1);
+            scheduleSave(state.activePage);
+            renderSimVsMeasPage(page);
+          }
+        });
+      }
+    }
+
+    function setupSimImageZone(page, key, dataField) {
+      const zone = document.getElementById('sim-img-zone-' + key);
+      const fileInput = document.getElementById('sim-file-' + key);
+      if (!zone || !fileInput) return;
+
+      const handleFile = async (file) => {
+        if (!file || !file.type.startsWith('image/')) return;
+        const imageData = await processImage(file);
+        page.data[dataField] = imageData;
+        scheduleSave(state.activePage);
+        renderSimVsMeasPage(page);
+      };
+
+      zone.addEventListener('click', (e) => {
+        if (e.target.closest('.sim-img-action-btn')) return;
+        fileInput.click();
+      });
+
+      fileInput.addEventListener('change', () => {
+        if (fileInput.files.length > 0) handleFile(fileInput.files[0]);
+      });
+
+      zone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        zone.classList.add('dragover');
+      });
+      zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+      zone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        zone.classList.remove('dragover');
+        if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+      });
+
+      // Replace / Delete
+      const replaceBtn = document.getElementById('sim-replace-' + key);
+      const deleteBtn = document.getElementById('sim-delete-' + key);
+
+      if (replaceBtn) {
+        replaceBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          fileInput.click();
+        });
+      }
+
+      if (deleteBtn) {
+        deleteBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          page.data[dataField] = '';
+          scheduleSave(state.activePage);
+          renderSimVsMeasPage(page);
+        });
+      }
+    }
+
     // ━━━ Conclusion Page Module ━━━
     function addConclusionPage() {
       const page = {
@@ -3632,7 +4311,7 @@
       const page = state.pages[previewIdx];
       if (!page) return;
 
-      const isLandscape = page.type === 'image' || page.type === 'annotation';
+      const isLandscape = page.type === 'image' || page.type === 'annotation' || page.type === 'sim_vs_meas';
       const w = isLandscape ? 842 : 595;
       const h = isLandscape ? 595 : 842;
 
@@ -3684,7 +4363,7 @@
     const PDF_FONT = '-apple-system, BlinkMacSystemFont, "Helvetica Neue", "PingFang TC", sans-serif';
 
     function renderPageOffscreen(page, container) {
-      const isLandscape = page.type === 'image' || page.type === 'annotation';
+      const isLandscape = page.type === 'image' || page.type === 'annotation' || page.type === 'sim_vs_meas';
       const w = isLandscape ? 842 : 595;
       const h = isLandscape ? 595 : 842;
 
@@ -3883,7 +4562,7 @@
       try {
         for (let i = 0; i < state.pages.length; i++) {
           const page = state.pages[i];
-const isLandscape = page.type === 'image' || page.type === 'annotation';
+const isLandscape = page.type === 'image' || page.type === 'annotation' || page.type === 'sim_vs_meas';
           const w = isLandscape ? 842 : 595;
           const h = isLandscape ? 595 : 842;
 

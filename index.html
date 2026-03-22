@@ -8,8 +8,8 @@
   <!-- Firebase SDK 10.x via CDN -->
   <script type="module">
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js';
-    import { getFirestore, enableIndexedDbPersistence, doc, setDoc, getDoc, deleteDoc, collection, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js';
-    import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-storage.js';
+    import { getFirestore, enableIndexedDbPersistence, doc, setDoc, getDoc, deleteDoc, getDocs, collection, query, orderBy, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js';
+    import { getStorage, ref as storageRef, uploadBytes, getDownloadURL, listAll, deleteObject } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-storage.js';
 
     const firebaseConfig = {
       apiKey: "AIzaSyBBhIIGUe3yzxarC3OHoIhuFr5Yg8IfAoo",
@@ -44,6 +44,11 @@
     window._storageRef = storageRef;
     window._uploadBytes = uploadBytes;
     window._getDownloadURL = getDownloadURL;
+    window._getDocs = getDocs;
+    window._query = query;
+    window._orderBy = orderBy;
+    window._listAll = listAll;
+    window._deleteObject = deleteObject;
 
     console.log('✅ Firebase initialized (Firestore + Storage + Offline Persistence)');
   </script>
@@ -868,6 +873,717 @@
       background: rgba(56,189,248,0.04);
     }
 
+    /* ━━━ Data Page Module (A4 Portrait) ━━━ */
+    .data-page {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      padding: 28px 32px 24px;
+      font-family: var(--font-ui);
+      color: var(--text-on-white);
+      overflow-y: auto;
+    }
+
+    .data-page-title {
+      font-size: 14px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: rgba(15,23,42,0.50);
+      margin-bottom: 16px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid rgba(15,23,42,0.08);
+    }
+
+    .data-header-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px 24px;
+      margin-bottom: 16px;
+    }
+
+    .data-field {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .data-field-label {
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: rgba(15,23,42,0.40);
+    }
+
+    .data-field input,
+    .data-field select {
+      font-family: var(--font-ui);
+      font-size: 12px;
+      color: var(--text-on-white);
+      border: 1px solid rgba(15,23,42,0.10);
+      border-radius: 4px;
+      outline: none;
+      background: transparent;
+      padding: 5px 8px;
+      transition: border-color var(--transition-fast), background var(--transition-fast);
+    }
+
+    .data-field input::placeholder {
+      color: rgba(15,23,42,0.25);
+    }
+
+    .data-field input:hover,
+    .data-field select:hover {
+      border-color: rgba(15,23,42,0.20);
+    }
+
+    .data-field input:focus,
+    .data-field select:focus {
+      border-color: rgba(56,189,248,0.45);
+      background: rgba(56,189,248,0.03);
+    }
+
+    .data-field-unit {
+      display: flex;
+      align-items: center;
+      gap: 0;
+    }
+
+    .data-field-unit input {
+      border-top-right-radius: 0;
+      border-bottom-right-radius: 0;
+      flex: 1;
+    }
+
+    .data-field-unit .unit-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: rgba(15,23,42,0.40);
+      background: rgba(15,23,42,0.04);
+      border: 1px solid rgba(15,23,42,0.10);
+      border-left: none;
+      border-radius: 0 4px 4px 0;
+      padding: 5px 8px;
+      white-space: nowrap;
+    }
+
+    /* Ta conditions */
+    .ta-section {
+      border-top: 1px solid rgba(15,23,42,0.08);
+      padding-top: 12px;
+      margin-bottom: 16px;
+    }
+
+    .ta-section-title {
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: rgba(15,23,42,0.40);
+      margin-bottom: 8px;
+    }
+
+    .ta-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .ta-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 10px;
+      font-size: 12px;
+      font-weight: 500;
+      color: #0e7490;
+      background: rgba(6,182,212,0.10);
+      border: 1px solid rgba(6,182,212,0.20);
+      border-radius: 14px;
+      white-space: nowrap;
+    }
+
+    .ta-tag-remove {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 16px;
+      height: 16px;
+      font-size: 12px;
+      line-height: 1;
+      color: rgba(14,116,144,0.5);
+      background: transparent;
+      border: none;
+      border-radius: 50%;
+      cursor: pointer;
+      padding: 0;
+      transition: color var(--transition-fast), background var(--transition-fast);
+    }
+
+    .ta-tag-remove:hover {
+      color: #991b1b;
+      background: rgba(239,68,68,0.12);
+    }
+
+    .ta-add-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      padding: 4px 10px;
+      font-size: 12px;
+      font-family: var(--font-ui);
+      color: rgba(56,189,248,0.7);
+      background: transparent;
+      border: 1px dashed rgba(56,189,248,0.25);
+      border-radius: 14px;
+      cursor: pointer;
+      transition: background var(--transition-fast), border-color var(--transition-fast);
+    }
+
+    .ta-add-btn:hover {
+      background: rgba(56,189,248,0.06);
+      border-color: rgba(56,189,248,0.5);
+    }
+
+    /* Data body placeholder */
+    .data-body-placeholder {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px dashed rgba(15,23,42,0.12);
+      border-radius: 6px;
+      font-size: 13px;
+      color: rgba(15,23,42,0.25);
+    }
+
+    /* ━━━ Data Table ━━━ */
+    .data-table-wrap {
+      flex: 1;
+      overflow: auto;
+      border: 1px solid rgba(15,23,42,0.10);
+      border-radius: 6px;
+    }
+
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11px;
+      table-layout: auto;
+      min-width: 100%;
+    }
+
+    .data-table th {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      text-align: left;
+      font-size: 9px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: rgba(15,23,42,0.50);
+      padding: 5px 6px;
+      background: rgba(15,23,42,0.03);
+      border-bottom: 2px solid rgba(15,23,42,0.10);
+      white-space: nowrap;
+    }
+
+    .data-table th.ta-group-header {
+      text-align: center;
+      border-left: 2px solid rgba(15,23,42,0.08);
+      font-size: 10px;
+      color: rgba(14,116,144,0.7);
+      background: rgba(6,182,212,0.04);
+    }
+
+    .data-table th.ta-sub-header {
+      font-size: 8px;
+      text-align: center;
+    }
+
+    .data-table td {
+      padding: 3px 5px;
+      border-bottom: 1px solid rgba(15,23,42,0.05);
+      vertical-align: middle;
+      white-space: nowrap;
+    }
+
+    .data-table tr.row-fail td {
+      background: rgba(254,226,226,0.4) !important;
+    }
+
+    .data-table tr.category-boundary td {
+      border-top: 2px solid rgba(15,23,42,0.12);
+    }
+
+    /* Category color strip */
+    .dt-cat-strip {
+      width: 3px;
+      height: 18px;
+      border-radius: 2px;
+      display: inline-block;
+      vertical-align: middle;
+      margin-right: 2px;
+    }
+    .dt-cat-strip.cat-rf   { background: #3b82f6; }
+    .dt-cat-strip.cat-digital { background: #8b5cf6; }
+    .dt-cat-strip.cat-pwr  { background: #f97316; }
+
+    .data-table input,
+    .data-table select {
+      font-family: var(--font-ui);
+      font-size: 11px;
+      color: var(--text-on-white);
+      border: none;
+      outline: none;
+      background: transparent;
+      padding: 2px 3px;
+      width: 100%;
+      min-width: 0;
+    }
+
+    .data-table input::placeholder { color: rgba(15,23,42,0.20); }
+    .data-table input:focus,
+    .data-table select:focus { background: rgba(56,189,248,0.05); }
+
+    .data-table select { cursor: pointer; appearance: auto; width: auto; min-width: 50px; }
+
+    .dt-readonly {
+      background: rgba(15,23,42,0.03) !important;
+      color: rgba(15,23,42,0.55);
+      font-weight: 600;
+      text-align: center;
+      padding: 2px 4px;
+      font-size: 11px;
+    }
+
+    .dt-margin-pass  { background: #dcfce7 !important; color: #15803d !important; font-weight: 600; text-align: center; }
+    .dt-margin-warn  { background: #fef9c3 !important; color: #a16207 !important; font-weight: 600; text-align: center; }
+    .dt-margin-fail  { background: #fee2e2 !important; color: #b91c1c !important; font-weight: 600; text-align: center; }
+
+    .dt-passfail-pass { color: #15803d; font-weight: 700; }
+    .dt-passfail-fail { color: #b91c1c; font-weight: 700; }
+
+    .dt-tc-input { width: 55px; text-align: center; }
+
+    .data-table td.dt-ta-col {
+      border-left: 1px solid rgba(15,23,42,0.06);
+      text-align: center;
+    }
+    .data-table td.dt-ta-col-first {
+      border-left: 2px solid rgba(15,23,42,0.08);
+    }
+
+    .dt-add-row-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      margin-top: 8px;
+      padding: 4px 12px;
+      font-size: 11px;
+      font-family: var(--font-ui);
+      color: rgba(56,189,248,0.8);
+      background: transparent;
+      border: 1px dashed rgba(56,189,248,0.25);
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background var(--transition-fast), border-color var(--transition-fast);
+    }
+    .dt-add-row-btn:hover {
+      background: rgba(56,189,248,0.06);
+      border-color: rgba(56,189,248,0.5);
+    }
+
+    /* Sensor section */
+    .sensor-section {
+      margin-top: 10px;
+      border: 1px solid rgba(15,23,42,0.08);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    .sensor-toggle {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      width: 100%;
+      padding: 6px 10px;
+      font-size: 11px;
+      font-weight: 600;
+      font-family: var(--font-ui);
+      color: rgba(15,23,42,0.50);
+      background: rgba(15,23,42,0.02);
+      border: none;
+      cursor: pointer;
+      text-align: left;
+    }
+    .sensor-toggle:hover { background: rgba(15,23,42,0.04); }
+
+    .sensor-toggle .arrow {
+      display: inline-block;
+      transition: transform 0.15s;
+      font-size: 10px;
+    }
+    .sensor-toggle .arrow.open { transform: rotate(90deg); }
+
+    .sensor-body {
+      padding: 8px;
+      display: none;
+    }
+    .sensor-body.open { display: block; }
+
+    .sensor-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11px;
+    }
+    .sensor-table th {
+      text-align: left;
+      font-size: 9px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: rgba(15,23,42,0.45);
+      padding: 4px 6px;
+      border-bottom: 1px solid rgba(15,23,42,0.08);
+      white-space: nowrap;
+    }
+    .sensor-table td {
+      padding: 3px 5px;
+      border-bottom: 1px solid rgba(15,23,42,0.04);
+    }
+    .sensor-table input,
+    .sensor-table select {
+      font-family: var(--font-ui);
+      font-size: 11px;
+      color: var(--text-on-white);
+      border: none;
+      outline: none;
+      background: transparent;
+      padding: 2px 3px;
+      width: 100%;
+    }
+    .sensor-table input::placeholder { color: rgba(15,23,42,0.20); }
+    .sensor-table input:focus { background: rgba(56,189,248,0.05); }
+    .sensor-table select { cursor: pointer; appearance: auto; width: auto; }
+
+    /* ━━━ Sim vs Meas Comparison Page ━━━ */
+    .sim-page {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      padding: 20px 24px 16px;
+      font-family: var(--font-ui);
+      color: var(--text-on-white);
+      overflow-y: auto;
+      gap: 10px;
+    }
+
+    .sim-page-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .sim-page-title {
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: rgba(15,23,42,0.50);
+    }
+
+    .sim-select-btn {
+      padding: 4px 12px;
+      font-size: 11px;
+      font-family: var(--font-ui);
+      color: rgba(56,189,248,0.85);
+      background: rgba(56,189,248,0.08);
+      border: 1px solid rgba(56,189,248,0.20);
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background var(--transition-fast);
+    }
+    .sim-select-btn:hover {
+      background: rgba(56,189,248,0.15);
+    }
+
+    /* Image pair zone */
+    .sim-images {
+      display: flex;
+      gap: 12px;
+      flex-shrink: 0;
+    }
+
+    .sim-img-zone {
+      flex: 1;
+      height: 170px;
+      border: 2px dashed rgba(15,23,42,0.14);
+      border-radius: 6px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      transition: border-color var(--transition-fast), background var(--transition-fast);
+    }
+    .sim-img-zone:hover {
+      border-color: rgba(56,189,248,0.35);
+      background: rgba(56,189,248,0.02);
+    }
+    .sim-img-zone.dragover {
+      border-color: var(--color-primary);
+      background: rgba(56,189,248,0.06);
+    }
+    .sim-img-zone.has-image {
+      border: 1px solid rgba(15,23,42,0.10);
+    }
+    .sim-img-zone.has-image img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+
+    .sim-img-placeholder {
+      text-align: center;
+      color: rgba(15,23,42,0.28);
+      font-size: 11px;
+      pointer-events: none;
+    }
+    .sim-img-placeholder .icon {
+      font-size: 24px;
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .sim-img-label {
+      font-size: 9px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: rgba(15,23,42,0.35);
+      margin-top: 4px;
+      text-align: center;
+    }
+
+    .sim-img-caption {
+      width: 100%;
+      font-family: var(--font-ui);
+      font-size: 10px;
+      color: var(--text-on-white);
+      border: none;
+      outline: none;
+      background: transparent;
+      text-align: center;
+      padding: 3px 4px;
+      border-top: 1px solid rgba(15,23,42,0.06);
+    }
+    .sim-img-caption::placeholder { color: rgba(15,23,42,0.20); }
+    .sim-img-caption:focus { background: rgba(56,189,248,0.03); }
+
+    .sim-img-actions {
+      position: absolute;
+      top: 4px;
+      right: 4px;
+      display: flex;
+      gap: 4px;
+      opacity: 0;
+      transition: opacity var(--transition-fast);
+    }
+    .sim-img-zone:hover .sim-img-actions { opacity: 1; }
+
+    .sim-img-action-btn {
+      padding: 2px 6px;
+      font-size: 9px;
+      font-family: var(--font-ui);
+      color: #fff;
+      background: rgba(0,0,0,0.5);
+      border: none;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+    .sim-img-action-btn.danger { background: rgba(220,38,38,0.7); }
+
+    /* Comparison table */
+    .sim-table-wrap {
+      flex: 1;
+      overflow: auto;
+      border: 1px solid rgba(15,23,42,0.10);
+      border-radius: 6px;
+    }
+
+    .sim-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 10px;
+    }
+
+    .sim-table th {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      text-align: left;
+      font-size: 8px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: rgba(15,23,42,0.50);
+      padding: 4px 6px;
+      background: rgba(15,23,42,0.03);
+      border-bottom: 2px solid rgba(15,23,42,0.10);
+      white-space: nowrap;
+    }
+
+    .sim-table td {
+      padding: 3px 5px;
+      border-bottom: 1px solid rgba(15,23,42,0.05);
+      vertical-align: middle;
+      white-space: nowrap;
+    }
+
+    .sim-table input {
+      font-family: var(--font-ui);
+      font-size: 10px;
+      color: var(--text-on-white);
+      border: none;
+      outline: none;
+      background: transparent;
+      padding: 2px 3px;
+      width: 100%;
+    }
+    .sim-table input::placeholder { color: rgba(15,23,42,0.20); }
+    .sim-table input:focus { background: rgba(56,189,248,0.05); }
+
+    .sim-table .sim-readonly {
+      color: rgba(15,23,42,0.55);
+      font-size: 10px;
+    }
+
+    .sim-dev-good  { background: #dcfce7 !important; color: #15803d !important; font-weight: 600; text-align: center; }
+    .sim-dev-warn  { background: #fef9c3 !important; color: #a16207 !important; font-weight: 600; text-align: center; }
+    .sim-dev-bad   { background: #fee2e2 !important; color: #b91c1c !important; font-weight: 600; text-align: center; }
+
+    .sim-table .sim-judge { text-align: center; font-size: 12px; }
+
+    /* Bottom note */
+    .sim-note-input {
+      width: 100%;
+      font-family: var(--font-ui);
+      font-size: 11px;
+      color: var(--text-on-white);
+      border: 1px solid rgba(15,23,42,0.10);
+      border-radius: 4px;
+      outline: none;
+      padding: 6px 8px;
+      background: transparent;
+      flex-shrink: 0;
+    }
+    .sim-note-input::placeholder { color: rgba(15,23,42,0.22); }
+    .sim-note-input:focus { border-color: rgba(56,189,248,0.4); }
+
+    /* Component selection modal */
+    .sim-modal-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 9000;
+      background: rgba(0,0,0,0.5);
+      backdrop-filter: blur(4px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .sim-modal {
+      width: 420px;
+      max-height: 70vh;
+      background: rgba(15,23,42,0.92);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255,255,255,0.10);
+      border-radius: 10px;
+      box-shadow: 0 16px 48px rgba(0,0,0,0.5);
+      color: #e2e8f0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .sim-modal-header {
+      padding: 14px 16px;
+      font-size: 14px;
+      font-weight: 700;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .sim-modal-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px 0;
+    }
+
+    .sim-modal-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 16px;
+      cursor: pointer;
+      transition: background var(--transition-fast);
+    }
+    .sim-modal-item:hover { background: rgba(255,255,255,0.05); }
+
+    .sim-modal-item input[type="checkbox"] {
+      accent-color: #38bdf8;
+      width: 16px;
+      height: 16px;
+      flex-shrink: 0;
+    }
+
+    .sim-modal-item-label {
+      font-size: 13px;
+    }
+
+    .sim-modal-item-cat {
+      font-size: 10px;
+      padding: 1px 6px;
+      border-radius: 3px;
+      font-weight: 600;
+    }
+    .sim-modal-item-cat.cat-rf { background: rgba(59,130,246,0.2); color: #60a5fa; }
+    .sim-modal-item-cat.cat-digital { background: rgba(139,92,246,0.2); color: #a78bfa; }
+    .sim-modal-item-cat.cat-pwr { background: rgba(249,115,22,0.2); color: #fb923c; }
+
+    .sim-modal-footer {
+      padding: 10px 16px;
+      border-top: 1px solid rgba(255,255,255,0.08);
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    .sim-modal-btn {
+      padding: 6px 16px;
+      font-size: 12px;
+      font-family: var(--font-ui);
+      border-radius: 5px;
+      border: 1px solid rgba(255,255,255,0.12);
+      cursor: pointer;
+      background: transparent;
+      color: #e2e8f0;
+      transition: background var(--transition-fast);
+    }
+    .sim-modal-btn:hover { background: rgba(255,255,255,0.08); }
+    .sim-modal-btn.primary {
+      background: rgba(56,189,248,0.25);
+      border-color: rgba(56,189,248,0.35);
+    }
+    .sim-modal-btn.primary:hover { background: rgba(56,189,248,0.4); }
+
     /* ━━━ Image Page Module (A4 Landscape 842×595) ━━━ */
     #editor-canvas.landscape {
       --canvas-aspect: 842 / 595;
@@ -1312,13 +2028,310 @@
       z-index: -1;
       pointer-events: none;
     }
+
+    /* ━━━ Report Homepage ━━━ */
+    .homepage {
+      position: fixed;
+      inset: 0;
+      z-index: 8000;
+      background: var(--bg-gradient);
+      display: flex;
+      flex-direction: column;
+      font-family: var(--font-ui);
+      color: var(--text-primary);
+      overflow: hidden;
+    }
+    .homepage::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: var(--bg-glow-1), var(--bg-glow-2);
+      pointer-events: none;
+    }
+    .homepage.hidden { display: none; }
+
+    .hp-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 32px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .hp-brand {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .hp-new-btn {
+      padding: 8px 20px;
+      font-size: 13px;
+      font-weight: 600;
+      font-family: var(--font-ui);
+      color: #fff;
+      background: rgba(56,189,248,0.20);
+      border: 1px solid rgba(56,189,248,0.30);
+      border-radius: 8px;
+      cursor: pointer;
+      backdrop-filter: blur(8px);
+      transition: background var(--transition-fast), transform var(--transition-fast);
+    }
+    .hp-new-btn:hover {
+      background: rgba(56,189,248,0.35);
+      transform: translateY(-1px);
+    }
+
+    .hp-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0 32px 32px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .hp-empty {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      color: var(--text-secondary);
+      gap: 12px;
+    }
+    .hp-empty .icon { font-size: 48px; opacity: 0.4; }
+    .hp-empty .text { font-size: 15px; }
+
+    .hp-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 16px;
+    }
+
+    .hp-card {
+      background: var(--glass-bg);
+      backdrop-filter: blur(var(--glass-blur));
+      -webkit-backdrop-filter: blur(var(--glass-blur));
+      border: 1px solid var(--glass-border);
+      border-top: 1px solid var(--glass-border-top);
+      border-radius: var(--radius-md);
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      transition: background var(--transition-fast), transform var(--transition-fast), box-shadow var(--transition-fast);
+    }
+    .hp-card:hover {
+      background: var(--glass-bg-hover);
+      transform: translateY(-2px);
+      box-shadow: var(--glass-shadow);
+    }
+
+    .hp-card-title {
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .hp-card-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .hp-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      border-radius: 4px;
+      background: rgba(56,189,248,0.15);
+      color: rgba(56,189,248,0.9);
+    }
+
+    .hp-card-date {
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .hp-card-updated {
+      font-size: 11px;
+      color: var(--text-placeholder);
+    }
+
+    .hp-card-actions {
+      display: flex;
+      gap: 6px;
+      margin-top: 4px;
+    }
+
+    .hp-card-btn {
+      padding: 5px 12px;
+      font-size: 11px;
+      font-family: var(--font-ui);
+      border-radius: 5px;
+      border: 1px solid rgba(255,255,255,0.10);
+      cursor: pointer;
+      background: transparent;
+      color: var(--text-secondary);
+      transition: background var(--transition-fast), color var(--transition-fast);
+    }
+    .hp-card-btn:hover {
+      background: rgba(255,255,255,0.08);
+      color: var(--text-primary);
+    }
+    .hp-card-btn.primary {
+      background: rgba(56,189,248,0.15);
+      border-color: rgba(56,189,248,0.25);
+      color: rgba(56,189,248,0.9);
+    }
+    .hp-card-btn.primary:hover {
+      background: rgba(56,189,248,0.30);
+    }
+    .hp-card-btn.danger:hover {
+      background: rgba(239,68,68,0.15);
+      color: rgba(239,68,68,0.9);
+      border-color: rgba(239,68,68,0.25);
+    }
+
+    /* ━━━ Homepage Modals ━━━ */
+    .hp-modal-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 9500;
+      background: rgba(0,0,0,0.55);
+      backdrop-filter: blur(4px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .hp-modal {
+      width: 400px;
+      background: rgba(15,23,42,0.92);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255,255,255,0.10);
+      border-radius: 12px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+      color: #e2e8f0;
+      overflow: hidden;
+    }
+
+    .hp-modal-header {
+      padding: 16px 20px;
+      font-size: 15px;
+      font-weight: 700;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .hp-modal-body {
+      padding: 16px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .hp-modal-field {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .hp-modal-field label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: rgba(255,255,255,0.45);
+    }
+
+    .hp-modal-field input,
+    .hp-modal-field select {
+      padding: 8px 10px;
+      font-size: 13px;
+      font-family: var(--font-ui);
+      color: #e2e8f0;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 6px;
+      outline: none;
+      transition: border-color var(--transition-fast);
+    }
+    .hp-modal-field input::placeholder { color: rgba(255,255,255,0.25); }
+    .hp-modal-field input:focus,
+    .hp-modal-field select:focus {
+      border-color: rgba(56,189,248,0.5);
+    }
+
+    .hp-modal-footer {
+      padding: 12px 20px;
+      border-top: 1px solid rgba(255,255,255,0.08);
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    .hp-modal-btn {
+      padding: 7px 18px;
+      font-size: 12px;
+      font-family: var(--font-ui);
+      border-radius: 6px;
+      border: 1px solid rgba(255,255,255,0.10);
+      cursor: pointer;
+      background: transparent;
+      color: #e2e8f0;
+      transition: background var(--transition-fast);
+    }
+    .hp-modal-btn:hover { background: rgba(255,255,255,0.08); }
+    .hp-modal-btn.primary {
+      background: rgba(56,189,248,0.25);
+      border-color: rgba(56,189,248,0.35);
+    }
+    .hp-modal-btn.primary:hover { background: rgba(56,189,248,0.4); }
+    .hp-modal-btn.danger {
+      background: rgba(239,68,68,0.2);
+      border-color: rgba(239,68,68,0.3);
+      color: #fca5a5;
+    }
+    .hp-modal-btn.danger:hover { background: rgba(239,68,68,0.35); }
+
+    .hp-delete-msg {
+      font-size: 14px;
+      line-height: 1.6;
+      color: rgba(255,255,255,0.75);
+    }
   </style>
 </head>
 <body>
-  <div class="app">
+  <!-- ━━━ Report Homepage ━━━ -->
+  <div class="homepage" id="homepage">
+    <div class="hp-header">
+      <div class="hp-brand">🌡 Thermal Report Builder</div>
+      <button class="hp-new-btn" id="hp-new-report">+ 新增報告</button>
+    </div>
+    <div class="hp-body" id="hp-body">
+      <div class="hp-empty" id="hp-empty">
+        <div class="icon">📋</div>
+        <div class="text">尚無報告，點擊右上方「+ 新增報告」開始</div>
+      </div>
+      <div class="hp-grid" id="hp-grid"></div>
+    </div>
+  </div>
+
+  <div class="app" id="editor-app" style="display:none;">
     <!-- Toolbar -->
     <header class="toolbar">
-      <div class="toolbar-left">🌡 Thermal Report Builder</div>
+      <div class="toolbar-left">
+        <button class="glass-btn" id="btn-back-home" title="回到報告列表" style="margin-right:8px;padding:4px 10px;font-size:12px;">◀ 報告列表</button>
+        <span>🌡 Thermal Report Builder</span>
+      </div>
       <div class="toolbar-center">
         <div class="dropdown-wrap">
           <button class="glass-btn" id="toolbar-add-btn">+ 新增頁面 ▾</button>
@@ -1326,6 +2339,8 @@
             <button class="dropdown-item" data-type="cover">🏠 封面頁</button>
             <button class="dropdown-item" data-type="image">🖼 圖片頁</button>
             <button class="dropdown-item" data-type="annotation">📍 標註頁</button>
+            <button class="dropdown-item" data-type="data">📊 數據頁</button>
+            <button class="dropdown-item" data-type="sim_vs_meas">📉 比對頁</button>
             <button class="dropdown-item" data-type="conclusion">📝 結論頁</button>
           </div>
         </div>
@@ -1350,6 +2365,8 @@
               <button class="dropdown-item" data-type="cover">🏠 封面頁</button>
               <button class="dropdown-item" data-type="image">🖼 圖片頁</button>
               <button class="dropdown-item" data-type="annotation">📍 標註頁</button>
+              <button class="dropdown-item" data-type="data">📊 數據頁</button>
+              <button class="dropdown-item" data-type="sim_vs_meas">📉 比對頁</button>
               <button class="dropdown-item" data-type="conclusion">📝 結論頁</button>
             </div>
           </div>
@@ -1463,6 +2480,7 @@
         });
         setStatus('saved', '已儲存 ✅');
         console.log('✅ Saved page', page.order, 'to Firestore');
+        updateReportMeta();
       } catch (err) {
         console.error('Save error:', err);
         if (err.code === 'unavailable' || err.message.includes('offline')) {
@@ -1567,6 +2585,8 @@
           if (type === 'cover') addCoverPage();
           else if (type === 'image') addImagePage();
           else if (type === 'annotation') addAnnotationPage();
+          else if (type === 'data') addDataPage();
+          else if (type === 'sim_vs_meas') addSimVsMeasPage();
           else if (type === 'conclusion') addConclusionPage();
         });
       });
@@ -1621,6 +2641,15 @@
           label = '圖片頁 ' + imgCount;
         }
         if (page.type === 'annotation') { icon = '📍'; label = '標註頁'; }
+        if (page.type === 'data') {
+          icon = '📊';
+          let dataCount = 0;
+          for (let j = 0; j <= idx; j++) {
+            if (state.pages[j].type === 'data') dataCount++;
+          }
+          label = '數據頁 ' + dataCount;
+        }
+        if (page.type === 'sim_vs_meas') { icon = '📉'; label = '比對頁'; }
         if (page.type === 'conclusion') { icon = '📝'; label = '結論頁'; }
 
         el.textContent = icon + ' ' + label;
@@ -1713,7 +2742,7 @@
 
       const page = state.pages[state.activePage];
       // Switch canvas orientation
-      if (page.type === 'image' || page.type === 'annotation') {
+      if (page.type === 'image' || page.type === 'annotation' || page.type === 'sim_vs_meas') {
         $canvas.classList.add('landscape');
       } else {
         $canvas.classList.remove('landscape');
@@ -1725,6 +2754,10 @@
         renderImagePage(page);
       } else if (page.type === 'annotation') {
         renderAnnotationPage(page);
+      } else if (page.type === 'data') {
+        renderDataPage(page);
+      } else if (page.type === 'sim_vs_meas') {
+        renderSimVsMeasPage(page);
       } else if (page.type === 'conclusion') {
         renderConclusionPage(page);
       }
@@ -2530,6 +3563,807 @@
       }
     }
 
+    // ━━━ Data Page Module ━━━
+    function addDataPage() {
+      const today = new Date().toISOString().slice(0, 10);
+      // Sync stage from cover page if exists
+      const coverPage = state.pages.find(p => p.type === 'cover');
+      const defaultStage = coverPage ? coverPage.data.stage : 'DVT';
+
+      const page = {
+        id: 'page_' + Date.now(),
+        type: 'data',
+        order: state.pages.length,
+        data: {
+          header: {
+            test_date: today,
+            stage: defaultStage,
+            sw_version: '',
+            waveform_ver: '',
+            eq_time_min: '',
+            mounting: 'Pole Mount',
+            location: '',
+          },
+          ta_conditions: [25, 55],
+          components: [],
+          sensors: [],
+        }
+      };
+      state.pages.push(page);
+      renderPageList();
+      selectPage(state.pages.length - 1);
+      scheduleSave(state.pages.length - 1);
+    }
+
+    function renderDataPage(page) {
+      const d = page.data;
+      if (!d.header) d.header = {};
+      if (!d.ta_conditions) d.ta_conditions = [25, 55];
+      if (!d.components) d.components = [];
+      if (!d.sensors) d.sensors = [];
+      const h = d.header;
+
+      const mountOptions = ['Pole Mount', 'Wall Mount', 'Free-standing'];
+      const stageOptions = ['Prototype', 'EVT', 'DVT', 'PVT', 'MP'];
+      const categoryOptions = ['RF', 'Digital', 'PWR'];
+      const specTypeOptions = ['Recommended', 'Absolute'];
+      const deratingOptions = ['0.80', '0.85', '0.90', '0.95', '1.00'];
+      const sensorTypeOptions = ['Tj only', 'Tj+Tc'];
+
+      const taTagsHTML = d.ta_conditions.map((temp, i) =>
+        `<span class="ta-tag">Ta = ${temp}°C<button class="ta-tag-remove" data-ta-idx="${i}" title="刪除">✕</button></span>`
+      ).join('');
+
+      // ── Build component rows ──
+      // Assign auto-increment numbers per category
+      const catCounters = { RF: 0, Digital: 0, PWR: 0 };
+      const compRows = d.components.map((comp, ri) => {
+        if (!comp.readings) comp.readings = {};
+        if (!comp.category) comp.category = 'RF';
+        if (!comp.derating) comp.derating = '0.90';
+        const cat = comp.category;
+        catCounters[cat] = (catCounters[cat] || 0) + 1;
+        const autoNum = cat + '-' + catCounters[cat];
+        const catClass = cat === 'RF' ? 'cat-rf' : cat === 'Digital' ? 'cat-digital' : 'cat-pwr';
+
+        const tcSpec = parseFloat(comp.tc_spec) || 0;
+        const derating = parseFloat(comp.derating) || 0.9;
+        const derated = tcSpec * derating;
+
+        // Check pass/fail across all Ta
+        let rowFail = false;
+        const taCells = d.ta_conditions.map((ta, ti) => {
+          const key = 'ta_' + ta;
+          const measured = comp.readings[key];
+          const measuredNum = parseFloat(measured);
+          let marginStr = '—';
+          let marginClass = 'dt-readonly';
+
+          if (!isNaN(measuredNum) && derated > 0) {
+            const margin = ((derated - measuredNum) / derated) * 100;
+            marginStr = margin.toFixed(1) + '%';
+            if (margin >= 10) marginClass = 'dt-margin-pass';
+            else if (margin >= 0) marginClass = 'dt-margin-warn';
+            else { marginClass = 'dt-margin-fail'; rowFail = true; }
+          }
+
+          const isFirst = ti === 0;
+          return `<td class="dt-ta-col${isFirst ? ' dt-ta-col-first' : ''}">
+                    <input type="number" step="any" class="dt-tc-input" value="${measured !== undefined && measured !== '' ? escapeAttr(String(measured)) : ''}"
+                           placeholder="—" data-comp="${ri}" data-ta-key="${key}">
+                  </td>
+                  <td class="dt-ta-col ${marginClass}">${marginStr}</td>`;
+        }).join('');
+
+        const pfText = rowFail ? '❌ Fail' : (d.components.length > 0 && tcSpec > 0 ? '✔ Pass' : '—');
+        const pfClass = rowFail ? 'dt-passfail-fail' : 'dt-passfail-pass';
+
+        return `<tr class="${rowFail ? 'row-fail' : ''}" data-row-idx="${ri}">
+          <td><span class="dt-cat-strip ${catClass}"></span>
+            <select data-comp="${ri}" data-comp-field="category">${categoryOptions.map(c =>
+              `<option value="${c}" ${cat === c ? 'selected' : ''}>${c}</option>`).join('')}
+            </select></td>
+          <td class="dt-readonly">${autoNum}</td>
+          <td><input type="text" placeholder="元件名稱" value="${escapeAttr(comp.name || '')}" data-comp="${ri}" data-comp-field="name"></td>
+          <td><select data-comp="${ri}" data-comp-field="spec_type">${specTypeOptions.map(s =>
+              `<option value="${s}" ${comp.spec_type === s ? 'selected' : ''}>${s}</option>`).join('')}
+            </select></td>
+          <td><input type="number" step="any" style="width:50px;text-align:center;" placeholder="—" value="${comp.tc_spec !== undefined && comp.tc_spec !== '' ? escapeAttr(String(comp.tc_spec)) : ''}" data-comp="${ri}" data-comp-field="tc_spec"></td>
+          <td><select data-comp="${ri}" data-comp-field="derating">${deratingOptions.map(v =>
+              `<option value="${v}" ${comp.derating === v ? 'selected' : ''}>${v}</option>`).join('')}
+            </select></td>
+          <td class="dt-readonly">${derated > 0 ? derated.toFixed(1) : '—'}</td>
+          <td><input type="text" placeholder="e.g. Coolzorb" value="${escapeAttr(comp.tim_type || '')}" data-comp="${ri}" data-comp-field="tim_type" style="min-width:70px;"></td>
+          ${taCells}
+          <td class="${pfClass}">${pfText}</td>
+          <td><input type="text" placeholder="備註" value="${escapeAttr(comp.note || '')}" data-comp="${ri}" data-comp-field="note"></td>
+        </tr>`;
+      });
+
+      // Insert category boundary classes
+      // (done via JS after render for simplicity)
+
+      // ── Ta sub-headers ──
+      const taHeaders1 = d.ta_conditions.map((ta, ti) =>
+        `<th class="ta-group-header" colspan="2"${ti === 0 ? ' style="border-left:2px solid rgba(15,23,42,0.08);"' : ''}>Ta = ${ta}°C</th>`
+      ).join('');
+      const taHeaders2 = d.ta_conditions.map(() =>
+        `<th class="ta-sub-header">Tc 實測</th><th class="ta-sub-header">Margin</th>`
+      ).join('');
+
+      // ── Sensor rows ──
+      const sensorRows = d.sensors.map((s, si) => {
+        if (!s.readings) s.readings = {};
+        const taSensorCells = d.ta_conditions.map(ta => {
+          const key = 'ta_' + ta;
+          return `<td><input type="text" placeholder="—" value="${escapeAttr(s.readings[key] || '')}" data-sensor="${si}" data-sensor-ta="${key}"></td>`;
+        }).join('');
+        return `<tr>
+          <td><input type="text" placeholder="Sensor 名稱" value="${escapeAttr(s.name || '')}" data-sensor="${si}" data-sensor-field="name"></td>
+          <td><select data-sensor="${si}" data-sensor-field="type">${sensorTypeOptions.map(t =>
+              `<option value="${t}" ${s.type === t ? 'selected' : ''}>${t}</option>`).join('')}
+            </select></td>
+          ${taSensorCells}
+          <td><input type="text" placeholder="備註" value="${escapeAttr(s.note || '')}" data-sensor="${si}" data-sensor-field="note"></td>
+        </tr>`;
+      }).join('');
+
+      const sensorTaHeaders = d.ta_conditions.map(ta =>
+        `<th>Ta ${ta}°C</th>`
+      ).join('');
+
+      $canvas.innerHTML = `
+        <div class="data-page">
+          <div class="data-page-title">Thermal Test Data</div>
+
+          <div class="data-header-grid">
+            <div class="data-field">
+              <span class="data-field-label">Test Date</span>
+              <input type="date" value="${escapeAttr(h.test_date || '')}" data-header="test_date">
+            </div>
+            <div class="data-field">
+              <span class="data-field-label">Thermal Equilibrium Time</span>
+              <div class="data-field-unit">
+                <input type="number" min="0" placeholder="30" value="${escapeAttr(h.eq_time_min || '')}" data-header="eq_time_min">
+                <span class="unit-label">min</span>
+              </div>
+            </div>
+            <div class="data-field">
+              <span class="data-field-label">Stage</span>
+              <select data-header="stage">
+                ${stageOptions.map(s =>
+                  `<option value="${s}" ${h.stage === s ? 'selected' : ''}>${s}</option>`
+                ).join('')}
+              </select>
+            </div>
+            <div class="data-field">
+              <span class="data-field-label">Mounting</span>
+              <select data-header="mounting" id="data-mounting-select">
+                ${mountOptions.map(m =>
+                  `<option value="${m}" ${h.mounting === m ? 'selected' : ''}>${m}</option>`
+                ).join('')}
+                <option value="__custom" ${!mountOptions.includes(h.mounting) && h.mounting ? 'selected' : ''}>自訂…</option>
+              </select>
+              ${!mountOptions.includes(h.mounting) && h.mounting
+                ? `<input type="text" class="data-custom-mounting" placeholder="自訂安裝方式" value="${escapeAttr(h.mounting)}" style="margin-top:4px;">`
+                : ''}
+            </div>
+            <div class="data-field">
+              <span class="data-field-label">SW Version</span>
+              <input type="text" placeholder="e.g. v2.1.0" value="${escapeAttr(h.sw_version || '')}" data-header="sw_version">
+            </div>
+            <div class="data-field">
+              <span class="data-field-label">Location</span>
+              <input type="text" placeholder="Lab / Chamber / Outdoor" value="${escapeAttr(h.location || '')}" data-header="location">
+            </div>
+            <div class="data-field">
+              <span class="data-field-label">Waveform Ver.</span>
+              <input type="text" placeholder="e.g. WF3.2" value="${escapeAttr(h.waveform_ver || '')}" data-header="waveform_ver">
+            </div>
+          </div>
+
+          <!-- Ta Conditions -->
+          <div class="ta-section">
+            <div class="ta-section-title">量測環境溫度條件（Ta Conditions）</div>
+            <div class="ta-tags" id="ta-tags-container">
+              ${taTagsHTML}
+              <button class="ta-add-btn" id="ta-add-btn">+ 新增</button>
+            </div>
+          </div>
+
+          <!-- Data Table -->
+          <div class="data-table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th rowspan="2">類別</th>
+                  <th rowspan="2">#</th>
+                  <th rowspan="2">元件名稱</th>
+                  <th rowspan="2">Spec Type</th>
+                  <th rowspan="2">Tc Spec</th>
+                  <th rowspan="2">Derating</th>
+                  <th rowspan="2">Derated</th>
+                  <th rowspan="2">TIM Type</th>
+                  ${taHeaders1}
+                  <th rowspan="2">P/F</th>
+                  <th rowspan="2">備註</th>
+                </tr>
+                <tr>${taHeaders2}</tr>
+              </thead>
+              <tbody id="dt-tbody">
+                ${compRows.join('')}
+              </tbody>
+            </table>
+          </div>
+          <button class="dt-add-row-btn" id="dt-add-row">+ 新增元件</button>
+
+          <!-- Embedded Sensor Section -->
+          <div class="sensor-section">
+            <button class="sensor-toggle" id="sensor-toggle">
+              <span class="arrow" id="sensor-arrow">▶</span> Embedded Sensor Readings
+            </button>
+            <div class="sensor-body" id="sensor-body">
+              <table class="sensor-table">
+                <thead>
+                  <tr>
+                    <th>Sensor 名稱</th>
+                    <th>類型</th>
+                    ${sensorTaHeaders}
+                    <th>備註</th>
+                  </tr>
+                </thead>
+                <tbody id="sensor-tbody">${sensorRows}</tbody>
+              </table>
+              <button class="dt-add-row-btn" id="sensor-add-row" style="margin-top:6px;">+ 新增 Sensor</button>
+            </div>
+          </div>
+        </div>
+      `;
+
+      // ── Mark category boundaries ──
+      const tbody = document.getElementById('dt-tbody');
+      if (tbody) {
+        let prevCat = null;
+        tbody.querySelectorAll('tr').forEach(tr => {
+          const idx = parseInt(tr.dataset.rowIdx);
+          if (!isNaN(idx) && d.components[idx]) {
+            const cat = d.components[idx].category;
+            if (prevCat !== null && cat !== prevCat) {
+              tr.classList.add('category-boundary');
+            }
+            prevCat = cat;
+          }
+        });
+      }
+
+      // ── Bind header fields ──
+      $canvas.querySelectorAll('[data-header]').forEach(el => {
+        const eventType = el.tagName === 'SELECT' ? 'change' : 'input';
+        el.addEventListener(eventType, () => {
+          d.header[el.dataset.header] = el.value;
+          if (el.dataset.header === 'stage') {
+            const coverPage = state.pages.find(p => p.type === 'cover');
+            if (coverPage) {
+              coverPage.data.stage = el.value;
+              scheduleSave(state.pages.indexOf(coverPage));
+            }
+          }
+          scheduleSave(state.activePage);
+        });
+      });
+
+      // Mounting custom
+      const mountSelect = document.getElementById('data-mounting-select');
+      if (mountSelect) {
+        mountSelect.addEventListener('change', () => {
+          if (mountSelect.value === '__custom') {
+            d.header.mounting = '';
+            renderDataPage(page);
+            const ci = $canvas.querySelector('.data-custom-mounting');
+            if (ci) ci.focus();
+          } else {
+            d.header.mounting = mountSelect.value;
+            scheduleSave(state.activePage);
+          }
+        });
+      }
+      const customMounting = $canvas.querySelector('.data-custom-mounting');
+      if (customMounting) {
+        customMounting.addEventListener('input', () => {
+          d.header.mounting = customMounting.value;
+          scheduleSave(state.activePage);
+        });
+      }
+
+      // ── Ta tags ──
+      $canvas.querySelectorAll('.ta-tag-remove').forEach(btn => {
+        btn.addEventListener('click', () => {
+          d.ta_conditions.splice(parseInt(btn.dataset.taIdx), 1);
+          scheduleSave(state.activePage);
+          renderDataPage(page);
+        });
+      });
+      const taAddBtn = document.getElementById('ta-add-btn');
+      if (taAddBtn) {
+        taAddBtn.addEventListener('click', () => {
+          const val = prompt('輸入環境溫度 (°C)：', '35');
+          if (val === null) return;
+          const num = parseFloat(val);
+          if (isNaN(num)) return;
+          d.ta_conditions.push(num);
+          scheduleSave(state.activePage);
+          renderDataPage(page);
+        });
+      }
+
+      // ── Component field bindings ──
+      $canvas.querySelectorAll('[data-comp-field]').forEach(el => {
+        const eventType = el.tagName === 'SELECT' ? 'change' : 'input';
+        el.addEventListener(eventType, () => {
+          const ri = parseInt(el.dataset.comp);
+          const field = el.dataset.compField;
+          d.components[ri][field] = el.value;
+          scheduleSave(state.activePage);
+          // Re-render for computed fields when category/tc_spec/derating change
+          if (['category', 'tc_spec', 'derating'].includes(field)) {
+            renderDataPage(page);
+          }
+        });
+      });
+
+      // ── Tc measured input bindings ──
+      $canvas.querySelectorAll('[data-ta-key]').forEach(el => {
+        el.addEventListener('input', () => {
+          const ri = parseInt(el.dataset.comp);
+          const key = el.dataset.taKey;
+          d.components[ri].readings[key] = el.value;
+          scheduleSave(state.activePage);
+          // Update margin cell live
+          renderDataPage(page);
+        });
+      });
+
+      // ── Add row ──
+      const addRowBtn = document.getElementById('dt-add-row');
+      if (addRowBtn) {
+        addRowBtn.addEventListener('click', () => {
+          const lastCat = d.components.length > 0
+            ? d.components[d.components.length - 1].category : 'RF';
+          d.components.push({
+            category: lastCat,
+            name: '',
+            spec_type: 'Recommended',
+            tc_spec: '',
+            derating: '0.90',
+            tim_type: '',
+            readings: {},
+            note: '',
+          });
+          scheduleSave(state.activePage);
+          renderDataPage(page);
+        });
+      }
+
+      // ── Row context menu (delete) ──
+      if (tbody) {
+        tbody.addEventListener('contextmenu', (e) => {
+          const tr = e.target.closest('tr[data-row-idx]');
+          if (!tr) return;
+          e.preventDefault();
+          const ri = parseInt(tr.dataset.rowIdx);
+          if (confirm('確定要刪除此元件列？')) {
+            d.components.splice(ri, 1);
+            scheduleSave(state.activePage);
+            renderDataPage(page);
+          }
+        });
+      }
+
+      // ── Sensor toggle ──
+      const sensorToggle = document.getElementById('sensor-toggle');
+      const sensorBody = document.getElementById('sensor-body');
+      const sensorArrow = document.getElementById('sensor-arrow');
+      if (sensorToggle) {
+        sensorToggle.addEventListener('click', () => {
+          sensorBody.classList.toggle('open');
+          sensorArrow.classList.toggle('open');
+        });
+      }
+
+      // ── Sensor field bindings ──
+      $canvas.querySelectorAll('[data-sensor-field]').forEach(el => {
+        const eventType = el.tagName === 'SELECT' ? 'change' : 'input';
+        el.addEventListener(eventType, () => {
+          const si = parseInt(el.dataset.sensor);
+          d.sensors[si][el.dataset.sensorField] = el.value;
+          scheduleSave(state.activePage);
+        });
+      });
+
+      $canvas.querySelectorAll('[data-sensor-ta]').forEach(el => {
+        el.addEventListener('input', () => {
+          const si = parseInt(el.dataset.sensor);
+          d.sensors[si].readings[el.dataset.sensorTa] = el.value;
+          scheduleSave(state.activePage);
+        });
+      });
+
+      // ── Add sensor row ──
+      const sensorAddBtn = document.getElementById('sensor-add-row');
+      if (sensorAddBtn) {
+        sensorAddBtn.addEventListener('click', () => {
+          d.sensors.push({ name: '', type: 'Tj only', readings: {}, note: '' });
+          scheduleSave(state.activePage);
+          renderDataPage(page);
+          // Auto-open sensor section
+          if (!sensorBody.classList.contains('open')) {
+            sensorBody.classList.add('open');
+            sensorArrow.classList.add('open');
+          }
+        });
+      }
+    }
+
+    // ━━━ Sim vs Meas Comparison Page Module ━━━
+    function addSimVsMeasPage() {
+      const page = {
+        id: 'page_' + Date.now(),
+        type: 'sim_vs_meas',
+        order: state.pages.length,
+        data: {
+          title: '',
+          sim_image: '',
+          meas_image: '',
+          sim_note: '',
+          items: [],
+        }
+      };
+      state.pages.push(page);
+      renderPageList();
+      selectPage(state.pages.length - 1);
+      scheduleSave(state.pages.length - 1);
+    }
+
+    function getDataPageComponents() {
+      // Gather all components from all data pages
+      const result = [];
+      state.pages.forEach(p => {
+        if (p.type !== 'data') return;
+        const comps = p.data.components || [];
+        const tas = p.data.ta_conditions || [];
+        const catCounters = { RF: 0, Digital: 0, PWR: 0 };
+        comps.forEach(comp => {
+          const cat = comp.category || 'RF';
+          catCounters[cat] = (catCounters[cat] || 0) + 1;
+          const tcSpec = parseFloat(comp.tc_spec) || 0;
+          const derating = parseFloat(comp.derating) || 0.9;
+          const derated = tcSpec * derating;
+
+          // Find meas Tc at Ta=55 (or highest Ta)
+          let measTc = '';
+          const ta55Key = 'ta_55';
+          if (comp.readings && comp.readings[ta55Key] !== undefined && comp.readings[ta55Key] !== '') {
+            measTc = comp.readings[ta55Key];
+          } else if (tas.length > 0) {
+            // Fallback: use the last (highest) Ta
+            const lastTa = tas[tas.length - 1];
+            const lastKey = 'ta_' + lastTa;
+            if (comp.readings && comp.readings[lastKey] !== undefined) {
+              measTc = comp.readings[lastKey];
+            }
+          }
+
+          result.push({
+            category: cat,
+            component_name: comp.name || ('(' + cat + '-' + catCounters[cat] + ')'),
+            tc_derated: derated,
+            meas_tc: measTc,
+            sourceId: cat + '-' + catCounters[cat],
+          });
+        });
+      });
+      return result;
+    }
+
+    function showComponentSelectModal(page, callback) {
+      const available = getDataPageComponents();
+      if (available.length === 0) {
+        alert('尚無數據頁元件可選取。請先在數據頁新增元件。');
+        return;
+      }
+
+      // Track already-selected names
+      const existing = new Set((page.data.items || []).map(it => it.component_name));
+
+      const overlay = document.createElement('div');
+      overlay.className = 'sim-modal-overlay';
+
+      let itemsHTML = available.map((comp, i) => {
+        const checked = existing.has(comp.component_name) ? 'checked' : '';
+        const catClass = comp.category === 'RF' ? 'cat-rf' : comp.category === 'Digital' ? 'cat-digital' : 'cat-pwr';
+        return `<label class="sim-modal-item">
+          <input type="checkbox" value="${i}" ${checked}>
+          <span class="sim-modal-item-cat ${catClass}">${comp.category}</span>
+          <span class="sim-modal-item-label">${escapeAttr(comp.component_name)}</span>
+        </label>`;
+      }).join('');
+
+      overlay.innerHTML = `
+        <div class="sim-modal">
+          <div class="sim-modal-header">從數據頁選取元件</div>
+          <div class="sim-modal-body">${itemsHTML}</div>
+          <div class="sim-modal-footer">
+            <button class="sim-modal-btn" id="sim-modal-cancel">取消</button>
+            <button class="sim-modal-btn primary" id="sim-modal-confirm">確認選取</button>
+          </div>
+        </div>
+      `;
+
+      document.body.appendChild(overlay);
+
+      overlay.querySelector('#sim-modal-cancel').addEventListener('click', () => {
+        document.body.removeChild(overlay);
+      });
+
+      overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) document.body.removeChild(overlay);
+      });
+
+      overlay.querySelector('#sim-modal-confirm').addEventListener('click', () => {
+        const checked = overlay.querySelectorAll('input[type="checkbox"]:checked');
+        const selected = [];
+        checked.forEach(cb => {
+          const comp = available[parseInt(cb.value)];
+          // Preserve existing sim_tc / note if already present
+          const existingItem = (page.data.items || []).find(it => it.component_name === comp.component_name);
+          selected.push({
+            category: comp.category,
+            component_name: comp.component_name,
+            tc_derated: comp.tc_derated,
+            sim_tc: existingItem ? existingItem.sim_tc : '',
+            meas_tc: comp.meas_tc,
+            note: existingItem ? existingItem.note : '',
+          });
+        });
+        document.body.removeChild(overlay);
+        callback(selected);
+      });
+    }
+
+    function renderSimVsMeasPage(page) {
+      const d = page.data;
+      if (!d.items) d.items = [];
+
+      const hasSim = !!d.sim_image;
+      const hasMeas = !!d.meas_image;
+
+      // Refresh meas_tc from data pages
+      const latestComps = getDataPageComponents();
+      d.items.forEach(item => {
+        const match = latestComps.find(c => c.component_name === item.component_name && c.category === item.category);
+        if (match) {
+          item.meas_tc = match.meas_tc;
+          item.tc_derated = match.tc_derated;
+        }
+      });
+
+      // Build table rows
+      const rows = d.items.map((item, i) => {
+        const simTc = parseFloat(item.sim_tc);
+        const measTc = parseFloat(item.meas_tc);
+        let devC = '—', devPct = '—', judgeText = '—', devCClass = '', devPClass = '', judgeClass = '';
+
+        if (!isNaN(simTc) && !isNaN(measTc)) {
+          const dc = simTc - measTc;
+          devC = dc.toFixed(1);
+          if (measTc !== 0) {
+            const dp = (dc / measTc) * 100;
+            devPct = dp.toFixed(1) + '%';
+            const absDp = Math.abs(dp);
+            if (absDp <= 10) {
+              devCClass = devPClass = 'sim-dev-good';
+              judgeText = '✅'; judgeClass = 'sim-dev-good';
+            } else if (absDp <= 20) {
+              devCClass = devPClass = 'sim-dev-warn';
+              judgeText = '⚠️'; judgeClass = 'sim-dev-warn';
+            } else {
+              devCClass = devPClass = 'sim-dev-bad';
+              judgeText = '❌'; judgeClass = 'sim-dev-bad';
+            }
+          }
+        }
+
+        const catClass = item.category === 'RF' ? 'cat-rf' : item.category === 'Digital' ? 'cat-digital' : 'cat-pwr';
+
+        return `<tr data-sim-row="${i}">
+          <td><span class="dt-cat-strip ${catClass}"></span><span class="sim-readonly">${escapeAttr(item.category)}</span></td>
+          <td class="sim-readonly">${escapeAttr(item.component_name)}</td>
+          <td class="sim-readonly">${item.tc_derated ? parseFloat(item.tc_derated).toFixed(1) : '—'}</td>
+          <td><input type="number" step="any" style="width:55px;text-align:center;" placeholder="—" value="${item.sim_tc !== undefined && item.sim_tc !== '' ? escapeAttr(String(item.sim_tc)) : ''}" data-sim-idx="${i}" data-sim-field="sim_tc"></td>
+          <td class="sim-readonly">${!isNaN(measTc) ? measTc.toFixed(1) : '—'}</td>
+          <td class="${devCClass}" style="text-align:center;">${devC}</td>
+          <td class="${devPClass}" style="text-align:center;">${devPct}</td>
+          <td class="sim-judge ${judgeClass}">${judgeText}</td>
+          <td><input type="text" placeholder="備註" value="${escapeAttr(item.note || '')}" data-sim-idx="${i}" data-sim-field="note"></td>
+        </tr>`;
+      }).join('');
+
+      $canvas.innerHTML = `
+        <div class="sim-page">
+          <div class="sim-page-top">
+            <div class="sim-page-title">Simulation vs Measurement Comparison</div>
+            <button class="sim-select-btn" id="sim-select-comp">從數據頁選取元件</button>
+          </div>
+
+          <!-- Image pair -->
+          <div class="sim-images">
+            <div style="flex:1;display:flex;flex-direction:column;gap:2px;">
+              <div class="sim-img-zone ${hasSim ? 'has-image' : ''}" id="sim-img-zone-sim">
+                ${hasSim
+                  ? `<img src="${escapeAttr(d.sim_image)}" alt="FloTHERM">
+                     <div class="sim-img-actions">
+                       <button class="sim-img-action-btn" id="sim-replace-sim">替換</button>
+                       <button class="sim-img-action-btn danger" id="sim-delete-sim">刪除</button>
+                     </div>`
+                  : `<div class="sim-img-placeholder"><span class="icon">🖥</span>FloTHERM 截圖</div>`}
+                <input type="file" accept="image/*" id="sim-file-sim" style="display:none">
+              </div>
+              <div class="sim-img-label">FloTHERM Simulation</div>
+            </div>
+            <div style="flex:1;display:flex;flex-direction:column;gap:2px;">
+              <div class="sim-img-zone ${hasMeas ? 'has-image' : ''}" id="sim-img-zone-meas">
+                ${hasMeas
+                  ? `<img src="${escapeAttr(d.meas_image)}" alt="Measurement">
+                     <div class="sim-img-actions">
+                       <button class="sim-img-action-btn" id="sim-replace-meas">替換</button>
+                       <button class="sim-img-action-btn danger" id="sim-delete-meas">刪除</button>
+                     </div>`
+                  : `<div class="sim-img-placeholder"><span class="icon">📷</span>IR / TC 量測照片</div>`}
+                <input type="file" accept="image/*" id="sim-file-meas" style="display:none">
+              </div>
+              <div class="sim-img-label">Measurement (IR / TC)</div>
+            </div>
+          </div>
+
+          <!-- Comparison table -->
+          <div class="sim-table-wrap">
+            <table class="sim-table">
+              <thead>
+                <tr>
+                  <th>類別</th>
+                  <th>元件名稱</th>
+                  <th>Derated</th>
+                  <th>Sim Tc</th>
+                  <th>Meas Tc</th>
+                  <th>Dev (°C)</th>
+                  <th>Dev (%)</th>
+                  <th>判斷</th>
+                  <th>備註</th>
+                </tr>
+              </thead>
+              <tbody id="sim-tbody">${rows}</tbody>
+            </table>
+          </div>
+
+          <!-- Bottom note -->
+          <input class="sim-note-input" type="text" placeholder="請輸入模擬條件說明，如邊界條件假設、功耗設定..."
+                 value="${escapeAttr(d.sim_note || '')}" id="sim-note">
+        </div>
+      `;
+
+      // ── Select components button ──
+      document.getElementById('sim-select-comp').addEventListener('click', () => {
+        showComponentSelectModal(page, (selected) => {
+          d.items = selected;
+          scheduleSave(state.activePage);
+          renderSimVsMeasPage(page);
+        });
+      });
+
+      // ── Image handlers ──
+      setupSimImageZone(page, 'sim', 'sim_image');
+      setupSimImageZone(page, 'meas', 'meas_image');
+
+      // ── Sim Tc input ──
+      $canvas.querySelectorAll('[data-sim-field="sim_tc"]').forEach(el => {
+        el.addEventListener('input', () => {
+          const idx = parseInt(el.dataset.simIdx);
+          d.items[idx].sim_tc = el.value;
+          scheduleSave(state.activePage);
+          // Re-render for computed Dev columns
+          renderSimVsMeasPage(page);
+        });
+      });
+
+      // ── Note fields ──
+      $canvas.querySelectorAll('[data-sim-field="note"]').forEach(el => {
+        el.addEventListener('input', () => {
+          const idx = parseInt(el.dataset.simIdx);
+          d.items[idx].note = el.value;
+          scheduleSave(state.activePage);
+        });
+      });
+
+      // ── Bottom sim note ──
+      const simNote = document.getElementById('sim-note');
+      if (simNote) {
+        simNote.addEventListener('input', () => {
+          d.sim_note = simNote.value;
+          scheduleSave(state.activePage);
+        });
+      }
+
+      // ── Row right-click delete ──
+      const simTbody = document.getElementById('sim-tbody');
+      if (simTbody) {
+        simTbody.addEventListener('contextmenu', (e) => {
+          const tr = e.target.closest('tr[data-sim-row]');
+          if (!tr) return;
+          e.preventDefault();
+          const ri = parseInt(tr.dataset.simRow);
+          if (confirm('確定要移除此比對元件？')) {
+            d.items.splice(ri, 1);
+            scheduleSave(state.activePage);
+            renderSimVsMeasPage(page);
+          }
+        });
+      }
+    }
+
+    function setupSimImageZone(page, key, dataField) {
+      const zone = document.getElementById('sim-img-zone-' + key);
+      const fileInput = document.getElementById('sim-file-' + key);
+      if (!zone || !fileInput) return;
+
+      const handleFile = async (file) => {
+        if (!file || !file.type.startsWith('image/')) return;
+        const imageData = await processImage(file);
+        page.data[dataField] = imageData;
+        scheduleSave(state.activePage);
+        renderSimVsMeasPage(page);
+      };
+
+      zone.addEventListener('click', (e) => {
+        if (e.target.closest('.sim-img-action-btn')) return;
+        fileInput.click();
+      });
+
+      fileInput.addEventListener('change', () => {
+        if (fileInput.files.length > 0) handleFile(fileInput.files[0]);
+      });
+
+      zone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        zone.classList.add('dragover');
+      });
+      zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+      zone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        zone.classList.remove('dragover');
+        if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+      });
+
+      // Replace / Delete
+      const replaceBtn = document.getElementById('sim-replace-' + key);
+      const deleteBtn = document.getElementById('sim-delete-' + key);
+
+      if (replaceBtn) {
+        replaceBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          fileInput.click();
+        });
+      }
+
+      if (deleteBtn) {
+        deleteBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          page.data[dataField] = '';
+          scheduleSave(state.activePage);
+          renderSimVsMeasPage(page);
+        });
+      }
+    }
+
     // ━━━ Conclusion Page Module ━━━
     function addConclusionPage() {
       const page = {
@@ -2780,7 +4614,7 @@
       const page = state.pages[previewIdx];
       if (!page) return;
 
-      const isLandscape = page.type === 'image' || page.type === 'annotation';
+      const isLandscape = page.type === 'image' || page.type === 'annotation' || page.type === 'sim_vs_meas';
       const w = isLandscape ? 842 : 595;
       const h = isLandscape ? 595 : 842;
 
@@ -2796,6 +4630,8 @@
       if (page.type === 'cover') el.innerHTML = buildCoverHTML(page.data);
       else if (page.type === 'image') el.innerHTML = buildImagePageHTML(page.data);
       else if (page.type === 'annotation') el.innerHTML = buildAnnotationHTML(page.data);
+      else if (page.type === 'data') el.innerHTML = buildDataPageHTML(page.data);
+      else if (page.type === 'sim_vs_meas') el.innerHTML = buildSimVsMeasHTML(page.data);
       else if (page.type === 'conclusion') el.innerHTML = buildConclusionHTML(page.data);
 
       wrap.innerHTML = '';
@@ -2832,7 +4668,7 @@
     const PDF_FONT = '-apple-system, BlinkMacSystemFont, "Helvetica Neue", "PingFang TC", sans-serif';
 
     function renderPageOffscreen(page, container) {
-      const isLandscape = page.type === 'image' || page.type === 'annotation';
+      const isLandscape = page.type === 'image' || page.type === 'annotation' || page.type === 'sim_vs_meas';
       const w = isLandscape ? 842 : 595;
       const h = isLandscape ? 595 : 842;
 
@@ -2852,6 +4688,10 @@
         content.innerHTML = buildImagePageHTML(page.data);
       } else if (page.type === 'annotation') {
         content.innerHTML = buildAnnotationHTML(page.data);
+      } else if (page.type === 'data') {
+        content.innerHTML = buildDataPageHTML(page.data);
+      } else if (page.type === 'sim_vs_meas') {
+        content.innerHTML = buildSimVsMeasHTML(page.data);
       } else if (page.type === 'conclusion') {
         content.innerHTML = buildConclusionHTML(page.data);
       }
@@ -2996,6 +4836,149 @@
       </div>`;
     }
 
+    function buildDataPageHTML(d) {
+      const h = d.header || {};
+      const tas = d.ta_conditions || [];
+      const comps = d.components || [];
+
+      const thStyle = 'text-align:left;font-size:8px;font-weight:700;color:rgba(15,23,42,0.50);padding:4px 5px;background:rgba(15,23,42,0.03);border-bottom:2px solid rgba(15,23,42,0.10);white-space:nowrap;letter-spacing:0px;word-spacing:0px;';
+      const tdStyle = 'padding:3px 5px;border-bottom:1px solid rgba(15,23,42,0.05);font-size:10px;white-space:nowrap;letter-spacing:0px;word-spacing:0px;';
+
+      const catCounters = { RF: 0, Digital: 0, PWR: 0 };
+      const rows = comps.map(comp => {
+        const cat = comp.category || 'RF';
+        catCounters[cat] = (catCounters[cat] || 0) + 1;
+        const autoNum = cat + '-' + catCounters[cat];
+        const tcSpec = parseFloat(comp.tc_spec) || 0;
+        const derating = parseFloat(comp.derating) || 0.9;
+        const derated = tcSpec * derating;
+
+        let rowFail = false;
+        const taCells = tas.map(ta => {
+          const key = 'ta_' + ta;
+          const measured = comp.readings ? comp.readings[key] : '';
+          const mNum = parseFloat(measured);
+          let marginStr = '—', marginBg = '';
+          if (!isNaN(mNum) && derated > 0) {
+            const margin = ((derated - mNum) / derated) * 100;
+            marginStr = margin.toFixed(1) + '%';
+            if (margin >= 10) marginBg = 'background:#dcfce7;color:#15803d;';
+            else if (margin >= 0) marginBg = 'background:#fef9c3;color:#a16207;';
+            else { marginBg = 'background:#fee2e2;color:#b91c1c;'; rowFail = true; }
+          }
+          return `<td style="${tdStyle}text-align:center;">${measured || '—'}</td><td style="${tdStyle}text-align:center;font-weight:600;${marginBg}">${marginStr}</td>`;
+        }).join('');
+
+        const catColor = cat === 'RF' ? '#3b82f6' : cat === 'Digital' ? '#8b5cf6' : '#f97316';
+        const rowBg = rowFail ? 'background:rgba(254,226,226,0.4);' : '';
+        const pf = rowFail ? '❌' : (tcSpec > 0 ? '✔' : '—');
+
+        return `<tr style="${rowBg}">
+          <td style="${tdStyle}"><span style="display:inline-block;width:3px;height:14px;border-radius:2px;background:${catColor};margin-right:3px;vertical-align:middle;"></span>${escHtml(cat)}</td>
+          <td style="${tdStyle}color:rgba(15,23,42,0.55);font-weight:600;">${autoNum}</td>
+          <td style="${tdStyle}">${escHtml(comp.name)}</td>
+          <td style="${tdStyle}">${escHtml(comp.spec_type)}</td>
+          <td style="${tdStyle}text-align:center;">${tcSpec || '—'}</td>
+          <td style="${tdStyle}text-align:center;">${comp.derating || '0.90'}</td>
+          <td style="${tdStyle}text-align:center;background:rgba(15,23,42,0.03);font-weight:600;">${derated > 0 ? derated.toFixed(1) : '—'}</td>
+          <td style="${tdStyle}">${escHtml(comp.tim_type)}</td>
+          ${taCells}
+          <td style="${tdStyle}text-align:center;font-weight:700;${rowFail ? 'color:#b91c1c;' : 'color:#15803d;'}">${pf}</td>
+          <td style="${tdStyle}">${escHtml(comp.note)}</td>
+        </tr>`;
+      }).join('');
+
+      const taHeaders1 = tas.map(ta => `<th colspan="2" style="${thStyle}text-align:center;border-left:2px solid rgba(15,23,42,0.08);color:rgba(14,116,144,0.7);">Ta = ${ta}°C</th>`).join('');
+      const taHeaders2 = tas.map(() => `<th style="${thStyle}text-align:center;font-size:7px;">Tc</th><th style="${thStyle}text-align:center;font-size:7px;">Margin</th>`).join('');
+
+      const taTags = tas.map(t => `<span style="display:inline-block;padding:3px 8px;font-size:11px;font-weight:500;color:#0e7490;background:rgba(6,182,212,0.10);border:1px solid rgba(6,182,212,0.20);border-radius:12px;margin-right:4px;">Ta = ${t}°C</span>`).join('');
+
+      return `<div style="width:100%;height:100%;display:flex;flex-direction:column;padding:28px 32px 24px;color:rgba(15,23,42,0.90);overflow:hidden;letter-spacing:0px;word-spacing:0px;">
+        <div style="font-size:14px;font-weight:700;letter-spacing:0px;word-spacing:0px;color:rgba(15,23,42,0.50);margin-bottom:12px;padding-bottom:6px;border-bottom:2px solid rgba(15,23,42,0.08);">THERMAL TEST DATA</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 20px;margin-bottom:10px;font-size:11px;">
+          <div><span style="font-size:9px;font-weight:600;color:rgba(15,23,42,0.40);">TEST DATE</span><div>${escHtml(h.test_date)}</div></div>
+          <div><span style="font-size:9px;font-weight:600;color:rgba(15,23,42,0.40);">EQUILIBRIUM TIME</span><div>${escHtml(h.eq_time_min)} min</div></div>
+          <div><span style="font-size:9px;font-weight:600;color:rgba(15,23,42,0.40);">STAGE</span><div>${escHtml(h.stage)}</div></div>
+          <div><span style="font-size:9px;font-weight:600;color:rgba(15,23,42,0.40);">MOUNTING</span><div>${escHtml(h.mounting)}</div></div>
+          <div><span style="font-size:9px;font-weight:600;color:rgba(15,23,42,0.40);">SW VERSION</span><div>${escHtml(h.sw_version)}</div></div>
+          <div><span style="font-size:9px;font-weight:600;color:rgba(15,23,42,0.40);">LOCATION</span><div>${escHtml(h.location)}</div></div>
+        </div>
+        <div style="margin-bottom:10px;">${taTags}</div>
+        <div style="flex:1;overflow:hidden;border:1px solid rgba(15,23,42,0.10);border-radius:4px;">
+          <table style="width:100%;border-collapse:collapse;font-size:10px;">
+            <thead><tr>${['類別','#','元件','Spec','Tc','DR','Derated','TIM'].map(h => `<th style="${thStyle}">${h}</th>`).join('')}${taHeaders1}<th style="${thStyle}">P/F</th><th style="${thStyle}">備註</th></tr><tr>${taHeaders2}</tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      </div>`;
+    }
+
+    function buildSimVsMeasHTML(d) {
+      const items = d.items || [];
+      const hasSim = !!d.sim_image;
+      const hasMeas = !!d.meas_image;
+
+      const thStyle = 'text-align:left;font-size:8px;font-weight:700;color:rgba(15,23,42,0.50);padding:4px 6px;background:rgba(15,23,42,0.03);border-bottom:2px solid rgba(15,23,42,0.10);white-space:nowrap;letter-spacing:0px;word-spacing:0px;';
+      const tdStyle = 'padding:3px 5px;border-bottom:1px solid rgba(15,23,42,0.05);font-size:10px;white-space:nowrap;letter-spacing:0px;word-spacing:0px;';
+
+      const rows = items.map(item => {
+        const simTc = parseFloat(item.sim_tc);
+        const measTc = parseFloat(item.meas_tc);
+        let devC = '—', devPct = '—', devStyle = '', judgeText = '—';
+        if (!isNaN(simTc) && !isNaN(measTc) && measTc !== 0) {
+          const dc = simTc - measTc;
+          const dp = (dc / measTc) * 100;
+          devC = dc.toFixed(1);
+          devPct = dp.toFixed(1) + '%';
+          const absDp = Math.abs(dp);
+          if (absDp <= 10) { devStyle = 'background:#dcfce7;color:#15803d;'; judgeText = '✅'; }
+          else if (absDp <= 20) { devStyle = 'background:#fef9c3;color:#a16207;'; judgeText = '⚠️'; }
+          else { devStyle = 'background:#fee2e2;color:#b91c1c;'; judgeText = '❌'; }
+        }
+        const catColor = item.category === 'RF' ? '#3b82f6' : item.category === 'Digital' ? '#8b5cf6' : '#f97316';
+        return `<tr>
+          <td style="${tdStyle}"><span style="display:inline-block;width:3px;height:14px;border-radius:2px;background:${catColor};margin-right:3px;vertical-align:middle;"></span>${escHtml(item.category)}</td>
+          <td style="${tdStyle}">${escHtml(item.component_name)}</td>
+          <td style="${tdStyle}text-align:center;">${item.tc_derated ? parseFloat(item.tc_derated).toFixed(1) : '—'}</td>
+          <td style="${tdStyle}text-align:center;">${!isNaN(simTc) ? simTc.toFixed(1) : '—'}</td>
+          <td style="${tdStyle}text-align:center;">${!isNaN(measTc) ? measTc.toFixed(1) : '—'}</td>
+          <td style="${tdStyle}text-align:center;font-weight:600;${devStyle}">${devC}</td>
+          <td style="${tdStyle}text-align:center;font-weight:600;${devStyle}">${devPct}</td>
+          <td style="${tdStyle}text-align:center;font-size:12px;${devStyle}">${judgeText}</td>
+          <td style="${tdStyle}">${escHtml(item.note)}</td>
+        </tr>`;
+      }).join('');
+
+      return `<div style="width:100%;height:100%;display:flex;flex-direction:column;padding:20px 24px 16px;gap:8px;color:rgba(15,23,42,0.90);overflow:hidden;letter-spacing:0px;word-spacing:0px;">
+        <div style="font-size:13px;font-weight:700;letter-spacing:0px;word-spacing:0px;color:rgba(15,23,42,0.50);">SIMULATION VS MEASUREMENT COMPARISON</div>
+        <div style="display:flex;gap:12px;height:160px;flex-shrink:0;">
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;">
+            <div style="flex:1;width:100%;border:1px solid rgba(15,23,42,0.10);border-radius:4px;display:flex;align-items:center;justify-content:center;overflow:hidden;">
+              ${hasSim ? `<img src="${escapeAttr(d.sim_image)}" style="max-width:100%;max-height:100%;object-fit:contain;">` : '<span style="color:rgba(15,23,42,0.20);font-size:11px;">No Image</span>'}
+            </div>
+            <div style="font-size:9px;color:rgba(15,23,42,0.35);margin-top:3px;">FloTHERM Simulation</div>
+          </div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;">
+            <div style="flex:1;width:100%;border:1px solid rgba(15,23,42,0.10);border-radius:4px;display:flex;align-items:center;justify-content:center;overflow:hidden;">
+              ${hasMeas ? `<img src="${escapeAttr(d.meas_image)}" style="max-width:100%;max-height:100%;object-fit:contain;">` : '<span style="color:rgba(15,23,42,0.20);font-size:11px;">No Image</span>'}
+            </div>
+            <div style="font-size:9px;color:rgba(15,23,42,0.35);margin-top:3px;">Measurement (IR / TC)</div>
+          </div>
+        </div>
+        <div style="flex:1;overflow:hidden;border:1px solid rgba(15,23,42,0.10);border-radius:4px;">
+          <table style="width:100%;border-collapse:collapse;font-size:10px;">
+            <thead><tr>
+              <th style="${thStyle}">類別</th><th style="${thStyle}">元件</th><th style="${thStyle}">Derated</th>
+              <th style="${thStyle}">Sim Tc</th><th style="${thStyle}">Meas Tc</th>
+              <th style="${thStyle}">Dev°C</th><th style="${thStyle}">Dev%</th><th style="${thStyle}">判斷</th><th style="${thStyle}">備註</th>
+            </tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+        ${d.sim_note ? `<div style="font-size:11px;color:rgba(15,23,42,0.55);padding:4px 0;">${escHtml(d.sim_note)}</div>` : ''}
+      </div>`;
+    }
+
     function escHtml(s) {
       if (!s) return '';
       return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -3031,7 +5014,7 @@
       try {
         for (let i = 0; i < state.pages.length; i++) {
           const page = state.pages[i];
-const isLandscape = page.type === 'image' || page.type === 'annotation';
+const isLandscape = page.type === 'image' || page.type === 'annotation' || page.type === 'sim_vs_meas';
           const w = isLandscape ? 842 : 595;
           const h = isLandscape ? 595 : 842;
 
@@ -3092,11 +5075,338 @@ const isLandscape = page.type === 'image' || page.type === 'annotation';
       return str.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
     }
 
+    // ━━━ Report Homepage ━━━
+    const $homepage = document.getElementById('homepage');
+    const $editorApp = document.getElementById('editor-app');
+    const $hpGrid = document.getElementById('hp-grid');
+    const $hpEmpty = document.getElementById('hp-empty');
+
+    function timeAgo(dateStr) {
+      if (!dateStr) return '';
+      const d = new Date(dateStr);
+      const now = new Date();
+      const diff = Math.floor((now - d) / 1000);
+      if (diff < 60) return '剛剛';
+      if (diff < 3600) return Math.floor(diff / 60) + ' 分鐘前';
+      if (diff < 86400) return Math.floor(diff / 3600) + ' 小時前';
+      const days = Math.floor(diff / 86400);
+      if (days <= 30) return days + ' 天前';
+      return d.toLocaleDateString('zh-TW');
+    }
+
+    async function loadReportList() {
+      if (!window._db) return [];
+      try {
+        const colRef = window._collection(window._db, 'thermal_reports');
+        const snap = await window._getDocs(colRef);
+        const reports = [];
+        snap.forEach(docSnap => {
+          const data = docSnap.data();
+          reports.push({ id: docSnap.id, ...data });
+        });
+        // Sort by updated_at desc
+        reports.sort((a, b) => {
+          const ta = a.updated_at || a.created_at || '';
+          const tb = b.updated_at || b.created_at || '';
+          return tb.localeCompare(ta);
+        });
+        return reports;
+      } catch (err) {
+        console.warn('Could not load report list:', err);
+        return [];
+      }
+    }
+
+    async function renderHomepage() {
+      const reports = await loadReportList();
+      if (reports.length === 0) {
+        $hpEmpty.style.display = 'flex';
+        $hpGrid.style.display = 'none';
+        return;
+      }
+      $hpEmpty.style.display = 'none';
+      $hpGrid.style.display = 'grid';
+
+      $hpGrid.innerHTML = reports.map(r => `
+        <div class="hp-card" data-report-id="${escapeAttr(r.id)}">
+          <div class="hp-card-title">${escapeAttr(r.project_name || '未命名報告')}</div>
+          <div class="hp-card-meta">
+            ${r.stage ? `<span class="hp-badge">${escapeAttr(r.stage)}</span>` : ''}
+            ${r.date ? `<span class="hp-card-date">${escapeAttr(r.date)}</span>` : ''}
+          </div>
+          <div class="hp-card-updated">最後編輯：${timeAgo(r.updated_at || r.created_at)}</div>
+          <div class="hp-card-actions">
+            <button class="hp-card-btn primary" data-action="open" data-id="${escapeAttr(r.id)}">開啟編輯</button>
+            <button class="hp-card-btn" data-action="duplicate" data-id="${escapeAttr(r.id)}">複製</button>
+            <button class="hp-card-btn danger" data-action="delete" data-id="${escapeAttr(r.id)}" data-name="${escapeAttr(r.project_name || '未命名報告')}">刪除</button>
+          </div>
+        </div>
+      `).join('');
+
+      // Bind card actions
+      $hpGrid.querySelectorAll('[data-action]').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          const action = btn.dataset.action;
+          const id = btn.dataset.id;
+          if (action === 'open') {
+            await openReport(id);
+          } else if (action === 'duplicate') {
+            await duplicateReport(id);
+          } else if (action === 'delete') {
+            showDeleteDialog(id, btn.dataset.name);
+          }
+        });
+      });
+    }
+
+    function showHomepage() {
+      $homepage.classList.remove('hidden');
+      $editorApp.style.display = 'none';
+      renderHomepage();
+    }
+
+    function showEditor() {
+      $homepage.classList.add('hidden');
+      $editorApp.style.display = '';
+    }
+
+    function showNewReportModal() {
+      const today = new Date().toISOString().slice(0, 10);
+      const overlay = document.createElement('div');
+      overlay.className = 'hp-modal-overlay';
+      overlay.innerHTML = `
+        <div class="hp-modal">
+          <div class="hp-modal-header">新增報告</div>
+          <div class="hp-modal-body">
+            <div class="hp-modal-field">
+              <label>案名 *</label>
+              <input type="text" id="hp-new-name" placeholder="輸入案名（Project Name）" autofocus>
+            </div>
+            <div class="hp-modal-field">
+              <label>Stage</label>
+              <select id="hp-new-stage">
+                ${['Prototype','EVT','DVT','PVT','MP'].map(s =>
+                  `<option value="${s}" ${s==='DVT'?'selected':''}>${s}</option>`
+                ).join('')}
+              </select>
+            </div>
+            <div class="hp-modal-field">
+              <label>日期</label>
+              <input type="date" id="hp-new-date" value="${today}">
+            </div>
+          </div>
+          <div class="hp-modal-footer">
+            <button class="hp-modal-btn" id="hp-new-cancel">取消</button>
+            <button class="hp-modal-btn primary" id="hp-new-confirm">建立報告</button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(overlay);
+
+      overlay.querySelector('#hp-new-cancel').addEventListener('click', () => document.body.removeChild(overlay));
+      overlay.addEventListener('click', (e) => { if (e.target === overlay) document.body.removeChild(overlay); });
+
+      overlay.querySelector('#hp-new-confirm').addEventListener('click', async () => {
+        const name = overlay.querySelector('#hp-new-name').value.trim();
+        if (!name) { overlay.querySelector('#hp-new-name').focus(); return; }
+        const stage = overlay.querySelector('#hp-new-stage').value;
+        const date = overlay.querySelector('#hp-new-date').value;
+        document.body.removeChild(overlay);
+        await createNewReport(name, stage, date);
+      });
+
+      // Enter key
+      overlay.querySelector('#hp-new-name').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') overlay.querySelector('#hp-new-confirm').click();
+      });
+
+      setTimeout(() => overlay.querySelector('#hp-new-name').focus(), 100);
+    }
+
+    async function createNewReport(name, stage, date) {
+      const id = 'rpt_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+      const now = new Date().toISOString();
+
+      // Create report meta document
+      if (window._db) {
+        try {
+          const docRef = window._doc(window._db, 'thermal_reports', id);
+          await window._setDoc(docRef, {
+            project_name: name,
+            stage: stage,
+            date: date,
+            created_at: now,
+            updated_at: now,
+          });
+        } catch (err) {
+          console.warn('Could not create report doc:', err);
+        }
+      }
+
+      // Open the new report with a default cover page
+      state.reportId = id;
+      state.pages = [];
+      state.activePage = null;
+      addCoverPage();
+      // Pre-fill cover page fields
+      const cover = state.pages[0];
+      if (cover) {
+        cover.data.project_name = name;
+        cover.data.stage = stage;
+        cover.data.date = date;
+        scheduleSave(0);
+      }
+      showEditor();
+      renderPageList();
+      selectPage(0);
+    }
+
+    async function openReport(reportId) {
+      state.reportId = reportId;
+      state.pages = [];
+      state.activePage = null;
+
+      // Load pages
+      try {
+        for (let i = 0; i < 50; i++) {
+          const existingData = await loadPageFromFirestore(i);
+          if (!existingData) break;
+          state.pages.push({
+            id: 'page_loaded_' + i,
+            type: existingData.type,
+            order: existingData.order ?? i,
+            data: existingData.data,
+          });
+        }
+      } catch (err) {
+        console.warn('Could not load pages:', err);
+      }
+
+      showEditor();
+      renderPageList();
+      if (state.pages.length > 0) {
+        selectPage(0);
+        setStatus('saved', '已儲存 ✅');
+      }
+    }
+
+    async function duplicateReport(sourceId) {
+      const newId = 'rpt_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+      const now = new Date().toISOString();
+
+      try {
+        // Copy meta
+        const srcDocRef = window._doc(window._db, 'thermal_reports', sourceId);
+        const srcSnap = await window._getDoc(srcDocRef);
+        if (srcSnap.exists()) {
+          const srcData = srcSnap.data();
+          const newDocRef = window._doc(window._db, 'thermal_reports', newId);
+          await window._setDoc(newDocRef, {
+            ...srcData,
+            project_name: (srcData.project_name || '') + ' (副本)',
+            created_at: now,
+            updated_at: now,
+          });
+
+          // Copy pages
+          for (let i = 0; i < 50; i++) {
+            const pageDocRef = window._doc(window._db, 'thermal_reports', sourceId, 'pages', String(i));
+            const pageSnap = await window._getDoc(pageDocRef);
+            if (!pageSnap.exists()) break;
+            const newPageRef = window._doc(window._db, 'thermal_reports', newId, 'pages', String(i));
+            await window._setDoc(newPageRef, pageSnap.data());
+          }
+        }
+      } catch (err) {
+        console.warn('Duplicate error:', err);
+      }
+
+      await renderHomepage();
+    }
+
+    function showDeleteDialog(reportId, reportName) {
+      const overlay = document.createElement('div');
+      overlay.className = 'hp-modal-overlay';
+      overlay.innerHTML = `
+        <div class="hp-modal">
+          <div class="hp-modal-header">確認刪除</div>
+          <div class="hp-modal-body">
+            <div class="hp-delete-msg">確定刪除「<strong>${escapeAttr(reportName)}</strong>」嗎？<br>此操作無法復原。</div>
+          </div>
+          <div class="hp-modal-footer">
+            <button class="hp-modal-btn" id="hp-del-cancel">取消</button>
+            <button class="hp-modal-btn danger" id="hp-del-confirm">確認刪除</button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(overlay);
+
+      overlay.querySelector('#hp-del-cancel').addEventListener('click', () => document.body.removeChild(overlay));
+      overlay.addEventListener('click', (e) => { if (e.target === overlay) document.body.removeChild(overlay); });
+
+      overlay.querySelector('#hp-del-confirm').addEventListener('click', async () => {
+        document.body.removeChild(overlay);
+        await deleteReport(reportId);
+      });
+    }
+
+    async function deleteReport(reportId) {
+      try {
+        // Delete pages sub-collection
+        for (let i = 0; i < 50; i++) {
+          const pageRef = window._doc(window._db, 'thermal_reports', reportId, 'pages', String(i));
+          const snap = await window._getDoc(pageRef);
+          if (!snap.exists()) break;
+          await window._deleteDoc(pageRef);
+        }
+
+        // Delete report meta document
+        const docRef = window._doc(window._db, 'thermal_reports', reportId);
+        await window._deleteDoc(docRef);
+
+        // Delete images from Storage
+        try {
+          const folderRef = window._storageRef(window._storage, `reports/${reportId}`);
+          const files = await window._listAll(folderRef);
+          for (const fileRef of files.items) {
+            await window._deleteObject(fileRef);
+          }
+        } catch (storageErr) {
+          // Storage folder may not exist, that's fine
+          console.warn('Storage cleanup:', storageErr.message);
+        }
+
+        console.log('🗑 Deleted report:', reportId);
+      } catch (err) {
+        console.warn('Delete error:', err);
+      }
+
+      await renderHomepage();
+    }
+
+    // Update report meta on each save
+    async function updateReportMeta() {
+      if (!window._db || !state.reportId) return;
+      try {
+        const coverPage = state.pages.find(p => p.type === 'cover');
+        const meta = {
+          updated_at: new Date().toISOString(),
+        };
+        if (coverPage) {
+          meta.project_name = coverPage.data.project_name || '';
+          meta.stage = coverPage.data.stage || '';
+          meta.date = coverPage.data.date || '';
+        }
+        const docRef = window._doc(window._db, 'thermal_reports', state.reportId);
+        await window._setDoc(docRef, meta, { merge: true });
+      } catch (err) {
+        // Silent - meta update is non-critical
+      }
+    }
+
     // ━━━ Init ━━━
     async function init() {
-      state.reportId = getOrCreateReportId();
-      console.log('📋 Report ID:', state.reportId);
-
       // Setup dropdowns
       setupDropdown('toolbar-add-btn', 'toolbar-add-menu');
       setupDropdown('sidebar-add-btn', 'sidebar-add-menu');
@@ -3105,6 +5415,22 @@ const isLandscape = page.type === 'image' || page.type === 'annotation';
       document.getElementById('btn-preview').addEventListener('click', openPreview);
       document.getElementById('preview-close').addEventListener('click', closePreview);
       document.getElementById('btn-export-pdf').addEventListener('click', exportPDF);
+
+      // Back to homepage
+      document.getElementById('btn-back-home').addEventListener('click', () => {
+        // Reset editor state
+        state.reportId = null;
+        state.pages = [];
+        state.activePage = null;
+        $pageList.innerHTML = '';
+        $canvas.classList.remove('landscape');
+        $canvas.innerHTML = '<span class="canvas-placeholder">← 請從左側選擇或新增頁面</span>';
+        updatePageNavButtons();
+        showHomepage();
+      });
+
+      // New report button
+      document.getElementById('hp-new-report').addEventListener('click', showNewReportModal);
 
       // Setup SortableJS
       if (typeof Sortable !== 'undefined') {
@@ -3123,35 +5449,14 @@ const isLandscape = page.type === 'image' || page.type === 'annotation';
               state.activePage++;
             }
             renderPageList();
-            // Save all reordered pages
             state.pages.forEach((_, i) => scheduleSave(i));
           }
         });
-        console.log('✅ SortableJS initialized on #page-list');
       }
 
-      // Try to load existing pages from Firestore (scan up to 20 slots)
+      // Wait for Firebase, then show homepage
       await waitForFirebase();
-      try {
-        for (let i = 0; i < 20; i++) {
-          const existingData = await loadPageFromFirestore(i);
-          if (!existingData) break;
-          state.pages.push({
-            id: 'page_loaded_' + i,
-            type: existingData.type,
-            order: existingData.order ?? i,
-            data: existingData.data,
-          });
-        }
-        if (state.pages.length > 0) {
-          renderPageList();
-          selectPage(0);
-          setStatus('saved', '已儲存 ✅');
-          console.log('✅ Loaded', state.pages.length, 'page(s) from Firestore');
-        }
-      } catch (err) {
-        console.warn('Could not load existing data:', err);
-      }
+      showHomepage();
     }
 
     document.addEventListener('DOMContentLoaded', init);

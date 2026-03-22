@@ -1814,6 +1814,15 @@
       position: relative;
     }
 
+    .annotation-ws-container {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
     .annotation-title {
       font-size: 16px;
       font-weight: 700;
@@ -1841,12 +1850,16 @@
     }
 
     .annotation-workspace {
-      flex: 1;
+      /* Fixed size matching PDF output (842 × ~555) for exact coordinate parity */
+      width: 842px;
+      height: 555px;
       position: relative;
       overflow: hidden;
       display: flex;
       align-items: center;
       justify-content: center;
+      transform-origin: top left;
+      flex-shrink: 0;
     }
 
     .annotation-photo-zone {
@@ -3354,6 +3367,24 @@
     // ━━━ Annotation Page Module ━━━
     let annotationDragState = null; // { markerId, startX, startY } during leader-line drag
 
+    function scaleAnnotationWorkspace() {
+      const container = document.getElementById('anno-ws-container');
+      const ws = document.getElementById('anno-workspace');
+      if (!container || !ws) return;
+      const cw = container.clientWidth;
+      const ch = container.clientHeight;
+      const scale = Math.min(cw / 842, ch / 555, 1);
+      ws.style.transform = `scale(${scale})`;
+      ws.style.transformOrigin = 'center center';
+    }
+
+    // Re-scale on window resize
+    window.addEventListener('resize', () => {
+      if (state.activePage !== null && state.pages[state.activePage]?.type === 'annotation') {
+        scaleAnnotationWorkspace();
+      }
+    });
+
     function addAnnotationPage() {
       const page = {
         id: 'page_' + Date.now(),
@@ -3381,27 +3412,32 @@
         <div class="annotation-page">
           <input class="annotation-title" type="text" placeholder="TC Thermocouple Placement"
                  value="${escapeAttr(d.title)}" data-field="title">
-          <div class="annotation-workspace" id="anno-workspace">
-            <div class="annotation-photo-zone ${hasPhoto ? 'has-photo' : ''}" id="anno-photo-zone"
-                 style="width:${annoW}px;height:${annoH}px;">
-              ${hasPhoto
-                ? `<img src="${escapeAttr(d.photo_url_or_base64)}" alt="Annotation photo">
-                   <button class="anno-replace-photo-btn" id="anno-replace-btn">📷 更換圖片</button>
-                   <div class="anno-photo-resize" id="anno-photo-resize"></div>`
-                : `<div class="annotation-photo-placeholder">
-                     <span class="icon">📷</span>
-                     拖拉、點擊選檔或 Ctrl+V 貼上照片
-                   </div>`
-              }
-              <input type="file" accept="image/*" id="anno-file-input" style="display:none">
+          <div class="annotation-ws-container" id="anno-ws-container">
+            <div class="annotation-workspace" id="anno-workspace">
+              <div class="annotation-photo-zone ${hasPhoto ? 'has-photo' : ''}" id="anno-photo-zone"
+                   style="width:${annoW}px;height:${annoH}px;">
+                ${hasPhoto
+                  ? `<img src="${escapeAttr(d.photo_url_or_base64)}" alt="Annotation photo">
+                     <button class="anno-replace-photo-btn" id="anno-replace-btn">📷 更換圖片</button>
+                     <div class="anno-photo-resize" id="anno-photo-resize"></div>`
+                  : `<div class="annotation-photo-placeholder">
+                       <span class="icon">📷</span>
+                       拖拉、點擊選檔或 Ctrl+V 貼上照片
+                     </div>`
+                }
+                <input type="file" accept="image/*" id="anno-file-input" style="display:none">
+              </div>
+              <svg class="annotation-svg-overlay" id="anno-svg"></svg>
+              <svg class="annotation-drag-line" id="anno-drag-svg" style="display:none">
+                <line x1="0" y1="0" x2="0" y2="0"/>
+              </svg>
             </div>
-            <svg class="annotation-svg-overlay" id="anno-svg"></svg>
-            <svg class="annotation-drag-line" id="anno-drag-svg" style="display:none">
-              <line x1="0" y1="0" x2="0" y2="0"/>
-            </svg>
           </div>
         </div>
       `;
+
+      // Scale the fixed-size workspace to fit the canvas container
+      scaleAnnotationWorkspace();
 
       // Title binding
       const titleEl = $canvas.querySelector('[data-field="title"]');
@@ -3472,21 +3508,19 @@
         resizeHandle.addEventListener('mousedown', (e) => {
           e.preventDefault();
           e.stopPropagation();
-          const startX = e.clientX;
-          const startY = e.clientY;
+          const startCoord = screenToWorkspace(e.clientX, e.clientY);
           const startW = zone.offsetWidth;
           const startH = zone.offsetHeight;
           const aspect = startW / startH;
 
           const onMove = (ev) => {
-            const dx = ev.clientX - startX;
-            const dy = ev.clientY - startY;
+            const curCoord = screenToWorkspace(ev.clientX, ev.clientY);
+            const dx = curCoord.x - startCoord.x;
             let newW = Math.max(300, startW + dx * 2);
             let newH = Math.round(newW / aspect);
-            // Clamp to workspace
-            const ws = document.getElementById('anno-workspace');
-            const maxW = ws ? ws.offsetWidth - 20 : 800;
-            const maxH = ws ? ws.offsetHeight - 20 : 550;
+            // Clamp to fixed workspace (842×555)
+            const maxW = 842 - 20;
+            const maxH = 555 - 20;
             if (newW > maxW) { newW = maxW; newH = Math.round(newW / aspect); }
             if (newH > maxH) { newH = maxH; newW = Math.round(newH * aspect); }
             zone.style.width = newW + 'px';
@@ -3499,7 +3533,6 @@
             page.data.anno_photo_w = zone.offsetWidth;
             page.data.anno_photo_h = zone.offsetHeight;
             scheduleSave(state.activePage);
-            // Re-render markers at new size
             renderAnnotationMarkers(page);
           };
 
@@ -3521,38 +3554,37 @@
       if (!zone) return;
 
       zone.addEventListener('mousedown', (e) => {
-        if (e.button !== 0) return; // left click only
+        if (e.button !== 0) return;
         if (!page.data.photo_url_or_base64) return;
-        // Ignore if clicking an existing marker or label
         if (e.target.closest('.marker-dot') || e.target.closest('.marker-label') || e.target.closest('.marker-label-wrap') || e.target.closest('.marker-resize-handle') || e.target.closest('.anno-replace-photo-btn') || e.target.closest('.anno-photo-resize')) return;
 
-        const rect = zone.getBoundingClientRect();
-        const x = ((e.clientX - rect.left) / rect.width) * 100;
-        const y = ((e.clientY - rect.top) / rect.height) * 100;
+        // Convert click to % of photo zone using internal coords
+        const pzW = page.data.anno_photo_w || 680;
+        const pzH = page.data.anno_photo_h || 430;
+        const zoneOffX = (842 - pzW) / 2;
+        const zoneOffY = (555 - pzH) / 2;
+        const wsCoord = screenToWorkspace(e.clientX, e.clientY);
+        const x = ((wsCoord.x - zoneOffX) / pzW) * 100;
+        const y = ((wsCoord.y - zoneOffY) / pzH) * 100;
 
-        // Generate marker
         const id = 'm_' + Date.now();
-        const num = page.data.markers.length + 1;
         const marker = {
           id,
           x: Math.round(x * 100) / 100,
           y: Math.round(y * 100) / 100,
           label: '',
-          label_x: -1, // unset → will be placed on drag release
+          label_x: -1,
           label_y: -1,
         };
 
         page.data.markers.push(marker);
 
-        // Start drag to place label
-        const workspace = document.getElementById('anno-workspace');
-        const wsRect = workspace.getBoundingClientRect();
-        const dotAbsX = e.clientX - wsRect.left;
-        const dotAbsY = e.clientY - wsRect.top;
+        // Dot position in workspace internal coords
+        const dotAbsX = wsCoord.x;
+        const dotAbsY = wsCoord.y;
 
         annotationDragState = { markerId: id, dotAbsX, dotAbsY };
 
-        // Show drag line
         const dragSvg = document.getElementById('anno-drag-svg');
         dragSvg.style.display = 'block';
         const line = dragSvg.querySelector('line');
@@ -3561,25 +3593,20 @@
         line.setAttribute('x2', dotAbsX);
         line.setAttribute('y2', dotAbsY);
 
-        // Render markers (dot will appear)
         renderAnnotationMarkers(page);
         scheduleSave(state.activePage);
       });
 
-      // Mouse move for drag line
       const workspace = document.getElementById('anno-workspace');
       workspace.addEventListener('mousemove', (e) => {
         if (!annotationDragState) return;
-        const wsRect = workspace.getBoundingClientRect();
-        const mx = e.clientX - wsRect.left;
-        const my = e.clientY - wsRect.top;
+        const wsCoord = screenToWorkspace(e.clientX, e.clientY);
         const dragSvg = document.getElementById('anno-drag-svg');
         const line = dragSvg.querySelector('line');
-        line.setAttribute('x2', mx);
-        line.setAttribute('y2', my);
+        line.setAttribute('x2', wsCoord.x);
+        line.setAttribute('y2', wsCoord.y);
       });
 
-      // Mouse up for placing label
       workspace.addEventListener('mouseup', (e) => {
         if (!annotationDragState) return;
         const ds = annotationDragState;
@@ -3588,26 +3615,16 @@
         const dragSvg = document.getElementById('anno-drag-svg');
         dragSvg.style.display = 'none';
 
-        const wsRect = workspace.getBoundingClientRect();
-        const labelAbsX = e.clientX - wsRect.left;
-        const labelAbsY = e.clientY - wsRect.top;
+        const wsCoord = screenToWorkspace(e.clientX, e.clientY);
+        // Convert to % of workspace (fixed 842×555)
+        const lxPct = (wsCoord.x / 842) * 100;
+        const lyPct = (wsCoord.y / 555) * 100;
 
-        // Convert to % of workspace
-        const lxPct = (labelAbsX / wsRect.width) * 100;
-        const lyPct = (labelAbsY / wsRect.height) * 100;
-
-        // Update marker data
         const marker = page.data.markers.find(m => m.id === ds.markerId);
         if (marker) {
-          // If label was barely dragged, auto-place to the right/left
-          const dist = Math.sqrt((labelAbsX - ds.dotAbsX) ** 2 + (labelAbsY - ds.dotAbsY) ** 2);
+          const dist = Math.sqrt((wsCoord.x - ds.dotAbsX) ** 2 + (wsCoord.y - ds.dotAbsY) ** 2);
           if (dist < 15) {
-            // Auto place: if dot is in left half, place label right; else left
-            const zone = document.getElementById('anno-photo-zone');
-            const zRect = zone.getBoundingClientRect();
-            const dotClientX = ds.dotAbsX + wsRect.left;
-            const midX = zRect.left + zRect.width / 2;
-            if (dotClientX < midX) {
+            if (ds.dotAbsX < 842 / 2) {
               marker.label_x = 85;
             } else {
               marker.label_x = 2;
@@ -3622,12 +3639,24 @@
         renderAnnotationMarkers(page);
         scheduleSave(state.activePage);
 
-        // Focus the new label
         setTimeout(() => {
           const labelEl = document.querySelector(`.marker-label[data-id="${ds.markerId}"]`);
           if (labelEl) labelEl.focus();
         }, 50);
       });
+    }
+
+    // Convert screen coords to workspace internal coords (accounting for CSS transform scale)
+    function screenToWorkspace(clientX, clientY) {
+      const ws = document.getElementById('anno-workspace');
+      const wsRect = ws.getBoundingClientRect();
+      // Internal size is always 842x555; rendered size = wsRect.width x wsRect.height
+      const scaleX = 842 / wsRect.width;
+      const scaleY = 555 / wsRect.height;
+      return {
+        x: (clientX - wsRect.left) * scaleX,
+        y: (clientY - wsRect.top) * scaleY
+      };
     }
 
     function renderAnnotationMarkers(page) {
@@ -3641,17 +3670,17 @@
       svg.innerHTML = '';
 
       const markers = page.data.markers;
-      const zoneRect = zone.getBoundingClientRect();
-      const wsRect = workspace.getBoundingClientRect();
-
-      // Compute zone offset relative to workspace
-      const zoneOffX = zoneRect.left - wsRect.left;
-      const zoneOffY = zoneRect.top - wsRect.top;
+      // Use internal (fixed) workspace dimensions for exact PDF parity
+      const WS_W = 842, WS_H = 555;
+      const pzW = page.data.anno_photo_w || 680;
+      const pzH = page.data.anno_photo_h || 430;
+      const zoneOffX = (WS_W - pzW) / 2;
+      const zoneOffY = (WS_H - pzH) / 2;
 
       markers.forEach((m, idx) => {
         // Dot position: x,y are % of photo zone
-        const dotX = zoneOffX + (m.x / 100) * zoneRect.width;
-        const dotY = zoneOffY + (m.y / 100) * zoneRect.height;
+        const dotX = zoneOffX + (m.x / 100) * pzW;
+        const dotY = zoneOffY + (m.y / 100) * pzH;
 
         // Create dot
         const dot = document.createElement('div');
@@ -3684,19 +3713,18 @@
         document.addEventListener('mousemove', (e) => {
           if (!dotDragging) return;
           const zr = zone.getBoundingClientRect();
-          const wr = workspace.getBoundingClientRect();
-          // Clamp to photo zone
+          // Clamp to photo zone in screen space
           const cx = Math.max(zr.left, Math.min(zr.right, e.clientX));
           const cy = Math.max(zr.top, Math.min(zr.bottom, e.clientY));
-          const newDotX = (cx - wr.left);
-          const newDotY = (cy - wr.top);
-          dot.style.left = newDotX + 'px';
-          dot.style.top = newDotY + 'px';
+          // Convert to workspace internal coords
+          const wsCoord = screenToWorkspace(cx, cy);
+          dot.style.left = wsCoord.x + 'px';
+          dot.style.top = wsCoord.y + 'px';
           // Update SVG line if label exists
           if (m.label_x >= 0 && m.label_y >= 0) {
             const lbl = workspace.querySelector(`.marker-label-wrap[data-id="${m.id}"]`);
             if (lbl) {
-              updateAnnotationLine(svg, m.id, newDotX, newDotY,
+              updateAnnotationLine(svg, m.id, wsCoord.x, wsCoord.y,
                 parseFloat(lbl.style.left) + lbl.offsetWidth / 2,
                 parseFloat(lbl.style.top) + lbl.offsetHeight / 2);
             }
@@ -3709,9 +3737,16 @@
           const zr = zone.getBoundingClientRect();
           const cx = Math.max(zr.left, Math.min(zr.right, e.clientX));
           const cy = Math.max(zr.top, Math.min(zr.bottom, e.clientY));
-          // Convert back to % of photo zone
-          m.x = Math.round(((cx - zr.left) / zr.width) * 10000) / 100;
-          m.y = Math.round(((cy - zr.top) / zr.height) * 10000) / 100;
+          // Convert to % of photo zone using internal sizes
+          const pzW = page.data.anno_photo_w || 680;
+          const pzH = page.data.anno_photo_h || 430;
+          const wsCoord = screenToWorkspace(cx, cy);
+          const zoneOffX = (842 - pzW) / 2;
+          const zoneOffY = (555 - pzH) / 2;
+          m.x = Math.round(((wsCoord.x - zoneOffX) / pzW) * 10000) / 100;
+          m.y = Math.round(((wsCoord.y - zoneOffY) / pzH) * 10000) / 100;
+          m.x = Math.max(0, Math.min(100, m.x));
+          m.y = Math.max(0, Math.min(100, m.y));
           renderAnnotationMarkers(page);
           scheduleSave(state.activePage);
         });
@@ -3720,8 +3755,8 @@
 
         // Label (only if placed)
         if (m.label_x >= 0 && m.label_y >= 0) {
-          const labelX = (m.label_x / 100) * wsRect.width;
-          const labelY = (m.label_y / 100) * wsRect.height;
+          const labelX = (m.label_x / 100) * WS_W;
+          const labelY = (m.label_y / 100) * WS_H;
 
           // Wrapper for label + resize handle
           const wrap = document.createElement('div');
@@ -3755,55 +3790,58 @@
 
           // Draggable label (drag from the input area)
           let labelDragging = false;
-          let labelOffX = 0, labelOffY = 0;
+          let labelOffXInternal = 0, labelOffYInternal = 0;
 
           label.addEventListener('mousedown', (e) => {
             if (e.target === label && e.button === 0) {
               labelDragging = true;
-              labelOffX = e.clientX - wrap.getBoundingClientRect().left;
-              labelOffY = e.clientY - wrap.getBoundingClientRect().top;
+              // Compute offset in workspace internal coords
+              const wsCoord = screenToWorkspace(e.clientX, e.clientY);
+              labelOffXInternal = wsCoord.x - parseFloat(wrap.style.left);
+              labelOffYInternal = wsCoord.y - parseFloat(wrap.style.top);
               e.preventDefault();
             }
           });
 
           document.addEventListener('mousemove', (e) => {
             if (!labelDragging) return;
-            const newX = e.clientX - wsRect.left - labelOffX;
-            const newY = e.clientY - wsRect.top - labelOffY;
+            const wsCoord = screenToWorkspace(e.clientX, e.clientY);
+            const newX = wsCoord.x - labelOffXInternal;
+            const newY = wsCoord.y - labelOffYInternal;
             wrap.style.left = newX + 'px';
             wrap.style.top = newY + 'px';
-            // Update SVG line
             updateAnnotationLine(svg, m.id, dotX, dotY, newX + wrap.offsetWidth / 2, newY + wrap.offsetHeight / 2);
           });
 
           document.addEventListener('mouseup', () => {
             if (!labelDragging) return;
             labelDragging = false;
-            const rect = workspace.getBoundingClientRect();
-            m.label_x = (parseFloat(wrap.style.left) / rect.width) * 100;
-            m.label_y = (parseFloat(wrap.style.top) / rect.height) * 100;
+            // Save as % of fixed workspace (842×555)
+            m.label_x = (parseFloat(wrap.style.left) / 842) * 100;
+            m.label_y = (parseFloat(wrap.style.top) / 555) * 100;
             scheduleSave(state.activePage);
           });
 
           // Resize handle drag
           let resizing = false;
-          let resizeStartX = 0, resizeStartW = 0;
+          let resizeStartXInternal = 0, resizeStartW = 0;
 
           resizeHandle.addEventListener('mousedown', (e) => {
             if (e.button !== 0) return;
             e.preventDefault();
             e.stopPropagation();
             resizing = true;
-            resizeStartX = e.clientX;
+            const wsCoord = screenToWorkspace(e.clientX, e.clientY);
+            resizeStartXInternal = wsCoord.x;
             resizeStartW = label.offsetWidth;
           });
 
           document.addEventListener('mousemove', (e) => {
             if (!resizing) return;
-            const delta = e.clientX - resizeStartX;
+            const wsCoord = screenToWorkspace(e.clientX, e.clientY);
+            const delta = wsCoord.x - resizeStartXInternal;
             const newW = Math.max(40, resizeStartW + delta);
             label.style.width = newW + 'px';
-            // Update SVG line to track center
             updateAnnotationLine(svg, m.id, dotX, dotY,
               parseFloat(wrap.style.left) + wrap.offsetWidth / 2,
               parseFloat(wrap.style.top) + wrap.offsetHeight / 2);

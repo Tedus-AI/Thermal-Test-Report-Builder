@@ -868,6 +868,193 @@
       background: rgba(56,189,248,0.04);
     }
 
+    /* ━━━ Data Page Module (A4 Portrait) ━━━ */
+    .data-page {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      padding: 28px 32px 24px;
+      font-family: var(--font-ui);
+      color: var(--text-on-white);
+      overflow-y: auto;
+    }
+
+    .data-page-title {
+      font-size: 14px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: rgba(15,23,42,0.50);
+      margin-bottom: 16px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid rgba(15,23,42,0.08);
+    }
+
+    .data-header-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px 24px;
+      margin-bottom: 16px;
+    }
+
+    .data-field {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .data-field-label {
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: rgba(15,23,42,0.40);
+    }
+
+    .data-field input,
+    .data-field select {
+      font-family: var(--font-ui);
+      font-size: 12px;
+      color: var(--text-on-white);
+      border: 1px solid rgba(15,23,42,0.10);
+      border-radius: 4px;
+      outline: none;
+      background: transparent;
+      padding: 5px 8px;
+      transition: border-color var(--transition-fast), background var(--transition-fast);
+    }
+
+    .data-field input::placeholder {
+      color: rgba(15,23,42,0.25);
+    }
+
+    .data-field input:hover,
+    .data-field select:hover {
+      border-color: rgba(15,23,42,0.20);
+    }
+
+    .data-field input:focus,
+    .data-field select:focus {
+      border-color: rgba(56,189,248,0.45);
+      background: rgba(56,189,248,0.03);
+    }
+
+    .data-field-unit {
+      display: flex;
+      align-items: center;
+      gap: 0;
+    }
+
+    .data-field-unit input {
+      border-top-right-radius: 0;
+      border-bottom-right-radius: 0;
+      flex: 1;
+    }
+
+    .data-field-unit .unit-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: rgba(15,23,42,0.40);
+      background: rgba(15,23,42,0.04);
+      border: 1px solid rgba(15,23,42,0.10);
+      border-left: none;
+      border-radius: 0 4px 4px 0;
+      padding: 5px 8px;
+      white-space: nowrap;
+    }
+
+    /* Ta conditions */
+    .ta-section {
+      border-top: 1px solid rgba(15,23,42,0.08);
+      padding-top: 12px;
+      margin-bottom: 16px;
+    }
+
+    .ta-section-title {
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: rgba(15,23,42,0.40);
+      margin-bottom: 8px;
+    }
+
+    .ta-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .ta-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 10px;
+      font-size: 12px;
+      font-weight: 500;
+      color: #0e7490;
+      background: rgba(6,182,212,0.10);
+      border: 1px solid rgba(6,182,212,0.20);
+      border-radius: 14px;
+      white-space: nowrap;
+    }
+
+    .ta-tag-remove {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 16px;
+      height: 16px;
+      font-size: 12px;
+      line-height: 1;
+      color: rgba(14,116,144,0.5);
+      background: transparent;
+      border: none;
+      border-radius: 50%;
+      cursor: pointer;
+      padding: 0;
+      transition: color var(--transition-fast), background var(--transition-fast);
+    }
+
+    .ta-tag-remove:hover {
+      color: #991b1b;
+      background: rgba(239,68,68,0.12);
+    }
+
+    .ta-add-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      padding: 4px 10px;
+      font-size: 12px;
+      font-family: var(--font-ui);
+      color: rgba(56,189,248,0.7);
+      background: transparent;
+      border: 1px dashed rgba(56,189,248,0.25);
+      border-radius: 14px;
+      cursor: pointer;
+      transition: background var(--transition-fast), border-color var(--transition-fast);
+    }
+
+    .ta-add-btn:hover {
+      background: rgba(56,189,248,0.06);
+      border-color: rgba(56,189,248,0.5);
+    }
+
+    /* Data body placeholder */
+    .data-body-placeholder {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px dashed rgba(15,23,42,0.12);
+      border-radius: 6px;
+      font-size: 13px;
+      color: rgba(15,23,42,0.25);
+    }
+
     /* ━━━ Image Page Module (A4 Landscape 842×595) ━━━ */
     #editor-canvas.landscape {
       --canvas-aspect: 842 / 595;
@@ -1326,6 +1513,7 @@
             <button class="dropdown-item" data-type="cover">🏠 封面頁</button>
             <button class="dropdown-item" data-type="image">🖼 圖片頁</button>
             <button class="dropdown-item" data-type="annotation">📍 標註頁</button>
+            <button class="dropdown-item" data-type="data">📊 數據頁</button>
             <button class="dropdown-item" data-type="conclusion">📝 結論頁</button>
           </div>
         </div>
@@ -1350,6 +1538,7 @@
               <button class="dropdown-item" data-type="cover">🏠 封面頁</button>
               <button class="dropdown-item" data-type="image">🖼 圖片頁</button>
               <button class="dropdown-item" data-type="annotation">📍 標註頁</button>
+              <button class="dropdown-item" data-type="data">📊 數據頁</button>
               <button class="dropdown-item" data-type="conclusion">📝 結論頁</button>
             </div>
           </div>
@@ -1567,6 +1756,7 @@
           if (type === 'cover') addCoverPage();
           else if (type === 'image') addImagePage();
           else if (type === 'annotation') addAnnotationPage();
+          else if (type === 'data') addDataPage();
           else if (type === 'conclusion') addConclusionPage();
         });
       });
@@ -1621,6 +1811,14 @@
           label = '圖片頁 ' + imgCount;
         }
         if (page.type === 'annotation') { icon = '📍'; label = '標註頁'; }
+        if (page.type === 'data') {
+          icon = '📊';
+          let dataCount = 0;
+          for (let j = 0; j <= idx; j++) {
+            if (state.pages[j].type === 'data') dataCount++;
+          }
+          label = '數據頁 ' + dataCount;
+        }
         if (page.type === 'conclusion') { icon = '📝'; label = '結論頁'; }
 
         el.textContent = icon + ' ' + label;
@@ -1725,6 +1923,8 @@
         renderImagePage(page);
       } else if (page.type === 'annotation') {
         renderAnnotationPage(page);
+      } else if (page.type === 'data') {
+        renderDataPage(page);
       } else if (page.type === 'conclusion') {
         renderConclusionPage(page);
       }
@@ -2527,6 +2727,194 @@
         line.setAttribute('y1', y1);
         line.setAttribute('x2', x2);
         line.setAttribute('y2', y2);
+      }
+    }
+
+    // ━━━ Data Page Module ━━━
+    function addDataPage() {
+      const today = new Date().toISOString().slice(0, 10);
+      // Sync stage from cover page if exists
+      const coverPage = state.pages.find(p => p.type === 'cover');
+      const defaultStage = coverPage ? coverPage.data.stage : 'DVT';
+
+      const page = {
+        id: 'page_' + Date.now(),
+        type: 'data',
+        order: state.pages.length,
+        data: {
+          header: {
+            test_date: today,
+            stage: defaultStage,
+            sw_version: '',
+            waveform_ver: '',
+            eq_time_min: '',
+            mounting: 'Pole Mount',
+            location: '',
+          },
+          ta_conditions: [25, 55],
+          components: [],
+          sensors: [],
+        }
+      };
+      state.pages.push(page);
+      renderPageList();
+      selectPage(state.pages.length - 1);
+      scheduleSave(state.pages.length - 1);
+    }
+
+    function renderDataPage(page) {
+      const d = page.data;
+      if (!d.header) d.header = {};
+      if (!d.ta_conditions) d.ta_conditions = [25, 55];
+      const h = d.header;
+
+      const mountOptions = ['Pole Mount', 'Wall Mount', 'Free-standing'];
+      const stageOptions = ['Prototype', 'EVT', 'DVT', 'PVT', 'MP'];
+
+      const taTagsHTML = d.ta_conditions.map((temp, i) =>
+        `<span class="ta-tag">Ta = ${temp}°C<button class="ta-tag-remove" data-ta-idx="${i}" title="刪除">✕</button></span>`
+      ).join('');
+
+      $canvas.innerHTML = `
+        <div class="data-page">
+          <div class="data-page-title">Thermal Test Data</div>
+
+          <div class="data-header-grid">
+            <!-- Left column -->
+            <div class="data-field">
+              <span class="data-field-label">Test Date</span>
+              <input type="date" value="${escapeAttr(h.test_date || '')}" data-header="test_date">
+            </div>
+
+            <div class="data-field">
+              <span class="data-field-label">Thermal Equilibrium Time</span>
+              <div class="data-field-unit">
+                <input type="number" min="0" placeholder="30" value="${escapeAttr(h.eq_time_min || '')}" data-header="eq_time_min">
+                <span class="unit-label">min</span>
+              </div>
+            </div>
+
+            <div class="data-field">
+              <span class="data-field-label">Stage</span>
+              <select data-header="stage">
+                ${stageOptions.map(s =>
+                  `<option value="${s}" ${h.stage === s ? 'selected' : ''}>${s}</option>`
+                ).join('')}
+              </select>
+            </div>
+
+            <div class="data-field">
+              <span class="data-field-label">Mounting</span>
+              <select data-header="mounting" id="data-mounting-select">
+                ${mountOptions.map(m =>
+                  `<option value="${m}" ${h.mounting === m ? 'selected' : ''}>${m}</option>`
+                ).join('')}
+                <option value="__custom" ${!mountOptions.includes(h.mounting) && h.mounting ? 'selected' : ''}>自訂…</option>
+              </select>
+              ${!mountOptions.includes(h.mounting) && h.mounting
+                ? `<input type="text" class="data-custom-mounting" placeholder="自訂安裝方式" value="${escapeAttr(h.mounting)}" style="margin-top:4px;">`
+                : ''}
+            </div>
+
+            <div class="data-field">
+              <span class="data-field-label">SW Version</span>
+              <input type="text" placeholder="e.g. v2.1.0" value="${escapeAttr(h.sw_version || '')}" data-header="sw_version">
+            </div>
+
+            <div class="data-field">
+              <span class="data-field-label">Location</span>
+              <input type="text" placeholder="Lab / Chamber / Outdoor" value="${escapeAttr(h.location || '')}" data-header="location">
+            </div>
+
+            <div class="data-field">
+              <span class="data-field-label">Waveform Ver.</span>
+              <input type="text" placeholder="e.g. WF3.2" value="${escapeAttr(h.waveform_ver || '')}" data-header="waveform_ver">
+            </div>
+          </div>
+
+          <!-- Ta Conditions -->
+          <div class="ta-section">
+            <div class="ta-section-title">量測環境溫度條件（Ta Conditions）</div>
+            <div class="ta-tags" id="ta-tags-container">
+              ${taTagsHTML}
+              <button class="ta-add-btn" id="ta-add-btn">+ 新增</button>
+            </div>
+          </div>
+
+          <!-- Placeholder for future data table -->
+          <div class="data-body-placeholder">
+            數據表將在下一步實作
+          </div>
+        </div>
+      `;
+
+      // Bind header field changes
+      $canvas.querySelectorAll('[data-header]').forEach(el => {
+        const eventType = el.tagName === 'SELECT' ? 'change' : 'input';
+        el.addEventListener(eventType, () => {
+          d.header[el.dataset.header] = el.value;
+
+          // Sync stage to cover page
+          if (el.dataset.header === 'stage') {
+            const coverPage = state.pages.find(p => p.type === 'cover');
+            if (coverPage) {
+              coverPage.data.stage = el.value;
+              const coverIdx = state.pages.indexOf(coverPage);
+              scheduleSave(coverIdx);
+            }
+          }
+
+          scheduleSave(state.activePage);
+        });
+      });
+
+      // Mounting custom logic
+      const mountSelect = document.getElementById('data-mounting-select');
+      if (mountSelect) {
+        mountSelect.addEventListener('change', () => {
+          if (mountSelect.value === '__custom') {
+            d.header.mounting = '';
+            renderDataPage(page);
+            // Focus the custom input
+            const customInput = $canvas.querySelector('.data-custom-mounting');
+            if (customInput) customInput.focus();
+          } else {
+            d.header.mounting = mountSelect.value;
+            scheduleSave(state.activePage);
+          }
+        });
+      }
+
+      const customMounting = $canvas.querySelector('.data-custom-mounting');
+      if (customMounting) {
+        customMounting.addEventListener('input', () => {
+          d.header.mounting = customMounting.value;
+          scheduleSave(state.activePage);
+        });
+      }
+
+      // Ta tag remove
+      $canvas.querySelectorAll('.ta-tag-remove').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const idx = parseInt(btn.dataset.taIdx);
+          d.ta_conditions.splice(idx, 1);
+          scheduleSave(state.activePage);
+          renderDataPage(page);
+        });
+      });
+
+      // Ta add
+      const taAddBtn = document.getElementById('ta-add-btn');
+      if (taAddBtn) {
+        taAddBtn.addEventListener('click', () => {
+          const val = prompt('輸入環境溫度 (°C)：', '35');
+          if (val === null) return;
+          const num = parseFloat(val);
+          if (isNaN(num)) return;
+          d.ta_conditions.push(num);
+          scheduleSave(state.activePage);
+          renderDataPage(page);
+        });
       }
     }
 

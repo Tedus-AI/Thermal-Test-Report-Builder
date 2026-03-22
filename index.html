@@ -2099,6 +2099,39 @@
       user-select: none;
     }
 
+    .preview-nav-btn {
+      position: absolute;
+      bottom: 24px;
+      z-index: 10002;
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      border: 1px solid rgba(255,255,255,0.2);
+      background: rgba(255,255,255,0.1);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      color: rgba(255,255,255,0.7);
+      font-size: 20px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s, color 0.15s, transform 0.15s;
+      user-select: none;
+    }
+    .preview-nav-btn:hover {
+      background: rgba(56,189,248,0.35);
+      color: #fff;
+      transform: scale(1.1);
+    }
+    .preview-nav-btn:disabled {
+      opacity: 0.2;
+      cursor: default;
+      pointer-events: none;
+    }
+    .preview-nav-btn.prev { left: 24px; }
+    .preview-nav-btn.next { right: 24px; }
+
     /* ━━━ PDF Export helper ━━━ */
     .pdf-render-stage {
       position: fixed;
@@ -2477,6 +2510,8 @@
   <div class="preview-overlay" id="preview-overlay">
     <button class="preview-close" id="preview-close">✕</button>
     <div class="preview-canvas-wrap" id="preview-canvas-wrap"></div>
+    <button class="preview-nav-btn prev" id="preview-prev" title="上一頁">&#9664;</button>
+    <button class="preview-nav-btn next" id="preview-next" title="下一頁">&#9654;</button>
     <div class="preview-footer" id="preview-footer"></div>
   </div>
 
@@ -4906,26 +4941,49 @@
       wrap.innerHTML = '';
       wrap.appendChild(el);
       footer.textContent = `第 ${previewIdx + 1} 頁 / 共 ${state.pages.length} 頁`;
+
+      // Update preview nav button states
+      const prevBtn = document.getElementById('preview-prev');
+      const nextBtn = document.getElementById('preview-next');
+      if (prevBtn) prevBtn.disabled = previewIdx <= 0;
+      if (nextBtn) nextBtn.disabled = previewIdx >= state.pages.length - 1;
     }
 
-    // Preview navigation
+    // Preview nav buttons
+    document.getElementById('preview-prev').addEventListener('click', () => {
+      if (previewIdx > 0) { previewIdx--; renderPreviewPage(); }
+    });
+    document.getElementById('preview-next').addEventListener('click', () => {
+      if (previewIdx < state.pages.length - 1) { previewIdx++; renderPreviewPage(); }
+    });
+
+    // Keyboard navigation
     document.addEventListener('keydown', (e) => {
       const overlay = document.getElementById('preview-overlay');
-      if (!overlay.classList.contains('open')) return;
+      const isPreviewOpen = overlay.classList.contains('open');
 
-      if (e.key === 'Escape') {
-        closePreview();
-      } else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
-        e.preventDefault();
-        if (previewIdx < state.pages.length - 1) {
-          previewIdx++;
-          renderPreviewPage();
+      // Skip if user is typing in an input/textarea/select
+      const tag = document.activeElement?.tagName;
+      const isTyping = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || document.activeElement?.isContentEditable;
+
+      if (isPreviewOpen) {
+        // Preview mode navigation
+        if (e.key === 'Escape') {
+          closePreview();
+        } else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+          e.preventDefault();
+          if (previewIdx < state.pages.length - 1) { previewIdx++; renderPreviewPage(); }
+        } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+          e.preventDefault();
+          if (previewIdx > 0) { previewIdx--; renderPreviewPage(); }
         }
-      } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+      } else if (!isTyping && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+        // Editor mode: left/right arrow to flip pages (only when not in an input)
         e.preventDefault();
-        if (previewIdx > 0) {
-          previewIdx--;
-          renderPreviewPage();
+        if (e.key === 'ArrowLeft' && state.activePage > 0) {
+          selectPage(state.activePage - 1);
+        } else if (e.key === 'ArrowRight' && state.activePage < state.pages.length - 1) {
+          selectPage(state.activePage + 1);
         }
       }
     });

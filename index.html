@@ -2726,51 +2726,62 @@
     }
 
     async function processImage(file) {
-      // Always prefer Firebase Storage to avoid Firestore 1MB document limit
-      if (window._storage) {
-        try {
-          setStatus('saving', '上傳圖片中...');
-          const path = `reports/${state.reportId}/img_${Date.now()}_${file.name}`;
-          const sRef = window._storageRef(window._storage, path);
-          await window._uploadBytes(sRef, file);
-          const url = await window._getDownloadURL(sRef);
-          setStatus('saved', '已儲存 ✅');
-          return url;
-        } catch (err) {
-          console.warn('Storage upload failed, falling back to base64:', err);
-        }
-      }
-
-      // Fallback: compress and use base64 (only when Storage unavailable)
-      return await compressImageToDataURL(file, 800, 0.7);
+      // Firestore 1MB doc limit → each image must stay small
+      // Target: max ~200KB base64 per image (4 images ≈ 800KB + metadata < 1MB)
+      const MAX_SINGLE_IMAGE_BYTES = 200 * 1024;
+      return await compressImageToTarget(file, MAX_SINGLE_IMAGE_BYTES);
     }
 
-    // Compress image to fit within maxDim and quality
-    function compressImageToDataURL(file, maxDim, quality) {
+    // Compress image with adaptive quality to fit within targetBytes (base64 size)
+    function compressImageToTarget(file, targetBytes) {
       return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onerror = reject;
         reader.onload = () => {
           const img = new Image();
-          img.onload = () => {
-            let w = img.width, h = img.height;
-            if (w > maxDim || h > maxDim) {
-              const scale = maxDim / Math.max(w, h);
-              w = Math.round(w * scale);
-              h = Math.round(h * scale);
-            }
-            const canvas = document.createElement('canvas');
-            canvas.width = w;
-            canvas.height = h;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(img, 0, 0, w, h);
-            resolve(canvas.toDataURL('image/jpeg', quality));
-          };
           img.onerror = reject;
+          img.onload = () => {
+            // Step down: try progressively smaller sizes until it fits
+            const attempts = [
+              { maxDim: 1200, quality: 0.70 },
+              { maxDim: 1000, quality: 0.60 },
+              { maxDim: 800,  quality: 0.50 },
+              { maxDim: 600,  quality: 0.45 },
+              { maxDim: 480,  quality: 0.40 },
+            ];
+
+            for (const { maxDim, quality } of attempts) {
+              const result = compressToCanvas(img, maxDim, quality);
+              if (result.length <= targetBytes) {
+                console.log(`✅ Image compressed: ${(result.length / 1024).toFixed(0)}KB (${maxDim}px, q=${quality})`);
+                resolve(result);
+                return;
+              }
+            }
+            // Last resort: smallest size
+            const fallback = compressToCanvas(img, 400, 0.35);
+            console.log(`⚠️ Image force-compressed: ${(fallback.length / 1024).toFixed(0)}KB`);
+            resolve(fallback);
+          };
           img.src = reader.result;
         };
         reader.readAsDataURL(file);
       });
+    }
+
+    function compressToCanvas(img, maxDim, quality) {
+      let w = img.width, h = img.height;
+      if (w > maxDim || h > maxDim) {
+        const scale = maxDim / Math.max(w, h);
+        w = Math.round(w * scale);
+        h = Math.round(h * scale);
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, w, h);
+      return canvas.toDataURL('image/jpeg', quality);
     }
 
     // ━━━ Dropdown logic ━━━

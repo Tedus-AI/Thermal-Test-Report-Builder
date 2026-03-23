@@ -1846,7 +1846,7 @@
       flex-direction: column;
       font-family: var(--font-ui);
       color: var(--text-on-white);
-      overflow: visible;
+      overflow: hidden;
       position: relative;
     }
 
@@ -1880,7 +1880,7 @@
     .annotation-workspace {
       flex: 1;
       position: relative;
-      overflow: visible;
+      overflow: hidden;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -3222,49 +3222,127 @@
     async function handlePaste(e) {
       if (state.activePage === null) return;
       const page = state.pages[state.activePage];
-      const items = e.clipboardData?.items;
-      if (!items) return;
+      const dt = e.clipboardData;
+      if (!dt) return;
 
-      // 1) Try direct image data (screenshot, image copy)
-      for (const item of items) {
-        if (item.type.startsWith('image/')) {
+      // ── Read all clipboard data SYNCHRONOUSLY before any await ──
+      let imageFile = null;
+      let htmlString = null;
+
+      // 1) Check items for image/* types
+      if (dt.items) {
+        for (const item of dt.items) {
+          if (item.type.startsWith('image/') && item.kind === 'file') {
+            const f = item.getAsFile();
+            if (f) { imageFile = f; break; }
+          }
+        }
+        // 2) Read HTML synchronously (must happen before event handler returns)
+        if (!imageFile) {
+          for (const item of dt.items) {
+            if (item.type === 'text/html') {
+              htmlString = await new Promise(resolve => item.getAsString(resolve));
+              break;
+            }
+          }
+        }
+      }
+
+      // 3) Fallback: check dt.files (Firefox/Safari compatibility)
+      if (!imageFile && dt.files) {
+        for (const f of dt.files) {
+          if (f.type.startsWith('image/')) { imageFile = f; break; }
+        }
+      }
+
+      // ── Process collected data ──
+      if (imageFile) {
+        e.preventDefault();
+        await routePastedImage(page, imageFile);
+        return;
+      }
+
+      // 4) Try extracting image from pasted HTML (Office apps often embed images this way)
+      if (htmlString) {
+        const file = await extractImageFromHTML(htmlString);
+        if (file) {
           e.preventDefault();
-          const file = item.getAsFile();
-          if (!file) return;
           await routePastedImage(page, file);
           return;
         }
       }
+    }
 
-      // 2) Try HTML paste (from Word/Excel/PPT — contains <img src="data:..."> or <img src="blob:...">)
-      for (const item of items) {
-        if (item.type === 'text/html') {
-          const html = await new Promise(r => item.getAsString(r));
-          const imgMatch = html.match(/<img[^>]+src=["']([^"']+)["']/i);
-          if (imgMatch && imgMatch[1]) {
-            e.preventDefault();
-            const src = imgMatch[1];
-            try {
-              let file;
-              if (src.startsWith('data:')) {
-                // Base64 data URI from Office apps
-                const res = await fetch(src);
-                const blob = await res.blob();
-                file = new File([blob], 'pasted-image.png', { type: blob.type || 'image/png' });
-              } else {
-                // External URL — fetch it
-                const res = await fetch(src);
-                const blob = await res.blob();
-                file = new File([blob], 'pasted-image.png', { type: blob.type || 'image/png' });
-              }
-              await routePastedImage(page, file);
-            } catch (err) {
-              console.warn('Could not extract pasted image from HTML:', err);
-            }
-            return;
-          }
+    async function extractImageFromHTML(html) {
+      // Try to find <img> tags with usable src
+      const imgMatch = html.match(/<img[^>]+src=["']([^"']+)["']/i);
+      if (!imgMatch) return null;
+      const src = imgMatch[1];
+
+      // data: URI — directly convertible
+      if (src.startsWith('data:')) {
+        try {
+          const res = await fetch(src);
+          const blob = await res.blob();
+          return new File([blob], 'pasted-image.png', { type: blob.type || 'image/png' });
+        } catch (err) {
+          console.warn('Failed to decode data URI:', err);
         }
       }
+
+      // https:// URL — try to fetch (may fail due to CORS)
+      if (src.startsWith('http://') || src.startsWith('https://')) {
+        try {
+          const res = await fetch(src);
+          const blob = await res.blob();
+          return new File([blob], 'pasted-image.png', { type: blob.type || 'image/png' });
+        } catch (err) {
+          console.warn('Failed to fetch remote image:', err);
+        }
+      }
+
+      // file:/// or blob: — can't fetch, try rendering the HTML fragment to canvas
+      try {
+        const file = await renderHTMLToImage(html);
+        if (file) return file;
+      } catch (err) {
+        console.warn('Failed to render HTML to image:', err);
+      }
+
+      return null;
+    }
+
+    async function renderHTMLToImage(html) {
+      // Render pasted HTML fragment into an offscreen element, then capture via canvas
+      const container = document.createElement('div');
+      container.style.cssText = 'position:fixed;left:-9999px;top:0;background:#fff;z-index:-1;';
+      container.innerHTML = html;
+      document.body.appendChild(container);
+
+      // Wait for any images to load
+      const imgs = container.querySelectorAll('img');
+      await Promise.all([...imgs].map(img =>
+        img.complete ? Promise.resolve() : new Promise(r => { img.onload = r; img.onerror = r; })
+      ));
+
+      // Find the largest image or the entire content
+      let target = container;
+      if (imgs.length === 1) target = imgs[0];
+
+      try {
+        if (typeof html2canvas === 'function') {
+          const canvas = await html2canvas(target, { useCORS: true, logging: false });
+          const blob = await new Promise(r => canvas.toBlob(r, 'image/png'));
+          document.body.removeChild(container);
+          if (blob && blob.size > 100) {
+            return new File([blob], 'pasted-image.png', { type: 'image/png' });
+          }
+        }
+      } catch (err) {
+        console.warn('html2canvas failed:', err);
+      }
+      document.body.removeChild(container);
+      return null;
     }
 
     async function routePastedImage(page, file) {
@@ -3943,9 +4021,16 @@
             if (!labelDragging) return;
             labelDragging = false;
             const rect = workspace.getBoundingClientRect();
-            m.label_x = (parseFloat(wrap.style.left) / rect.width) * 100;
-            m.label_y = (parseFloat(wrap.style.top) / rect.height) * 100;
+            let lx = (parseFloat(wrap.style.left) / rect.width) * 100;
+            let ly = (parseFloat(wrap.style.top) / rect.height) * 100;
+            // Clamp so label doesn't overflow right/bottom edge
+            const lwPct = (label.offsetWidth / rect.width) * 100;
+            lx = Math.max(0, Math.min(100 - lwPct, lx));
+            ly = Math.max(0, Math.min(96, ly));
+            m.label_x = lx;
+            m.label_y = ly;
             scheduleSave(state.activePage);
+            renderAnnotationMarkers(page);
           });
 
           // Resize handle drag
@@ -5353,9 +5438,14 @@
       const markers = d.markers || [];
       const pzW = d.anno_photo_w || 680;
       const pzH = d.anno_photo_h || 430;
-      // Photo zone as % of workspace (matches editor flex centering)
-      const pzWPct = (pzW / 842) * 100;
-      const pzHPct = (pzH / 555) * 100;
+      // Title height ~36px out of 595px total → workspace height = 595-36 = 559px
+      const titleH = 36;
+      const pageW = 842;
+      const pageH = 595;
+      const wsH = pageH - titleH;
+      // Photo zone as % of workspace
+      const pzWPct = (pzW / pageW) * 100;
+      const pzHPct = (pzH / wsH) * 100;
       const pzLPct = (100 - pzWPct) / 2;
       const pzTPct = (100 - pzHPct) / 2;
 
@@ -5369,17 +5459,20 @@
           const lxPct = m.label_x;
           const lyPct = m.label_y;
           const lw = m.label_w || 80;
-          dots += `<div style="position:absolute;left:${lxPct}%;top:${lyPct}%;width:${lw}px;min-width:40px;padding:4px 8px;background:#fff;border:1.5px solid #333;border-radius:4px;font-size:11px;color:rgba(15,23,42,0.90);z-index:20;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,0.12);box-sizing:border-box;">${escHtml(m.label || 'TC' + (idx + 1))}</div>`;
+          // Clamp label so right edge doesn't exceed container
+          const maxLw = pageW * ((100 - lxPct) / 100) - 4; // 4px safety margin
+          const clampedLw = Math.min(lw, maxLw);
+          dots += `<div style="position:absolute;left:${lxPct}%;top:${lyPct}%;width:${clampedLw}px;min-width:40px;padding:4px 8px;background:#fff;border:1.5px solid #333;border-radius:4px;font-size:11px;color:rgba(15,23,42,0.90);z-index:20;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:0 1px 4px rgba(0,0,0,0.12);box-sizing:border-box;">${escHtml(m.label || 'TC' + (idx + 1))}</div>`;
           // SVG line: use viewBox percentages (0-100 range)
-          const slxPct = lxPct + (lw / 842) * 50; // approximate label center X %
+          const slxPct = lxPct + (clampedLw / pageW) * 50; // approximate label center X %
           const slyPct = lyPct + 1.8; // approximate label center Y %
           svgLines += `<line x1="${dxPct}" y1="${dyPct}" x2="${slxPct}" y2="${slyPct}" stroke="#dc2626" stroke-width="0.2"/>`;
         }
       });
 
-      return `<div style="width:100%;height:100%;display:flex;flex-direction:column;overflow:visible;position:relative;color:rgba(15,23,42,0.90);letter-spacing:0px;word-spacing:0px;">
+      return `<div style="width:100%;height:100%;display:flex;flex-direction:column;position:relative;color:rgba(15,23,42,0.90);letter-spacing:0px;word-spacing:0px;">
         <div style="font-size:16px;font-weight:700;letter-spacing:0px;word-spacing:0px;padding:12px 16px 8px;flex-shrink:0;">${escHtml(d.title)}</div>
-        <div style="flex:1;position:relative;overflow:visible;">
+        <div style="flex:1;position:relative;overflow:hidden;">
           ${hasPhoto ? `<div style="position:absolute;top:${pzTPct}%;left:${pzLPct}%;width:${pzWPct}%;height:${pzHPct}%;border:1px solid rgba(15,23,42,0.08);border-radius:6px;overflow:hidden;display:flex;align-items:center;justify-content:center;">
             <img src="${escapeAttr(d.photo_url_or_base64)}" style="width:100%;height:100%;object-fit:contain;">
           </div>` : ''}

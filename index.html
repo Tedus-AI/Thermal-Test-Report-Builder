@@ -512,10 +512,11 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 40px 48px 32px;
+      padding: 4.7% 5.7% 3.8%;
       font-family: var(--font-ui);
       color: var(--text-on-white);
-      overflow-y: auto;
+      overflow: hidden;
+      box-sizing: border-box;
     }
 
     .cover-page input,
@@ -545,28 +546,30 @@
     }
 
     .cover-dept {
-      font-size: 14px;
+      font-size: clamp(11px, 1.6vmin, 14px);
       letter-spacing: 0.08em;
       text-transform: uppercase;
       color: rgba(15,23,42,0.50);
       padding: 6px 8px;
-      margin-bottom: 16px;
+      margin-bottom: 1.9%;
     }
 
     .cover-photo-zone {
-      width: 460px;
-      height: 300px;
+      width: 77%;
+      max-width: 460px;
+      aspect-ratio: 460 / 300;
       border: 2px dashed rgba(15,23,42,0.18);
       border-radius: 8px;
       display: flex;
       align-items: center;
       justify-content: center;
       cursor: pointer;
-      margin-bottom: 24px;
+      margin-bottom: 2.8%;
       position: relative;
       overflow: hidden;
       transition: border-color var(--transition-fast), background var(--transition-fast);
-      flex-shrink: 0;
+      flex-shrink: 1;
+      min-height: 0;
     }
 
     .cover-photo-resize {
@@ -662,7 +665,7 @@
     }
 
     .cover-project-name {
-      font-size: 26px;
+      font-size: clamp(18px, 3vmin, 26px);
       font-weight: 700;
       padding: 8px;
       margin-bottom: 4px;
@@ -670,26 +673,26 @@
     }
 
     .cover-model {
-      font-size: 17px;
+      font-size: clamp(13px, 2vmin, 17px);
       font-weight: 500;
       padding: 6px 8px;
-      margin-bottom: 24px;
+      margin-bottom: 2.8%;
       color: rgba(15,23,42,0.65);
     }
 
     .cover-meta-grid {
       display: grid;
       grid-template-columns: auto 1fr;
-      gap: 8px 16px;
+      gap: clamp(4px, 1vmin, 8px) 16px;
       align-items: center;
       width: 100%;
       max-width: 380px;
       margin-top: auto;
-      padding-top: 16px;
+      padding-top: 1.9%;
     }
 
     .cover-meta-label {
-      font-size: 12px;
+      font-size: clamp(10px, 1.4vmin, 12px);
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 0.05em;
@@ -701,7 +704,7 @@
     .cover-meta-grid input,
     .cover-meta-grid select {
       text-align: left;
-      font-size: 14px;
+      font-size: clamp(11px, 1.6vmin, 14px);
       padding: 4px 8px;
       border-radius: 4px;
     }
@@ -2306,6 +2309,21 @@
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+      cursor: text;
+      border-radius: 4px;
+      padding: 2px 6px;
+      margin: -2px -6px;
+      transition: background var(--transition-fast), box-shadow var(--transition-fast);
+    }
+    .hp-card-title:hover {
+      background: rgba(255,255,255,0.06);
+    }
+    .hp-card-title:focus {
+      outline: none;
+      background: rgba(255,255,255,0.10);
+      box-shadow: 0 0 0 2px rgba(168,85,247,0.3);
+      white-space: normal;
+      overflow: visible;
     }
 
     .hp-card-meta {
@@ -2999,8 +3017,9 @@
     function renderCoverPage(page) {
       const d = page.data;
       const hasImage = !!d.cover_image;
-      const imgW = d.cover_image_w || 460;
-      const imgH = d.cover_image_h || 300;
+      // Photo zone uses percentage width + aspect-ratio for responsive scaling
+      const pzWidthPct = d.cover_image_w_pct || 77; // % of cover-page width
+      const pzAspect = (d.cover_image_w || 460) / (d.cover_image_h || 300);
 
       $canvas.innerHTML = `
         <div class="cover-page">
@@ -3008,7 +3027,7 @@
                  value="${escapeAttr(d.dept)}" data-field="dept">
 
           <div class="cover-photo-zone ${hasImage ? 'has-image' : ''}" id="cover-photo-zone"
-               style="width:${imgW}px;height:${imgH}px;">
+               style="width:${pzWidthPct}%;aspect-ratio:${pzAspect.toFixed(4)};">
             ${hasImage
               ? `<img src="${escapeAttr(d.cover_image)}" alt="Cover">
                  <div class="cover-photo-actions">
@@ -3118,36 +3137,33 @@
         });
       }
 
-      // Resize handle drag
+      // Resize handle drag (percentage-based)
       const resizeHandle = document.getElementById('cover-photo-resize');
       if (resizeHandle) {
         resizeHandle.addEventListener('mousedown', (e) => {
           e.preventDefault();
           e.stopPropagation();
           const startX = e.clientX;
-          const startY = e.clientY;
           const startW = zone.offsetWidth;
-          const startH = zone.offsetHeight;
-          const aspect = startW / startH;
+          const aspect = startW / zone.offsetHeight;
+          const parentW = zone.parentElement.clientWidth;
 
           const onMove = (ev) => {
             const dx = ev.clientX - startX;
-            const dy = ev.clientY - startY;
-            // Use the larger delta to maintain aspect ratio
             let newW = Math.max(200, startW + dx * 2); // *2 because zone is centered
-            let newH = Math.round(newW / aspect);
-            // Clamp to max canvas width
-            const maxW = $canvas.offsetWidth - 40;
-            if (newW > maxW) { newW = maxW; newH = Math.round(newW / aspect); }
-            if (newH > 500) { newH = 500; newW = Math.round(newH * aspect); }
-            zone.style.width = newW + 'px';
-            zone.style.height = newH + 'px';
+            const maxW = parentW * 0.95;
+            if (newW > maxW) newW = maxW;
+            const pct = (newW / parentW) * 100;
+            zone.style.width = pct + '%';
+            zone.style.aspectRatio = aspect.toFixed(4);
           };
 
           const onUp = () => {
             document.removeEventListener('mousemove', onMove);
             document.removeEventListener('mouseup', onUp);
-            // Save the new size
+            // Save as percentage + aspect ratio
+            const parentW = zone.parentElement.clientWidth;
+            page.data.cover_image_w_pct = Math.round((zone.offsetWidth / parentW) * 100);
             page.data.cover_image_w = zone.offsetWidth;
             page.data.cover_image_h = zone.offsetHeight;
             scheduleSave(state.activePage);
@@ -5626,7 +5642,9 @@ const isLandscape = page.type === 'image' || page.type === 'annotation' || page.
 
       $hpGrid.innerHTML = reports.map(r => `
         <div class="hp-card" data-report-id="${escapeAttr(r.id)}">
-          <div class="hp-card-title">${escapeAttr(r.project_name || '未命名報告')}</div>
+          <div class="hp-card-title" contenteditable="true" spellcheck="false"
+               data-report-id="${escapeAttr(r.id)}" data-original="${escapeAttr(r.project_name || '未命名報告')}"
+          >${escapeAttr(r.project_name || '未命名報告')}</div>
           ${r.model ? `<div class="hp-card-date" style="font-size:12px;margin-top:-4px;">${escapeAttr(r.model)}</div>` : ''}
           <div class="hp-card-meta">
             ${r.stage ? `<span class="hp-badge">${escapeAttr(r.stage)}</span>` : ''}
@@ -5653,6 +5671,44 @@ const isLandscape = page.type === 'image' || page.type === 'annotation' || page.
             await duplicateReport(id);
           } else if (action === 'delete') {
             showDeleteDialog(id, btn.dataset.name);
+          }
+        });
+      });
+
+      // Bind inline title editing
+      $hpGrid.querySelectorAll('.hp-card-title').forEach(titleEl => {
+        titleEl.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') { e.preventDefault(); titleEl.blur(); }
+          if (e.key === 'Escape') { titleEl.textContent = titleEl.dataset.original; titleEl.blur(); }
+        });
+        titleEl.addEventListener('blur', async () => {
+          const newName = titleEl.textContent.trim() || '未命名報告';
+          titleEl.textContent = newName;
+          if (newName === titleEl.dataset.original) return;
+          titleEl.dataset.original = newName;
+          const reportId = titleEl.dataset.reportId;
+          // Update delete button's data-name too
+          const card = titleEl.closest('.hp-card');
+          const delBtn = card?.querySelector('[data-action="delete"]');
+          if (delBtn) delBtn.dataset.name = newName;
+          // Save to Firestore meta
+          if (window._db) {
+            try {
+              const docRef = window._doc(window._db, 'thermal_reports', reportId);
+              await window._setDoc(docRef, { project_name: newName, updated_at: new Date().toISOString() }, { merge: true });
+              // Also update cover page's project_name in Firestore
+              const coverRef = window._doc(window._db, 'thermal_reports', reportId, 'pages', '0');
+              const coverSnap = await window._getDoc(coverRef);
+              if (coverSnap.exists()) {
+                const coverData = coverSnap.data();
+                if (coverData.type === 'cover' && coverData.data) {
+                  coverData.data.project_name = newName;
+                  await window._setDoc(coverRef, coverData);
+                }
+              }
+            } catch (err) {
+              console.warn('Title update error:', err);
+            }
           }
         });
       });

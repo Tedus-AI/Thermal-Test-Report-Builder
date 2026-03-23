@@ -2911,11 +2911,21 @@
       if (!confirm('確定要刪除此頁面嗎？')) return;
 
       const page = state.pages[contextTarget];
+      const oldTotalPages = state.pages.length;
       deletePageFromFirestore(page.order);
       state.pages.splice(contextTarget, 1);
 
       // Re-index orders
       state.pages.forEach((p, i) => p.order = i);
+
+      // Re-save all shifted pages so Firestore doc IDs stay contiguous
+      for (let i = contextTarget; i < state.pages.length; i++) {
+        scheduleSave(i);
+      }
+      // Delete orphaned last doc in Firestore (old last position is now empty)
+      if (oldTotalPages - 1 >= state.pages.length) {
+        deletePageFromFirestore(oldTotalPages - 1);
+      }
 
       if (state.activePage >= state.pages.length) {
         state.activePage = state.pages.length - 1;
@@ -5762,17 +5772,40 @@ const isLandscape = page.type === 'image' || page.type === 'annotation' || page.
       state.pages = [];
       state.activePage = null;
 
-      // Load pages
+      // Load pages — tolerate gaps from previously broken deletes
       try {
+        let consecutiveMisses = 0;
+        const loadedFromIds = []; // track original Firestore doc IDs
         for (let i = 0; i < 50; i++) {
           const existingData = await loadPageFromFirestore(i);
-          if (!existingData) break;
+          if (!existingData) {
+            consecutiveMisses++;
+            if (consecutiveMisses >= 3) break; // stop after 3 consecutive gaps
+            continue;
+          }
+          consecutiveMisses = 0;
+          loadedFromIds.push(i);
           state.pages.push({
             id: 'page_loaded_' + i,
             type: existingData.type,
-            order: existingData.order ?? i,
+            order: state.pages.length,
             data: existingData.data,
           });
+        }
+        // If pages were loaded across gaps, re-save with contiguous IDs to heal Firestore
+        const hasGaps = loadedFromIds.some((docId, idx) => docId !== idx);
+        if (hasGaps && state.pages.length > 0) {
+          console.log('🩹 Healing Firestore page gaps...', loadedFromIds, '→ 0-' + (state.pages.length - 1));
+          state.pages.forEach((p, i) => p.order = i);
+          for (let i = 0; i < state.pages.length; i++) {
+            scheduleSave(i);
+          }
+          // Delete orphaned docs that are beyond the new contiguous range
+          for (const oldId of loadedFromIds) {
+            if (oldId >= state.pages.length) {
+              deletePageFromFirestore(oldId);
+            }
+          }
         }
       } catch (err) {
         console.warn('Could not load pages:', err);

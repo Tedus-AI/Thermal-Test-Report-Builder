@@ -512,10 +512,11 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 40px 48px 32px;
+      padding: 4.7% 5.7% 3.8%;
       font-family: var(--font-ui);
       color: var(--text-on-white);
-      overflow-y: auto;
+      overflow: hidden;
+      box-sizing: border-box;
     }
 
     .cover-page input,
@@ -545,28 +546,30 @@
     }
 
     .cover-dept {
-      font-size: 14px;
+      font-size: clamp(11px, 1.6vmin, 14px);
       letter-spacing: 0.08em;
       text-transform: uppercase;
       color: rgba(15,23,42,0.50);
       padding: 6px 8px;
-      margin-bottom: 16px;
+      margin-bottom: 1.9%;
     }
 
     .cover-photo-zone {
-      width: 460px;
-      height: 300px;
+      width: 77%;
+      max-width: 460px;
+      aspect-ratio: 460 / 300;
       border: 2px dashed rgba(15,23,42,0.18);
       border-radius: 8px;
       display: flex;
       align-items: center;
       justify-content: center;
       cursor: pointer;
-      margin-bottom: 24px;
+      margin-bottom: 2.8%;
       position: relative;
       overflow: hidden;
       transition: border-color var(--transition-fast), background var(--transition-fast);
-      flex-shrink: 0;
+      flex-shrink: 1;
+      min-height: 0;
     }
 
     .cover-photo-resize {
@@ -616,6 +619,9 @@
       font-size: 13px;
       pointer-events: none;
     }
+    .cover-photo-placeholder .img-browse-btn {
+      pointer-events: auto;
+    }
 
     .cover-photo-placeholder .icon {
       font-size: 32px;
@@ -662,7 +668,7 @@
     }
 
     .cover-project-name {
-      font-size: 26px;
+      font-size: clamp(18px, 3vmin, 26px);
       font-weight: 700;
       padding: 8px;
       margin-bottom: 4px;
@@ -670,26 +676,26 @@
     }
 
     .cover-model {
-      font-size: 17px;
+      font-size: clamp(13px, 2vmin, 17px);
       font-weight: 500;
       padding: 6px 8px;
-      margin-bottom: 24px;
+      margin-bottom: 2.8%;
       color: rgba(15,23,42,0.65);
     }
 
     .cover-meta-grid {
       display: grid;
       grid-template-columns: auto 1fr;
-      gap: 8px 16px;
+      gap: clamp(4px, 1vmin, 8px) 16px;
       align-items: center;
       width: 100%;
       max-width: 380px;
       margin-top: auto;
-      padding-top: 16px;
+      padding-top: 1.9%;
     }
 
     .cover-meta-label {
-      font-size: 12px;
+      font-size: clamp(10px, 1.4vmin, 12px);
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 0.05em;
@@ -701,7 +707,7 @@
     .cover-meta-grid input,
     .cover-meta-grid select {
       text-align: left;
-      font-size: 14px;
+      font-size: clamp(11px, 1.6vmin, 14px);
       padding: 4px 8px;
       border-radius: 4px;
     }
@@ -717,11 +723,11 @@
       height: 100%;
       display: flex;
       flex-direction: column;
-      padding: 32px 40px 24px;
+      padding: 3.8% 4.7% 2.8%;
       font-family: var(--font-ui);
       color: var(--text-on-white);
       overflow-y: auto;
-      gap: 20px;
+      gap: 2.4%;
     }
 
     .concl-section {
@@ -930,7 +936,7 @@
       height: 100%;
       display: flex;
       flex-direction: column;
-      padding: 28px 32px 24px;
+      padding: 3.3% 3.8% 2.8%;
       font-family: var(--font-ui);
       color: var(--text-on-white);
       overflow-y: auto;
@@ -1330,11 +1336,11 @@
       height: 100%;
       display: flex;
       flex-direction: column;
-      padding: 20px 24px 16px;
+      padding: 2.4% 2.8% 1.9%;
       font-family: var(--font-ui);
       color: var(--text-on-white);
       overflow-y: auto;
-      gap: 10px;
+      gap: 1.2%;
     }
 
     .sim-page-top {
@@ -1375,7 +1381,7 @@
 
     .sim-img-zone {
       flex: 1;
-      height: 170px;
+      height: clamp(120px, 22vmin, 170px);
       border: 2px dashed rgba(15,23,42,0.14);
       border-radius: 6px;
       display: flex;
@@ -1409,6 +1415,9 @@
       color: rgba(15,23,42,0.28);
       font-size: 11px;
       pointer-events: none;
+    }
+    .sim-img-placeholder .img-browse-btn {
+      pointer-events: auto;
     }
     .sim-img-placeholder .icon {
       font-size: 24px;
@@ -1647,14 +1656,14 @@
       height: 100%;
       display: flex;
       flex-direction: column;
-      padding: 20px 24px 16px;
+      padding: 2.4% 2.8% 1.9%;
       font-family: var(--font-ui);
       color: var(--text-on-white);
       overflow: hidden;
     }
 
     .image-page-title {
-      font-size: 18px;
+      font-size: clamp(14px, 2.2vmin, 18px);
       font-weight: 700;
       border: none;
       outline: none;
@@ -1662,7 +1671,7 @@
       color: var(--text-on-white);
       width: 100%;
       padding: 6px 8px;
-      margin-bottom: 12px;
+      margin-bottom: 1.4%;
       font-family: var(--font-ui);
       flex-shrink: 0;
     }
@@ -1738,6 +1747,10 @@
       border-color: var(--color-primary);
       background: rgba(56,189,248,0.08);
     }
+    .image-drop-zone.paste-target {
+      border-color: rgba(168,85,247,0.5);
+      background: rgba(168,85,247,0.04);
+    }
 
     .image-drop-zone.has-image {
       border: 1px solid rgba(15,23,42,0.08);
@@ -1762,6 +1775,27 @@
       margin-bottom: 4px;
       font-weight: 300;
       color: rgba(15,23,42,0.20);
+    }
+
+    /* Shared browse button for image zones */
+    .img-browse-btn {
+      display: inline-block;
+      margin-top: 8px;
+      padding: 4px 14px;
+      font-size: 11px;
+      font-family: var(--font-ui);
+      color: rgba(15,23,42,0.55);
+      background: rgba(15,23,42,0.06);
+      border: 1px solid rgba(15,23,42,0.12);
+      border-radius: 4px;
+      cursor: pointer;
+      pointer-events: auto;
+      transition: all var(--transition-fast);
+    }
+    .img-browse-btn:hover {
+      background: rgba(56,189,248,0.10);
+      border-color: rgba(56,189,248,0.3);
+      color: rgba(15,23,42,0.75);
     }
 
     .image-cell-actions {
@@ -1818,14 +1852,14 @@
 
 
     .annotation-title {
-      font-size: 16px;
+      font-size: clamp(13px, 2vmin, 16px);
       font-weight: 700;
       border: none;
       outline: none;
       background: transparent;
       color: var(--text-on-white);
       width: 100%;
-      padding: 12px 16px 8px;
+      padding: 1.4% 1.9% 1%;
       font-family: var(--font-ui);
       flex-shrink: 0;
       z-index: 5;
@@ -1853,8 +1887,9 @@
     }
 
     .annotation-photo-zone {
-      width: 680px;
-      height: 430px;
+      width: 90%;
+      max-width: 680px;
+      aspect-ratio: 680 / 430;
       border: 2px dashed rgba(15,23,42,0.15);
       border-radius: 6px;
       display: flex;
@@ -1863,7 +1898,8 @@
       cursor: pointer;
       overflow: hidden;
       position: relative;
-      flex-shrink: 0;
+      flex-shrink: 1;
+      min-height: 0;
       transition: border-color var(--transition-fast), background var(--transition-fast);
     }
 
@@ -1948,6 +1984,9 @@
       color: rgba(15,23,42,0.25);
       font-size: 13px;
       pointer-events: none;
+    }
+    .annotation-photo-placeholder .img-browse-btn {
+      pointer-events: auto;
     }
 
     .annotation-photo-placeholder .icon {
@@ -2306,6 +2345,21 @@
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+      cursor: text;
+      border-radius: 4px;
+      padding: 2px 6px;
+      margin: -2px -6px;
+      transition: background var(--transition-fast), box-shadow var(--transition-fast);
+    }
+    .hp-card-title:hover {
+      background: rgba(255,255,255,0.06);
+    }
+    .hp-card-title:focus {
+      outline: none;
+      background: rgba(255,255,255,0.10);
+      box-shadow: 0 0 0 2px rgba(168,85,247,0.3);
+      white-space: normal;
+      overflow: visible;
     }
 
     .hp-card-meta {
@@ -2911,11 +2965,21 @@
       if (!confirm('確定要刪除此頁面嗎？')) return;
 
       const page = state.pages[contextTarget];
+      const oldTotalPages = state.pages.length;
       deletePageFromFirestore(page.order);
       state.pages.splice(contextTarget, 1);
 
       // Re-index orders
       state.pages.forEach((p, i) => p.order = i);
+
+      // Re-save all shifted pages so Firestore doc IDs stay contiguous
+      for (let i = contextTarget; i < state.pages.length; i++) {
+        scheduleSave(i);
+      }
+      // Delete orphaned last doc in Firestore (old last position is now empty)
+      if (oldTotalPages - 1 >= state.pages.length) {
+        deletePageFromFirestore(oldTotalPages - 1);
+      }
 
       if (state.activePage >= state.pages.length) {
         state.activePage = state.pages.length - 1;
@@ -2989,8 +3053,9 @@
     function renderCoverPage(page) {
       const d = page.data;
       const hasImage = !!d.cover_image;
-      const imgW = d.cover_image_w || 460;
-      const imgH = d.cover_image_h || 300;
+      // Photo zone uses percentage width + aspect-ratio for responsive scaling
+      const pzWidthPct = d.cover_image_w_pct || 77; // % of cover-page width
+      const pzAspect = (d.cover_image_w || 460) / (d.cover_image_h || 300);
 
       $canvas.innerHTML = `
         <div class="cover-page">
@@ -2998,7 +3063,7 @@
                  value="${escapeAttr(d.dept)}" data-field="dept">
 
           <div class="cover-photo-zone ${hasImage ? 'has-image' : ''}" id="cover-photo-zone"
-               style="width:${imgW}px;height:${imgH}px;">
+               style="width:${pzWidthPct}%;aspect-ratio:${pzAspect.toFixed(4)};">
             ${hasImage
               ? `<img src="${escapeAttr(d.cover_image)}" alt="Cover">
                  <div class="cover-photo-actions">
@@ -3008,7 +3073,8 @@
                  <div class="cover-photo-resize" id="cover-photo-resize"></div>`
               : `<div class="cover-photo-placeholder">
                    <span class="icon">📷</span>
-                   拖拉圖片、點擊選檔，或 Ctrl+V 貼上
+                   拖拉圖片或 Ctrl+V 貼上
+                   <button class="img-browse-btn" data-browse="cover">瀏覽檔案</button>
                  </div>`
             }
             <input type="file" accept="image/*" id="cover-file-input" style="display:none">
@@ -3057,10 +3123,16 @@
       const fileInput = document.getElementById('cover-file-input');
       if (!zone || !fileInput) return;
 
-      // Click to select file
-      zone.addEventListener('click', (e) => {
+      // Browse button opens file dialog; zone click does NOT (so paste works)
+      const browseBtn = zone.querySelector('.img-browse-btn');
+      if (browseBtn) {
+        browseBtn.addEventListener('click', (e) => { e.stopPropagation(); fileInput.click(); });
+      }
+      // If image already placed, zone click does nothing special (markers handled elsewhere)
+      // Double-click on empty zone opens file dialog as convenience
+      zone.addEventListener('dblclick', (e) => {
         if (e.target.closest('.photo-action-btn')) return;
-        fileInput.click();
+        if (!page.data.cover_image) fileInput.click();
       });
 
       fileInput.addEventListener('change', async () => {
@@ -3108,36 +3180,33 @@
         });
       }
 
-      // Resize handle drag
+      // Resize handle drag (percentage-based)
       const resizeHandle = document.getElementById('cover-photo-resize');
       if (resizeHandle) {
         resizeHandle.addEventListener('mousedown', (e) => {
           e.preventDefault();
           e.stopPropagation();
           const startX = e.clientX;
-          const startY = e.clientY;
           const startW = zone.offsetWidth;
-          const startH = zone.offsetHeight;
-          const aspect = startW / startH;
+          const aspect = startW / zone.offsetHeight;
+          const parentW = zone.parentElement.clientWidth;
 
           const onMove = (ev) => {
             const dx = ev.clientX - startX;
-            const dy = ev.clientY - startY;
-            // Use the larger delta to maintain aspect ratio
             let newW = Math.max(200, startW + dx * 2); // *2 because zone is centered
-            let newH = Math.round(newW / aspect);
-            // Clamp to max canvas width
-            const maxW = $canvas.offsetWidth - 40;
-            if (newW > maxW) { newW = maxW; newH = Math.round(newW / aspect); }
-            if (newH > 500) { newH = 500; newW = Math.round(newH * aspect); }
-            zone.style.width = newW + 'px';
-            zone.style.height = newH + 'px';
+            const maxW = parentW * 0.95;
+            if (newW > maxW) newW = maxW;
+            const pct = (newW / parentW) * 100;
+            zone.style.width = pct + '%';
+            zone.style.aspectRatio = aspect.toFixed(4);
           };
 
           const onUp = () => {
             document.removeEventListener('mousemove', onMove);
             document.removeEventListener('mouseup', onUp);
-            // Save the new size
+            // Save as percentage + aspect ratio
+            const parentW = zone.parentElement.clientWidth;
+            page.data.cover_image_w_pct = Math.round((zone.offsetWidth / parentW) * 100);
             page.data.cover_image_w = zone.offsetWidth;
             page.data.cover_image_h = zone.offsetHeight;
             scheduleSave(state.activePage);
@@ -3148,32 +3217,65 @@
         });
       }
 
-      // Ctrl+V paste
-      document.addEventListener('paste', handlePaste);
     }
 
     async function handlePaste(e) {
       if (state.activePage === null) return;
       const page = state.pages[state.activePage];
-
       const items = e.clipboardData?.items;
       if (!items) return;
 
+      // 1) Try direct image data (screenshot, image copy)
       for (const item of items) {
         if (item.type.startsWith('image/')) {
           e.preventDefault();
           const file = item.getAsFile();
           if (!file) return;
-
-          if (page.type === 'cover') {
-            await handleCoverImage(page, file);
-          } else if (page.type === 'image') {
-            await handleImagePagePaste(page, file);
-          } else if (page.type === 'annotation') {
-            await handleAnnotationPhoto(page, file);
-          }
+          await routePastedImage(page, file);
           return;
         }
+      }
+
+      // 2) Try HTML paste (from Word/Excel/PPT — contains <img src="data:..."> or <img src="blob:...">)
+      for (const item of items) {
+        if (item.type === 'text/html') {
+          const html = await new Promise(r => item.getAsString(r));
+          const imgMatch = html.match(/<img[^>]+src=["']([^"']+)["']/i);
+          if (imgMatch && imgMatch[1]) {
+            e.preventDefault();
+            const src = imgMatch[1];
+            try {
+              let file;
+              if (src.startsWith('data:')) {
+                // Base64 data URI from Office apps
+                const res = await fetch(src);
+                const blob = await res.blob();
+                file = new File([blob], 'pasted-image.png', { type: blob.type || 'image/png' });
+              } else {
+                // External URL — fetch it
+                const res = await fetch(src);
+                const blob = await res.blob();
+                file = new File([blob], 'pasted-image.png', { type: blob.type || 'image/png' });
+              }
+              await routePastedImage(page, file);
+            } catch (err) {
+              console.warn('Could not extract pasted image from HTML:', err);
+            }
+            return;
+          }
+        }
+      }
+    }
+
+    async function routePastedImage(page, file) {
+      if (page.type === 'cover') {
+        await handleCoverImage(page, file);
+      } else if (page.type === 'image') {
+        await handleImagePagePaste(page, file);
+      } else if (page.type === 'annotation') {
+        await handleAnnotationPhoto(page, file);
+      } else if (page.type === 'sim_vs_meas') {
+        await handleSimPaste(page, file);
       }
     }
 
@@ -3293,7 +3395,8 @@
             <div class="image-drop-zone" data-pos="${position}">
               <div class="image-drop-placeholder">
                 <span class="plus-icon">+</span>
-                點此或拖拉圖片
+                拖拉圖片或 Ctrl+V 貼上
+                <button class="img-browse-btn" data-browse="image" data-pos="${position}">瀏覽檔案</button>
               </div>
               <input type="file" accept="image/*" class="img-file-input" data-pos="${position}" style="display:none">
             </div>
@@ -3309,10 +3412,22 @@
         const pos = parseInt(zone.dataset.pos);
         const fileInput = zone.querySelector('.img-file-input');
 
-        // Click to select
-        zone.addEventListener('click', (e) => {
+        // Browse button opens file dialog; zone click stores active position for paste
+        const browseBtn = zone.querySelector('.img-browse-btn');
+        if (browseBtn) {
+          browseBtn.addEventListener('click', (e) => { e.stopPropagation(); fileInput.click(); });
+        }
+        // Double-click on empty zone opens file dialog
+        zone.addEventListener('dblclick', (e) => {
           if (e.target.closest('.photo-action-btn')) return;
-          fileInput.click();
+          if (!zone.classList.contains('has-image')) fileInput.click();
+        });
+        // Single click sets active paste target
+        zone.addEventListener('click', (e) => {
+          if (e.target.closest('.photo-action-btn') || e.target.closest('.img-browse-btn')) return;
+          // Mark this zone as active paste target
+          $canvas.querySelectorAll('.image-drop-zone').forEach(z => z.classList.remove('paste-target'));
+          if (!zone.classList.contains('has-image')) zone.classList.add('paste-target');
         });
 
         fileInput.addEventListener('change', async () => {
@@ -3382,7 +3497,15 @@
 
     async function handleImagePagePaste(page, file) {
       const imgs = page.data.images || [];
-      if (imgs.length >= 4) return; // already full
+      // If a specific zone is selected (paste-target), use that position
+      const targetZone = $canvas.querySelector('.image-drop-zone.paste-target');
+      if (targetZone) {
+        const pos = parseInt(targetZone.dataset.pos);
+        await handleImagePageImage(page, pos, file);
+        return;
+      }
+      // Otherwise paste to next available slot
+      if (imgs.length >= 4) return;
       const nextPos = imgs.length;
       await handleImagePageImage(page, nextPos, file);
     }
@@ -3412,6 +3535,8 @@
       const hasPhoto = !!d.photo_url_or_base64;
       const annoW = d.anno_photo_w || 680;
       const annoH = d.anno_photo_h || 430;
+      const annoAspect = (annoW / annoH).toFixed(4);
+      const annoWidthPct = d.anno_photo_w_pct || 90;
 
       $canvas.innerHTML = `
         <div class="annotation-page">
@@ -3419,14 +3544,15 @@
                  value="${escapeAttr(d.title)}" data-field="title">
           <div class="annotation-workspace" id="anno-workspace">
             <div class="annotation-photo-zone ${hasPhoto ? 'has-photo' : ''}" id="anno-photo-zone"
-                 style="width:${annoW}px;height:${annoH}px;">
+                 style="width:${annoWidthPct}%;aspect-ratio:${annoAspect};">
               ${hasPhoto
                 ? `<img src="${escapeAttr(d.photo_url_or_base64)}" alt="Annotation photo">
                    <button class="anno-replace-photo-btn" id="anno-replace-btn">📷 更換圖片</button>
                    <div class="anno-photo-resize" id="anno-photo-resize"></div>`
                 : `<div class="annotation-photo-placeholder">
                      <span class="icon">📷</span>
-                     拖拉、點擊選檔或 Ctrl+V 貼上照片
+                     拖拉圖片或 Ctrl+V 貼上照片
+                     <button class="img-browse-btn" data-browse="annotation">瀏覽檔案</button>
                    </div>`
               }
               <input type="file" accept="image/*" id="anno-file-input" style="display:none">
@@ -3465,8 +3591,14 @@
       const fileInput = document.getElementById('anno-file-input');
       if (!zone || !fileInput) return;
 
-      zone.addEventListener('click', (e) => {
-        if (page.data.photo_url_or_base64) return; // photo already placed, click = add marker
+      // Browse button opens file dialog
+      const browseBtn = zone.querySelector('.img-browse-btn');
+      if (browseBtn) {
+        browseBtn.addEventListener('click', (e) => { e.stopPropagation(); fileInput.click(); });
+      }
+      // Double-click on empty zone opens file dialog
+      zone.addEventListener('dblclick', (e) => {
+        if (page.data.photo_url_or_base64) return;
         fileInput.click();
       });
 
@@ -3509,33 +3641,28 @@
           e.preventDefault();
           e.stopPropagation();
           const startX = e.clientX;
-          const startY = e.clientY;
           const startW = zone.offsetWidth;
-          const startH = zone.offsetHeight;
-          const aspect = startW / startH;
+          const aspect = startW / zone.offsetHeight;
+          const ws = document.getElementById('anno-workspace');
 
           const onMove = (ev) => {
             const dx = ev.clientX - startX;
-            const dy = ev.clientY - startY;
             let newW = Math.max(300, startW + dx * 2);
-            let newH = Math.round(newW / aspect);
-            // Clamp to workspace
-            const ws = document.getElementById('anno-workspace');
             const maxW = ws ? ws.offsetWidth - 20 : 800;
-            const maxH = ws ? ws.offsetHeight - 20 : 550;
-            if (newW > maxW) { newW = maxW; newH = Math.round(newW / aspect); }
-            if (newH > maxH) { newH = maxH; newW = Math.round(newH * aspect); }
-            zone.style.width = newW + 'px';
-            zone.style.height = newH + 'px';
+            if (newW > maxW) newW = maxW;
+            const parentW = ws ? ws.offsetWidth : 800;
+            zone.style.width = ((newW / parentW) * 100) + '%';
+            zone.style.aspectRatio = aspect.toFixed(4);
           };
 
           const onUp = () => {
             document.removeEventListener('mousemove', onMove);
             document.removeEventListener('mouseup', onUp);
+            const parentW = ws ? ws.offsetWidth : 800;
+            page.data.anno_photo_w_pct = Math.round((zone.offsetWidth / parentW) * 100);
             page.data.anno_photo_w = zone.offsetWidth;
             page.data.anno_photo_h = zone.offsetHeight;
             scheduleSave(state.activePage);
-            // Re-render markers at new size
             renderAnnotationMarkers(page);
           };
 
@@ -4618,7 +4745,7 @@
                        <button class="sim-img-action-btn" id="sim-replace-sim">替換</button>
                        <button class="sim-img-action-btn danger" id="sim-delete-sim">刪除</button>
                      </div>`
-                  : `<div class="sim-img-placeholder"><span class="icon">🖥</span>FloTHERM 截圖</div>`}
+                  : `<div class="sim-img-placeholder"><span class="icon">🖥</span>拖拉或 Ctrl+V 貼上<button class="img-browse-btn" data-browse="sim">瀏覽檔案</button></div>`}
                 <input type="file" accept="image/*" id="sim-file-sim" style="display:none">
               </div>
               <div class="sim-img-label">FloTHERM Simulation</div>
@@ -4631,7 +4758,7 @@
                        <button class="sim-img-action-btn" id="sim-replace-meas">替換</button>
                        <button class="sim-img-action-btn danger" id="sim-delete-meas">刪除</button>
                      </div>`
-                  : `<div class="sim-img-placeholder"><span class="icon">📷</span>IR / TC 量測照片</div>`}
+                  : `<div class="sim-img-placeholder"><span class="icon">📷</span>拖拉或 Ctrl+V 貼上<button class="img-browse-btn" data-browse="meas">瀏覽檔案</button></div>`}
                 <input type="file" accept="image/*" id="sim-file-meas" style="display:none">
               </div>
               <div class="sim-img-label">Measurement (IR / TC)</div>
@@ -4723,6 +4850,22 @@
       }
     }
 
+    async function handleSimPaste(page, file) {
+      const d = page.data;
+      // Paste to first empty slot (sim first, then meas)
+      if (!d.sim_image) {
+        const imageData = await processImage(file);
+        d.sim_image = imageData;
+        scheduleSave(state.activePage);
+        renderSimVsMeasPage(page);
+      } else if (!d.meas_image) {
+        const imageData = await processImage(file);
+        d.meas_image = imageData;
+        scheduleSave(state.activePage);
+        renderSimVsMeasPage(page);
+      }
+    }
+
     function setupSimImageZone(page, key, dataField) {
       const zone = document.getElementById('sim-img-zone-' + key);
       const fileInput = document.getElementById('sim-file-' + key);
@@ -4736,9 +4879,15 @@
         renderSimVsMeasPage(page);
       };
 
-      zone.addEventListener('click', (e) => {
+      // Browse button opens file dialog
+      const browseBtn = zone.querySelector('.img-browse-btn');
+      if (browseBtn) {
+        browseBtn.addEventListener('click', (e) => { e.stopPropagation(); fileInput.click(); });
+      }
+      // Double-click on empty zone opens file dialog
+      zone.addEventListener('dblclick', (e) => {
         if (e.target.closest('.sim-img-action-btn')) return;
-        fileInput.click();
+        if (!zone.classList.contains('has-image')) fileInput.click();
       });
 
       fileInput.addEventListener('change', () => {
@@ -5616,7 +5765,9 @@ const isLandscape = page.type === 'image' || page.type === 'annotation' || page.
 
       $hpGrid.innerHTML = reports.map(r => `
         <div class="hp-card" data-report-id="${escapeAttr(r.id)}">
-          <div class="hp-card-title">${escapeAttr(r.project_name || '未命名報告')}</div>
+          <div class="hp-card-title" contenteditable="true" spellcheck="false"
+               data-report-id="${escapeAttr(r.id)}" data-original="${escapeAttr(r.project_name || '未命名報告')}"
+          >${escapeAttr(r.project_name || '未命名報告')}</div>
           ${r.model ? `<div class="hp-card-date" style="font-size:12px;margin-top:-4px;">${escapeAttr(r.model)}</div>` : ''}
           <div class="hp-card-meta">
             ${r.stage ? `<span class="hp-badge">${escapeAttr(r.stage)}</span>` : ''}
@@ -5643,6 +5794,44 @@ const isLandscape = page.type === 'image' || page.type === 'annotation' || page.
             await duplicateReport(id);
           } else if (action === 'delete') {
             showDeleteDialog(id, btn.dataset.name);
+          }
+        });
+      });
+
+      // Bind inline title editing
+      $hpGrid.querySelectorAll('.hp-card-title').forEach(titleEl => {
+        titleEl.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') { e.preventDefault(); titleEl.blur(); }
+          if (e.key === 'Escape') { titleEl.textContent = titleEl.dataset.original; titleEl.blur(); }
+        });
+        titleEl.addEventListener('blur', async () => {
+          const newName = titleEl.textContent.trim() || '未命名報告';
+          titleEl.textContent = newName;
+          if (newName === titleEl.dataset.original) return;
+          titleEl.dataset.original = newName;
+          const reportId = titleEl.dataset.reportId;
+          // Update delete button's data-name too
+          const card = titleEl.closest('.hp-card');
+          const delBtn = card?.querySelector('[data-action="delete"]');
+          if (delBtn) delBtn.dataset.name = newName;
+          // Save to Firestore meta
+          if (window._db) {
+            try {
+              const docRef = window._doc(window._db, 'thermal_reports', reportId);
+              await window._setDoc(docRef, { project_name: newName, updated_at: new Date().toISOString() }, { merge: true });
+              // Also update cover page's project_name in Firestore
+              const coverRef = window._doc(window._db, 'thermal_reports', reportId, 'pages', '0');
+              const coverSnap = await window._getDoc(coverRef);
+              if (coverSnap.exists()) {
+                const coverData = coverSnap.data();
+                if (coverData.type === 'cover' && coverData.data) {
+                  coverData.data.project_name = newName;
+                  await window._setDoc(coverRef, coverData);
+                }
+              }
+            } catch (err) {
+              console.warn('Title update error:', err);
+            }
           }
         });
       });
@@ -5762,17 +5951,40 @@ const isLandscape = page.type === 'image' || page.type === 'annotation' || page.
       state.pages = [];
       state.activePage = null;
 
-      // Load pages
+      // Load pages — tolerate gaps from previously broken deletes
       try {
+        let consecutiveMisses = 0;
+        const loadedFromIds = []; // track original Firestore doc IDs
         for (let i = 0; i < 50; i++) {
           const existingData = await loadPageFromFirestore(i);
-          if (!existingData) break;
+          if (!existingData) {
+            consecutiveMisses++;
+            if (consecutiveMisses >= 3) break; // stop after 3 consecutive gaps
+            continue;
+          }
+          consecutiveMisses = 0;
+          loadedFromIds.push(i);
           state.pages.push({
             id: 'page_loaded_' + i,
             type: existingData.type,
-            order: existingData.order ?? i,
+            order: state.pages.length,
             data: existingData.data,
           });
+        }
+        // If pages were loaded across gaps, re-save with contiguous IDs to heal Firestore
+        const hasGaps = loadedFromIds.some((docId, idx) => docId !== idx);
+        if (hasGaps && state.pages.length > 0) {
+          console.log('🩹 Healing Firestore page gaps...', loadedFromIds, '→ 0-' + (state.pages.length - 1));
+          state.pages.forEach((p, i) => p.order = i);
+          for (let i = 0; i < state.pages.length; i++) {
+            scheduleSave(i);
+          }
+          // Delete orphaned docs that are beyond the new contiguous range
+          for (const oldId of loadedFromIds) {
+            if (oldId >= state.pages.length) {
+              deletePageFromFirestore(oldId);
+            }
+          }
         }
       } catch (err) {
         console.warn('Could not load pages:', err);
@@ -5903,6 +6115,9 @@ const isLandscape = page.type === 'image' || page.type === 'annotation' || page.
 
     // ━━━ Init ━━━
     async function init() {
+      // Global paste handler (registered once)
+      document.addEventListener('paste', handlePaste);
+
       // Setup dropdowns
       setupDropdown('toolbar-add-btn', 'toolbar-add-menu');
       setupDropdown('sidebar-add-btn', 'sidebar-add-menu');

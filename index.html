@@ -54,7 +54,7 @@
   </script>
 
   <!-- Google Fonts: Space Grotesk + DM Sans + JetBrains Mono -->
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Noto+Sans+TC:wght@400;500;700&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 
   <!-- SortableJS CDN -->
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js"></script>
@@ -102,10 +102,10 @@
       --text-placeholder: rgba(141,196,240,0.4);
       --text-on-white: #1a2a3a;
 
-      --font-heading: 'Space Grotesk', sans-serif;
-      --font-ui: 'DM Sans', sans-serif;
-      --font-mono: 'JetBrains Mono', monospace;
-      --font-data: 'JetBrains Mono', monospace;
+      --font-heading: 'Space Grotesk', 'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', sans-serif;
+      --font-ui: 'DM Sans', 'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', sans-serif;
+      --font-mono: 'JetBrains Mono', 'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', monospace;
+      --font-data: 'JetBrains Mono', 'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', monospace;
 
       --space-1: 4px;
       --space-2: 8px;
@@ -5588,7 +5588,7 @@
 
     // Offscreen renderer: builds static HTML for a page (no event bindings)
     // NOTE: html2canvas has a known bug with letter-spacing — all builders must avoid it
-    const PDF_FONT = "'Space Grotesk','DM Sans',-apple-system,BlinkMacSystemFont,'Helvetica Neue','PingFang TC',sans-serif";
+    const PDF_FONT = "'Space Grotesk','DM Sans','Noto Sans TC','PingFang TC','Microsoft JhengHei',sans-serif";
 
     // Delta Blue page wrapper: adds progression bars, corner brackets, footer to all PDF pages
     function wrapPageHTML(innerHtml, opts = {}) {

@@ -2766,7 +2766,25 @@
           <span class="hp-brand-sub">THERMAL TEST REPORT</span>
         </div>
       </div>
-      <button class="hp-new-btn" id="hp-new-report">+ 新增報告</button>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <span id="hp-db-status-text"
+          style="font-size:12px; color:#aaa; vertical-align:middle;">
+          未選擇資料庫
+        </span>
+        <button onclick="handlePickDb()"
+          style="font-size:12px; padding:4px 12px; border-radius:4px;
+                 border:1px solid #555; background:transparent;
+                 color:#ccc; cursor:pointer;">
+          📂 資料庫目錄
+        </button>
+        <button onclick="dbAdapter.exportBackup()"
+          style="font-size:12px; padding:4px 12px; border-radius:4px;
+                 border:1px solid #555; background:transparent;
+                 color:#ccc; cursor:pointer;">
+          💾 備份資料庫
+        </button>
+        <button class="hp-new-btn" id="hp-new-report">+ 新增報告</button>
+      </div>
     </div>
     <div class="hp-body" id="hp-body">
       <div class="hp-empty" id="hp-empty">
@@ -6529,10 +6547,13 @@ const isLandscape = page.type === 'image' || page.type === 'annotation' || page.
   </script>
 <script>
 function updateDbStatus(message, type) {
-  const el = document.getElementById('db-status-text');
-  if (!el) return;
-  el.textContent = message;
-  el.style.color = type === 'success' ? '#4caf50' : '#ffcc00';
+  const color = type === 'success' ? '#4caf50' : '#ffcc00';
+  ['db-status-text', 'hp-db-status-text'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = message;
+    el.style.color = color;
+  });
 }
 
 async function handlePickDb() {
@@ -6546,6 +6567,12 @@ async function handlePickDb() {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
+  // Ensure homepage logo is set (fallback in case init() hasn't run yet)
+  if (typeof TOOLBAR_LOGO_B64 !== 'undefined') {
+    const hpLogo = document.getElementById('hp-logo-img');
+    if (hpLogo && !hpLogo.src) hpLogo.src = TOOLBAR_LOGO_B64;
+  }
+
   const result = await dbAdapter.init();
   if (result && result.success) {
     updateDbStatus('✅ ' + result.filename, 'success');

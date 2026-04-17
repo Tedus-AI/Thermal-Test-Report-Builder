@@ -6590,7 +6590,7 @@ const isLandscape = page.type === 'image' || page.type === 'annotation' || page.
       }
 
       // Wait for Firebase, then show homepage
-      await waitForFirebase();
+      // await waitForFirebase();  // 已改為本機模式，不需等待 Firebase
       showHomepage();
     }
 
@@ -6608,6 +6608,9 @@ async function handlePickDb() {
   const result = await dbAdapter.pickFile();
   if (result && result.success) {
     updateDbStatus('✅ ' + result.filename, 'success');
+    if (typeof loadReportList === 'function') {
+      await renderHomepage();
+    }
   }
 }
 

@@ -3000,11 +3000,9 @@
       });
     }
 
+    // 本機模式已移除圖片大小限制，直接使用原始 base64
     async function processImage(file) {
-      // Firestore 1MB doc limit → each image must stay small
-      // Target: max ~200KB base64 per image (4 images ≈ 800KB + metadata < 1MB)
-      const MAX_SINGLE_IMAGE_BYTES = 200 * 1024;
-      return await compressImageToTarget(file, MAX_SINGLE_IMAGE_BYTES);
+      return await fileToDataURL(file);
     }
 
     // Compress image with adaptive quality to fit within targetBytes (base64 size)

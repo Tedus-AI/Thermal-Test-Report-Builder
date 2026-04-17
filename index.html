@@ -6,6 +6,7 @@
   <title>Thermal Report Builder</title>
 
   <!-- Firebase SDK 10.x via CDN -->
+  <!--
   <script type="module">
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js';
     import { getFirestore, enableIndexedDbPersistence, doc, setDoc, getDoc, deleteDoc, getDocs, collection, query, orderBy, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js';
@@ -52,6 +53,9 @@
 
     console.log('✅ Firebase initialized (Firestore + Storage + Offline Persistence)');
   </script>
+  -->
+  <script src="fileDb.js"></script>
+  <script src="dbAdapter.js"></script>
 
   <!-- Google Fonts: Space Grotesk + DM Sans + JetBrains Mono -->
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Noto+Sans+TC:wght@400;500;700&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -2803,6 +2807,22 @@
       <div class="toolbar-right" id="status-bar">
         <span class="status-dot" id="status-dot"></span>
         <span id="status-text">就緒</span>
+        <span id="db-status-text"
+          style="font-size:12px; color:#aaa; margin-right:8px; vertical-align:middle;">
+          未選擇資料庫
+        </span>
+        <button onclick="handlePickDb()"
+          style="font-size:12px; padding:4px 12px; border-radius:4px;
+                 border:1px solid #555; background:transparent;
+                 color:#ccc; cursor:pointer; margin-right:4px;">
+          📂 資料庫目錄
+        </button>
+        <button onclick="dbAdapter.exportBackup()"
+          style="font-size:12px; padding:4px 12px; border-radius:4px;
+                 border:1px solid #555; background:transparent;
+                 color:#ccc; cursor:pointer;">
+          💾 備份資料庫
+        </button>
       </div>
     </header>
 
@@ -6576,5 +6596,29 @@ const isLandscape = page.type === 'image' || page.type === 'annotation' || page.
 
     document.addEventListener('DOMContentLoaded', init);
   </script>
+<script>
+function updateDbStatus(message, type) {
+  const el = document.getElementById('db-status-text');
+  if (!el) return;
+  el.textContent = message;
+  el.style.color = type === 'success' ? '#4caf50' : '#ffcc00';
+}
+
+async function handlePickDb() {
+  const result = await dbAdapter.pickFile();
+  if (result && result.success) {
+    updateDbStatus('✅ ' + result.filename, 'success');
+  }
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
+  const result = await dbAdapter.init();
+  if (result && result.success) {
+    updateDbStatus('✅ ' + result.filename, 'success');
+  } else {
+    updateDbStatus('⚠️ 請選擇資料庫', 'warning');
+  }
+});
+</script>
 </body>
 </html>

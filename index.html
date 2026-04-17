@@ -2940,42 +2940,31 @@
     }
 
     async function savePageToFirestore(pageIndex) {
-      if (!window._db) return;
       const page = state.pages[pageIndex];
       if (!page) return;
 
       setStatus('saving', '儲存中...');
 
       try {
-        const docRef = window._doc(window._db, 'thermal_reports', state.reportId, 'pages', String(page.order));
-        await window._setDoc(docRef, {
+        await dbAdapter.setPage(state.reportId, page.order, {
           type: page.type,
           order: page.order,
           data: page.data,
           updated_at: new Date().toISOString(),
         });
         setStatus('saved', '已儲存 ✅');
-        console.log('✅ Saved page', page.order, 'to Firestore');
+        console.log('✅ Saved page', page.order);
         updateReportMeta();
       } catch (err) {
         console.error('Save error:', err);
-        if (err.code === 'unavailable' || err.message?.includes('offline')) {
-          setStatus('offline', '離線模式 ⚠️');
-        } else {
-          setStatus('offline', '儲存失敗 ❌');
-          console.error('Firestore save failed (possible doc size > 1MB):', err.message);
-        }
+        setStatus('offline', '儲存失敗 ❌');
+        console.error('Save failed:', err.message);
       }
     }
 
     async function loadPageFromFirestore(pageOrder) {
-      if (!window._db) return null;
       try {
-        const docRef = window._doc(window._db, 'thermal_reports', state.reportId, 'pages', String(pageOrder));
-        const snap = await window._getDoc(docRef);
-        if (snap.exists()) {
-          return snap.data();
-        }
+        return await dbAdapter.getPage(state.reportId, pageOrder);
       } catch (err) {
         console.warn('Load error:', err);
       }
@@ -2983,11 +2972,9 @@
     }
 
     async function deletePageFromFirestore(pageOrder) {
-      if (!window._db) return;
       try {
-        const docRef = window._doc(window._db, 'thermal_reports', state.reportId, 'pages', String(pageOrder));
-        await window._deleteDoc(docRef);
-        console.log('🗑 Deleted page', pageOrder, 'from Firestore');
+        await dbAdapter.deletePage(state.reportId, pageOrder);
+        console.log('🗑 Deleted page', pageOrder);
       } catch (err) {
         console.warn('Delete error:', err);
       }
@@ -6141,22 +6128,8 @@ const isLandscape = page.type === 'image' || page.type === 'annotation' || page.
     }
 
     async function loadReportList() {
-      if (!window._db) return [];
       try {
-        const colRef = window._collection(window._db, 'thermal_reports');
-        const snap = await window._getDocs(colRef);
-        const reports = [];
-        snap.forEach(docSnap => {
-          const data = docSnap.data();
-          reports.push({ id: docSnap.id, ...data });
-        });
-        // Sort by updated_at desc
-        reports.sort((a, b) => {
-          const ta = a.updated_at || a.created_at || '';
-          const tb = b.updated_at || b.created_at || '';
-          return tb.localeCompare(ta);
-        });
-        return reports;
+        return await dbAdapter.getAllReports();
       } catch (err) {
         console.warn('Could not load report list:', err);
         return [];
@@ -6224,24 +6197,18 @@ const isLandscape = page.type === 'image' || page.type === 'annotation' || page.
           const card = titleEl.closest('.hp-card');
           const delBtn = card?.querySelector('[data-action="delete"]');
           if (delBtn) delBtn.dataset.name = newName;
-          // Save to Firestore meta
-          if (window._db) {
-            try {
-              const docRef = window._doc(window._db, 'thermal_reports', reportId);
-              await window._setDoc(docRef, { project_name: newName, updated_at: new Date().toISOString() }, { merge: true });
-              // Also update cover page's project_name in Firestore
-              const coverRef = window._doc(window._db, 'thermal_reports', reportId, 'pages', '0');
-              const coverSnap = await window._getDoc(coverRef);
-              if (coverSnap.exists()) {
-                const coverData = coverSnap.data();
-                if (coverData.type === 'cover' && coverData.data) {
-                  coverData.data.project_name = newName;
-                  await window._setDoc(coverRef, coverData);
-                }
-              }
-            } catch (err) {
-              console.warn('Title update error:', err);
+          // Save to database meta
+          try {
+            await dbAdapter.updateReportMeta(reportId, { project_name: newName, updated_at: new Date().toISOString() });
+            // Also update cover page's project_name
+            const page0 = await dbAdapter.getPage(reportId, 0);
+            if (page0 && page0.type === 'cover' && page0.data) {
+              page0.data.project_name = newName;
+              await dbAdapter.setPage(reportId, 0, page0);
             }
+          } catch (err) {
+            console.warn('Title update error:', err);
+          }
           }
         });
       });
@@ -6321,20 +6288,17 @@ const isLandscape = page.type === 'image' || page.type === 'annotation' || page.
       const now = new Date().toISOString();
 
       // Create report meta document
-      if (window._db) {
-        try {
-          const docRef = window._doc(window._db, 'thermal_reports', id);
-          await window._setDoc(docRef, {
-            project_name: name,
-            model: model,
-            stage: stage,
-            date: date,
-            created_at: now,
-            updated_at: now,
-          });
-        } catch (err) {
-          console.warn('Could not create report doc:', err);
-        }
+      try {
+        await dbAdapter.createReport(id, {
+          project_name: name,
+          model: model,
+          stage: stage,
+          date: date,
+          created_at: now,
+          updated_at: now,
+        });
+      } catch (err) {
+        console.warn('Could not create report doc:', err);
       }
 
       // Open the new report with a default cover page
@@ -6413,28 +6377,13 @@ const isLandscape = page.type === 'image' || page.type === 'annotation' || page.
       const now = new Date().toISOString();
 
       try {
-        // Copy meta
-        const srcDocRef = window._doc(window._db, 'thermal_reports', sourceId);
-        const srcSnap = await window._getDoc(srcDocRef);
-        if (srcSnap.exists()) {
-          const srcData = srcSnap.data();
-          const newDocRef = window._doc(window._db, 'thermal_reports', newId);
-          await window._setDoc(newDocRef, {
-            ...srcData,
-            project_name: (srcData.project_name || '') + ' (副本)',
-            created_at: now,
-            updated_at: now,
-          });
-
-          // Copy pages
-          for (let i = 0; i < 50; i++) {
-            const pageDocRef = window._doc(window._db, 'thermal_reports', sourceId, 'pages', String(i));
-            const pageSnap = await window._getDoc(pageDocRef);
-            if (!pageSnap.exists()) break;
-            const newPageRef = window._doc(window._db, 'thermal_reports', newId, 'pages', String(i));
-            await window._setDoc(newPageRef, pageSnap.data());
-          }
-        }
+        const srcMeta = await dbAdapter.getReportMeta(sourceId);
+        const newName = ((srcMeta && srcMeta.project_name) || '') + ' (副本)';
+        await dbAdapter.copyReport(sourceId, newId, {
+          project_name: newName,
+          created_at: now,
+          updated_at: now,
+        });
       } catch (err) {
         console.warn('Duplicate error:', err);
       }
@@ -6478,29 +6427,14 @@ const isLandscape = page.type === 'image' || page.type === 'annotation' || page.
 
     async function deleteReport(reportId) {
       try {
-        // Delete pages sub-collection
-        for (let i = 0; i < 50; i++) {
-          const pageRef = window._doc(window._db, 'thermal_reports', reportId, 'pages', String(i));
-          const snap = await window._getDoc(pageRef);
-          if (!snap.exists()) break;
-          await window._deleteDoc(pageRef);
-        }
+        await dbAdapter.deleteReport(reportId);
 
-        // Delete report meta document
-        const docRef = window._doc(window._db, 'thermal_reports', reportId);
-        await window._deleteDoc(docRef);
-
-        // Delete images from Storage
-        try {
-          const folderRef = window._storageRef(window._storage, `reports/${reportId}`);
-          const files = await window._listAll(folderRef);
-          for (const fileRef of files.items) {
-            await window._deleteObject(fileRef);
-          }
-        } catch (storageErr) {
-          // Storage folder may not exist, that's fine
-          console.warn('Storage cleanup:', storageErr.message);
-        }
+        // Delete images from Storage (Firebase only)
+        // const folderRef = window._storageRef(window._storage, `reports/${reportId}`);
+        // const files = await window._listAll(folderRef);
+        // for (const fileRef of files.items) {
+        //   await window._deleteObject(fileRef);
+        // }
 
         console.log('🗑 Deleted report:', reportId);
       } catch (err) {
@@ -6512,7 +6446,7 @@ const isLandscape = page.type === 'image' || page.type === 'annotation' || page.
 
     // Update report meta on each save
     async function updateReportMeta() {
-      if (!window._db || !state.reportId) return;
+      if (!state.reportId) return;
       try {
         const coverPage = state.pages.find(p => p.type === 'cover');
         const meta = {
@@ -6524,8 +6458,7 @@ const isLandscape = page.type === 'image' || page.type === 'annotation' || page.
           meta.stage = coverPage.data.stage || '';
           meta.date = coverPage.data.date || '';
         }
-        const docRef = window._doc(window._db, 'thermal_reports', state.reportId);
-        await window._setDoc(docRef, meta, { merge: true });
+        await dbAdapter.updateReportMeta(state.reportId, meta);
       } catch (err) {
         // Silent - meta update is non-critical
       }

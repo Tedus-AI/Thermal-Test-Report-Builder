@@ -2222,31 +2222,36 @@
 
     .marker-dot {
       position: absolute;
-      width: 22px;
-      height: 22px;
+      width: 16px;
+      height: 16px;
       border-radius: 50%;
-      background: #dc2626;
-      border: 2px solid #fff;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.3);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 10px;
-      font-weight: 700;
-      color: #fff;
+      background: transparent;
       cursor: grab;
       z-index: 15;
       transform: translate(-50%, -50%);
       user-select: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .marker-dot::before {
+      content: '';
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: #dc2626;
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.9);
+      transition: transform 0.12s;
     }
 
     .marker-dot:active {
       cursor: grabbing;
     }
 
-    .marker-dot:hover {
-      transform: translate(-50%, -50%) scale(1.15);
-      box-shadow: 0 2px 8px rgba(220,38,38,0.4);
+    .marker-dot:hover::before {
+      transform: scale(1.5);
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.9), 0 1px 4px rgba(220,38,38,0.5);
     }
 
     .marker-label-wrap {
@@ -2254,6 +2259,38 @@
       z-index: 20;
       display: flex;
       align-items: stretch;
+    }
+
+    .marker-delete-btn {
+      position: absolute;
+      top: -8px;
+      right: -8px;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #dc2626;
+      color: #fff;
+      border: 1.5px solid #fff;
+      font-size: 10px;
+      line-height: 1;
+      font-weight: 700;
+      cursor: pointer;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.25);
+      z-index: 21;
+    }
+
+    .marker-label-wrap:hover .marker-delete-btn,
+    .marker-label-wrap:focus-within .marker-delete-btn {
+      display: flex;
+    }
+
+    .marker-delete-btn:hover {
+      background: #b91c1c;
+      transform: scale(1.15);
     }
 
     .marker-label {
@@ -2266,11 +2303,15 @@
       font-size: 11px;
       font-family: var(--font-ui);
       color: var(--text-on-white);
-      cursor: move;
+      cursor: text;
       outline: none;
       box-shadow: 0 1px 4px rgba(0,0,0,0.12);
       white-space: nowrap;
       box-sizing: border-box;
+    }
+
+    .marker-label-wrap:hover .marker-label:not(:focus) {
+      cursor: grab;
     }
 
     .marker-label:focus {
@@ -4302,7 +4343,6 @@
         dot.className = 'marker-dot';
         dot.style.left = dotX + 'px';
         dot.style.top = dotY + 'px';
-        dot.textContent = idx + 1;
         dot.dataset.id = m.id;
 
         // Right-click to delete
@@ -4388,8 +4428,27 @@
           const resizeHandle = document.createElement('div');
           resizeHandle.className = 'marker-resize-handle';
 
+          // Delete button
+          const deleteBtn = document.createElement('button');
+          deleteBtn.className = 'marker-delete-btn';
+          deleteBtn.type = 'button';
+          deleteBtn.textContent = '×';
+          deleteBtn.title = '刪除標籤';
+          deleteBtn.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          });
+          deleteBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            page.data.markers = page.data.markers.filter(mk => mk.id !== m.id);
+            renderAnnotationMarkers(page);
+            scheduleSave(state.activePage);
+          });
+
           wrap.appendChild(label);
           wrap.appendChild(resizeHandle);
+          wrap.appendChild(deleteBtn);
 
           // Editable
           label.addEventListener('input', () => {
@@ -4397,20 +4456,32 @@
             scheduleSave(state.activePage);
           });
 
-          // Draggable label (drag from the input area)
+          // Drag with movement threshold: single click focuses input,
+          // drag only starts after the cursor moves > 5px while held.
           let labelDragging = false;
           let labelOffX = 0, labelOffY = 0;
+          let pendingDrag = null;
 
           label.addEventListener('mousedown', (e) => {
-            if (e.target === label && e.button === 0) {
-              labelDragging = true;
-              labelOffX = e.clientX - wrap.getBoundingClientRect().left;
-              labelOffY = e.clientY - wrap.getBoundingClientRect().top;
-              e.preventDefault();
-            }
+            if (e.target !== label || e.button !== 0) return;
+            pendingDrag = {
+              startX: e.clientX,
+              startY: e.clientY,
+              offX: e.clientX - wrap.getBoundingClientRect().left,
+              offY: e.clientY - wrap.getBoundingClientRect().top,
+            };
           });
 
           document.addEventListener('mousemove', (e) => {
+            if (pendingDrag && !labelDragging) {
+              const dist = Math.hypot(e.clientX - pendingDrag.startX, e.clientY - pendingDrag.startY);
+              if (dist > 5) {
+                labelDragging = true;
+                labelOffX = pendingDrag.offX;
+                labelOffY = pendingDrag.offY;
+                label.blur();
+              }
+            }
             if (!labelDragging) return;
             const newX = e.clientX - wsRect.left - labelOffX;
             const newY = e.clientY - wsRect.top - labelOffY;
@@ -4421,6 +4492,7 @@
           });
 
           document.addEventListener('mouseup', () => {
+            pendingDrag = null;
             if (!labelDragging) return;
             labelDragging = false;
             const rect = workspace.getBoundingClientRect();
@@ -5902,7 +5974,7 @@
         // Dot: % of photo zone → convert to % of workspace
         const dxPct = pzLPct + (m.x / 100) * pzWPct;
         const dyPct = pzTPct + (m.y / 100) * pzHPct;
-        dots += `<div style="position:absolute;left:${dxPct}%;top:${dyPct}%;width:22px;height:22px;border-radius:50%;background:#5BA3E6;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;color:#fff;transform:translate(-50%,-50%);z-index:15;">${idx + 1}</div>`;
+        dots += `<div style="position:absolute;left:${dxPct}%;top:${dyPct}%;width:5px;height:5px;border-radius:50%;background:#dc2626;box-shadow:0 0 0 1px rgba(255,255,255,0.9);transform:translate(-50%,-50%);z-index:15;"></div>`;
         if (m.label_x >= 0 && m.label_y >= 0) {
           const lxPct = m.label_x;
           const lyPct = m.label_y;
@@ -5914,7 +5986,7 @@
           // SVG line: use viewBox percentages (0-100 range)
           const slxPct = lxPct + (clampedLw / pageW) * 50; // approximate label center X %
           const slyPct = lyPct + 1.8; // approximate label center Y %
-          svgLines += `<line x1="${dxPct}" y1="${dyPct}" x2="${slxPct}" y2="${slyPct}" stroke="#5BA3E6" stroke-width="0.2"/>`;
+          svgLines += `<line x1="${dxPct}" y1="${dyPct}" x2="${slxPct}" y2="${slyPct}" stroke="#dc2626" stroke-width="0.2"/>`;
         }
       });
 

@@ -3347,7 +3347,10 @@
           <div class="cover-corner-bl"></div>
           <div class="cover-corner-br"></div>
 
-          <img src="${TOOLBAR_LOGO_B64}" style="position:absolute;top:14px;right:16px;height:28px;width:auto;object-fit:contain;pointer-events:none;" alt="Delta">
+          <div style="position:absolute;top:14px;right:16px;display:flex;align-items:center;gap:6px;pointer-events:none;">
+            <img src="${TOOLBAR_LOGO_B64}" style="height:28px;width:auto;object-fit:contain;" alt="Delta">
+            <span style="font-family:'Arial Black',Arial,sans-serif;font-size:22px;font-weight:900;color:#0071BA;letter-spacing:1px;line-height:1;">DELTA</span>
+          </div>
 
           <div class="cover-type-label">THERMAL TEST REPORT</div>
 
@@ -5817,7 +5820,10 @@
         <div style="${cornerStyle}bottom:12px;left:12px;border-bottom:1.5px solid #8DC4F0;border-left:1.5px solid #8DC4F0;"></div>
         <div style="${cornerStyle}bottom:12px;right:12px;border-bottom:1.5px solid #8DC4F0;border-right:1.5px solid #8DC4F0;"></div>
         <!-- Delta logo top-right -->
-        <img src="${TOOLBAR_LOGO_B64}" style="position:absolute;top:14px;right:16px;height:28px;width:auto;object-fit:contain;z-index:5;" alt="Delta">
+        <div style="position:absolute;top:14px;right:16px;display:flex;align-items:center;gap:6px;z-index:5;">
+          <img src="${TOOLBAR_LOGO_B64}" style="height:28px;width:auto;object-fit:contain;" alt="Delta">
+          <span style="font-family:'Arial Black',Arial,sans-serif;font-size:22px;font-weight:900;color:#0071BA;letter-spacing:1px;line-height:1;">DELTA</span>
+        </div>
         <!-- Type label -->
         <div style="font-family:'JetBrains Mono',monospace;font-size:8px;letter-spacing:0.18em;color:#3A7AD4;align-self:flex-start;margin-bottom:8px;">THERMAL TEST REPORT</div>
         <div style="font-size:14px;font-weight:700;letter-spacing:0px;word-spacing:0px;color:#1A4E96;padding:6px 8px;margin-bottom:16px;text-align:center;width:100%;">${escHtml(d.dept || '')}</div>

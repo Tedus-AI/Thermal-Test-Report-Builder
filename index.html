@@ -666,9 +666,10 @@
     .cover-dept {
       font-size: clamp(11px, 1.6vmin, 14px);
       font-family: var(--font-ui);
+      font-weight: 700;
       letter-spacing: 0.08em;
       text-transform: uppercase;
-      color: rgba(15,23,42,0.50);
+      color: #1A4E96;
       padding: 6px 8px;
       margin-bottom: 1.9%;
     }
@@ -1867,6 +1868,7 @@
       display: grid;
       gap: 10px;
       min-height: 0;
+      position: relative;
     }
 
     .image-grid.layout-0 {
@@ -1888,6 +1890,37 @@
     .image-grid.layout-4 {
       grid-template-columns: 1fr 1fr;
       grid-template-rows: 1fr 1fr;
+    }
+
+    .img-resize-handle {
+      position: absolute;
+      z-index: 20;
+      background: transparent;
+      transition: background 0.15s;
+    }
+    .img-resize-handle-v {
+      top: 0; bottom: 0;
+      width: 10px;
+      cursor: col-resize;
+      border-left: 2px solid transparent;
+      border-right: 2px solid transparent;
+    }
+    .img-resize-handle-h {
+      left: 0; right: 0;
+      height: 10px;
+      cursor: row-resize;
+      border-top: 2px solid transparent;
+      border-bottom: 2px solid transparent;
+    }
+    .img-resize-handle-v:hover,
+    .img-resize-handle-v.dragging {
+      border-color: #3A7AD4;
+      background: rgba(58,122,212,0.18);
+    }
+    .img-resize-handle-h:hover,
+    .img-resize-handle-h.dragging {
+      border-color: #3A7AD4;
+      background: rgba(58,122,212,0.18);
     }
 
     .image-cell {
@@ -3362,9 +3395,12 @@
             <input type="text" placeholder="工程師姓名" value="${escapeAttr(d.tested_by)}" data-field="tested_by">
           </div>
 
-          <div style="position:absolute;bottom:12px;left:0;right:0;display:flex;justify-content:space-between;padding:0 16px;font-family:var(--font-mono);font-size:8px;color:rgba(15,23,42,0.35);letter-spacing:0.04em;pointer-events:none;">
+          <div style="position:absolute;bottom:12px;left:0;right:0;display:flex;justify-content:space-between;align-items:center;padding:0 16px;font-family:var(--font-mono);font-size:8px;color:rgba(15,23,42,0.35);letter-spacing:0.04em;pointer-events:none;">
             <span>${escHtml(d.dept || '')}</span>
-            <span>CONFIDENTIAL</span>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span>CONFIDENTIAL</span>
+              <img src="${TOOLBAR_LOGO_B64}" style="height:22px;width:auto;object-fit:contain;opacity:0.82;" alt="Delta">
+            </div>
           </div>
         </div>
       `;
@@ -3691,11 +3727,18 @@
         }
       }
 
+      const colSplit = d.col_split ?? 50;
+      const rowSplit = d.row_split ?? 50;
+      const gridColStyle = count >= 2 ? `style="grid-template-columns:${colSplit}fr ${100-colSplit}fr"` : '';
+      const gridRowStyle = count >= 3 ? `;grid-template-rows:${rowSplit}fr ${100-rowSplit}fr` : '';
+      const gridInlineStyle = count >= 2
+        ? `style="grid-template-columns:${colSplit}fr ${100-colSplit}fr${count >= 3 ? `;grid-template-rows:${rowSplit}fr ${100-rowSplit}fr` : ''}"` : '';
+
       $canvas.innerHTML = editorPageWrapHTML(`
         <div class="image-page">
           <input class="image-page-title" type="text" placeholder="點此輸入標題"
                  value="${escapeAttr(d.title)}" data-field="title">
-          <div class="image-grid ${layoutClass}">
+          <div class="image-grid ${layoutClass}" id="image-grid" ${gridInlineStyle}>
             ${gridCells}
           </div>
         </div>
@@ -3723,6 +3766,80 @@
 
       // Bind image zone interactions
       setupImagePageHandlers(page);
+
+      // Resize handles (only for multi-image layouts)
+      setupImageResizeHandles(page);
+    }
+
+    function setupImageResizeHandles(page) {
+      const grid = document.getElementById('image-grid');
+      if (!grid) return;
+      const count = (page.data.images || []).length;
+      if (count < 2) return;
+
+      const isMultiRow = count >= 3;
+
+      // Vertical handle (column split)
+      const hV = document.createElement('div');
+      hV.className = 'img-resize-handle img-resize-handle-v';
+      const colSplit = page.data.col_split ?? 50;
+      hV.style.left = `calc(${colSplit}% - 5px)`;
+      grid.appendChild(hV);
+
+      hV.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        hV.classList.add('dragging');
+        const rect = grid.getBoundingClientRect();
+        const startX = e.clientX;
+        const startSplit = page.data.col_split ?? 50;
+        const onMove = (me) => {
+          const newSplit = Math.max(15, Math.min(85, startSplit + (me.clientX - startX) / rect.width * 100));
+          page.data.col_split = newSplit;
+          grid.style.gridTemplateColumns = `${newSplit}fr ${100 - newSplit}fr`;
+          hV.style.left = `calc(${newSplit}% - 5px)`;
+          if (hH) hH.style.width = `calc(${newSplit}% - 5px)`;
+        };
+        const onUp = () => {
+          hV.classList.remove('dragging');
+          document.removeEventListener('mousemove', onMove);
+          document.removeEventListener('mouseup', onUp);
+          scheduleSave(state.activePage);
+        };
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+      });
+
+      // Horizontal handle (row split) — only for 3+ images
+      let hH = null;
+      if (isMultiRow) {
+        hH = document.createElement('div');
+        hH.className = 'img-resize-handle img-resize-handle-h';
+        const rowSplit = page.data.row_split ?? 50;
+        hH.style.top = `calc(${rowSplit}% - 5px)`;
+        grid.appendChild(hH);
+
+        hH.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+          hH.classList.add('dragging');
+          const rect = grid.getBoundingClientRect();
+          const startY = e.clientY;
+          const startSplit = page.data.row_split ?? 50;
+          const onMove = (me) => {
+            const newSplit = Math.max(15, Math.min(85, startSplit + (me.clientY - startY) / rect.height * 100));
+            page.data.row_split = newSplit;
+            grid.style.gridTemplateRows = `${newSplit}fr ${100 - newSplit}fr`;
+            hH.style.top = `calc(${newSplit}% - 5px)`;
+          };
+          const onUp = () => {
+            hH.classList.remove('dragging');
+            document.removeEventListener('mousemove', onMove);
+            document.removeEventListener('mouseup', onUp);
+            scheduleSave(state.activePage);
+          };
+          document.addEventListener('mousemove', onMove);
+          document.addEventListener('mouseup', onUp);
+        });
+      }
     }
 
     function buildImageCell(imgData, position, page) {

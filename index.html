@@ -3047,7 +3047,7 @@
           data: page.data,
           updated_at: new Date().toISOString(),
         });
-        setStatus('saved', '已儲存 ✅');
+        setStatus('saved', '已儲存');
         console.log('✅ Saved page', page.order);
         updateReportMeta();
       } catch (err) {
@@ -6313,7 +6313,7 @@ const isLandscape = page.type === 'image' || page.type === 'annotation' || page.
         }
 
         pdf.save(filename + '.pdf');
-        setStatus('saved', '已儲存 ✅');
+        setStatus('saved', '已儲存');
         console.log('✅ PDF exported:', filename + '.pdf');
       } catch (err) {
         console.error('PDF export error:', err);
@@ -6587,7 +6587,7 @@ const isLandscape = page.type === 'image' || page.type === 'annotation' || page.
       renderPageList();
       if (state.pages.length > 0) {
         selectPage(0);
-        setStatus('saved', '已儲存 ✅');
+        setStatus('saved', '已儲存');
       }
     }
 
@@ -6760,10 +6760,19 @@ function updateDbStatus(message, type) {
 }
 
 async function handlePickDb() {
+  // If a handle was saved but blocked by permission, reconnect silently on this click.
+  if (!dbAdapter.isReady()) {
+    const restored = await dbAdapter.reconnect();
+    if (restored && restored.success) {
+      updateDbStatus('✅ ' + restored.filename, 'success');
+      if (typeof renderHomepage === 'function') await renderHomepage();
+      return;
+    }
+  }
   const result = await dbAdapter.pickFile();
   if (result && result.success) {
     updateDbStatus('✅ ' + result.filename, 'success');
-    if (typeof loadReportList === 'function') {
+    if (typeof renderHomepage === 'function') {
       await renderHomepage();
     }
   }
@@ -6776,12 +6785,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (hpLogo && !hpLogo.src) hpLogo.src = TOOLBAR_LOGO_B64;
   }
 
-  const result = await dbAdapter.init();
-  if (result && result.success) {
-    updateDbStatus('✅ ' + result.filename, 'success');
-  } else {
-    updateDbStatus('⚠️ 請選擇資料庫', 'warning');
+  // Try to silently restore previously granted file handle (no user gesture needed).
+  const restored = await dbAdapter.tryRestore();
+  if (restored && restored.success) {
+    updateDbStatus('✅ ' + restored.filename, 'success');
+    if (typeof renderHomepage === 'function') await renderHomepage();
+    return;
   }
+  if (restored && restored.needsPermission) {
+    // A handle exists but browser requires a user click to re-grant access.
+    updateDbStatus('🔒 點擊恢復資料庫: ' + restored.filename, 'warning');
+    return;
+  }
+  updateDbStatus('⚠️ 請選擇資料庫', 'warning');
 });
 </script>
 </body>

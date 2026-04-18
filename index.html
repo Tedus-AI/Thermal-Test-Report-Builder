@@ -3344,6 +3344,8 @@
           <div class="cover-corner-bl"></div>
           <div class="cover-corner-br"></div>
 
+          <img src="${TOOLBAR_LOGO_B64}" style="position:absolute;top:14px;right:16px;height:28px;width:auto;object-fit:contain;pointer-events:none;" alt="Delta">
+
           <div class="cover-type-label">THERMAL TEST REPORT</div>
 
           <input class="cover-dept" type="text" placeholder="公司 / 部門名稱"
@@ -3395,12 +3397,9 @@
             <input type="text" placeholder="工程師姓名" value="${escapeAttr(d.tested_by)}" data-field="tested_by">
           </div>
 
-          <div style="position:absolute;bottom:12px;left:0;right:0;display:flex;justify-content:space-between;align-items:center;padding:0 16px;font-family:var(--font-mono);font-size:8px;color:rgba(15,23,42,0.35);letter-spacing:0.04em;pointer-events:none;">
+          <div style="position:absolute;bottom:12px;left:0;right:0;display:flex;justify-content:space-between;padding:0 16px;font-family:var(--font-mono);font-size:8px;color:rgba(15,23,42,0.35);letter-spacing:0.04em;pointer-events:none;">
             <span>${escHtml(d.dept || '')}</span>
-            <div style="display:flex;align-items:center;gap:10px;">
-              <span>CONFIDENTIAL</span>
-              <img src="${TOOLBAR_LOGO_B64}" style="height:22px;width:auto;object-fit:contain;opacity:0.82;" alt="Delta">
-            </div>
+            <span>CONFIDENTIAL</span>
           </div>
         </div>
       `;

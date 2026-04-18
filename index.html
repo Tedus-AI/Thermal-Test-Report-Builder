@@ -1895,32 +1895,35 @@
     .img-resize-handle {
       position: absolute;
       z-index: 20;
-      background: transparent;
-      transition: background 0.15s;
+      transition: background 0.15s, transform 0.12s;
     }
     .img-resize-handle-v {
       top: 0; bottom: 0;
       width: 10px;
       cursor: col-resize;
+      background: transparent;
       border-left: 2px solid transparent;
       border-right: 2px solid transparent;
-    }
-    .img-resize-handle-h {
-      left: 0; right: 0;
-      height: 10px;
-      cursor: row-resize;
-      border-top: 2px solid transparent;
-      border-bottom: 2px solid transparent;
     }
     .img-resize-handle-v:hover,
     .img-resize-handle-v.dragging {
       border-color: #3A7AD4;
       background: rgba(58,122,212,0.18);
     }
-    .img-resize-handle-h:hover,
-    .img-resize-handle-h.dragging {
-      border-color: #3A7AD4;
-      background: rgba(58,122,212,0.18);
+    .img-resize-grip {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #3A7AD4;
+      border: 3px solid #fff;
+      box-shadow: 0 1px 6px rgba(11,61,122,0.35);
+      cursor: nwse-resize;
+      transform: translate(-50%, -50%);
+    }
+    .img-resize-grip:hover,
+    .img-resize-grip.dragging {
+      background: #0B3D7A;
+      transform: translate(-50%, -50%) scale(1.15);
     }
 
     .image-cell {
@@ -3344,7 +3347,10 @@
           <div class="cover-corner-bl"></div>
           <div class="cover-corner-br"></div>
 
-          <img src="${TOOLBAR_LOGO_B64}" style="position:absolute;top:14px;right:16px;height:28px;width:auto;object-fit:contain;pointer-events:none;" alt="Delta">
+          <div style="position:absolute;top:14px;right:16px;display:flex;align-items:center;gap:6px;pointer-events:none;">
+            <img src="${TOOLBAR_LOGO_B64}" style="height:28px;width:auto;object-fit:contain;" alt="Delta">
+            <span style="font-family:'Arial Black',Arial,sans-serif;font-size:22px;font-weight:900;color:#0071BA;letter-spacing:1px;line-height:1;">DELTA</span>
+          </div>
 
           <div class="cover-type-label">THERMAL TEST REPORT</div>
 
@@ -3778,59 +3784,67 @@
 
       const isMultiRow = count >= 3;
 
-      // Vertical handle (column split)
-      const hV = document.createElement('div');
-      hV.className = 'img-resize-handle img-resize-handle-v';
-      const colSplit = page.data.col_split ?? 50;
-      hV.style.left = `calc(${colSplit}% - 5px)`;
-      grid.appendChild(hV);
-
-      hV.addEventListener('mousedown', (e) => {
-        e.preventDefault();
-        hV.classList.add('dragging');
-        const rect = grid.getBoundingClientRect();
-        const startX = e.clientX;
-        const startSplit = page.data.col_split ?? 50;
-        const onMove = (me) => {
-          const newSplit = Math.max(15, Math.min(85, startSplit + (me.clientX - startX) / rect.width * 100));
-          page.data.col_split = newSplit;
-          grid.style.gridTemplateColumns = `${newSplit}fr ${100 - newSplit}fr`;
-          hV.style.left = `calc(${newSplit}% - 5px)`;
-          if (hH) hH.style.width = `calc(${newSplit}% - 5px)`;
-        };
-        const onUp = () => {
-          hV.classList.remove('dragging');
-          document.removeEventListener('mousemove', onMove);
-          document.removeEventListener('mouseup', onUp);
-          scheduleSave(state.activePage);
-        };
-        document.addEventListener('mousemove', onMove);
-        document.addEventListener('mouseup', onUp);
-      });
-
-      // Horizontal handle (row split) — only for 3+ images
-      let hH = null;
       if (isMultiRow) {
-        hH = document.createElement('div');
-        hH.className = 'img-resize-handle img-resize-handle-h';
+        // 2x2 grid: single corner grip at (col_split, row_split) intersection
+        // Dragging the grip resizes both columns and rows simultaneously.
+        const grip = document.createElement('div');
+        grip.className = 'img-resize-handle img-resize-grip';
+        const colSplit = page.data.col_split ?? 50;
         const rowSplit = page.data.row_split ?? 50;
-        hH.style.top = `calc(${rowSplit}% - 5px)`;
-        grid.appendChild(hH);
+        grip.style.left = `${colSplit}%`;
+        grip.style.top = `${rowSplit}%`;
+        grid.appendChild(grip);
 
-        hH.addEventListener('mousedown', (e) => {
+        grip.addEventListener('mousedown', (e) => {
           e.preventDefault();
-          hH.classList.add('dragging');
+          e.stopPropagation();
+          grip.classList.add('dragging');
           const rect = grid.getBoundingClientRect();
+          const startX = e.clientX;
           const startY = e.clientY;
-          const startSplit = page.data.row_split ?? 50;
+          const startCol = page.data.col_split ?? 50;
+          const startRow = page.data.row_split ?? 50;
           const onMove = (me) => {
-            const newSplit = Math.max(15, Math.min(85, startSplit + (me.clientY - startY) / rect.height * 100));
-            page.data.row_split = newSplit;
-            grid.style.gridTemplateRows = `${newSplit}fr ${100 - newSplit}fr`;
-            hH.style.top = `calc(${newSplit}% - 5px)`;
+            const newCol = Math.max(15, Math.min(85, startCol + (me.clientX - startX) / rect.width * 100));
+            const newRow = Math.max(15, Math.min(85, startRow + (me.clientY - startY) / rect.height * 100));
+            page.data.col_split = newCol;
+            page.data.row_split = newRow;
+            grid.style.gridTemplateColumns = `${newCol}fr ${100 - newCol}fr`;
+            grid.style.gridTemplateRows = `${newRow}fr ${100 - newRow}fr`;
+            grip.style.left = `${newCol}%`;
+            grip.style.top = `${newRow}%`;
           };
           const onUp = () => {
-            hH.classList.remove('dragging');
+            grip.classList.remove('dragging');
+            document.removeEventListener('mousemove', onMove);
+            document.removeEventListener('mouseup', onUp);
+            scheduleSave(state.activePage);
+          };
+          document.addEventListener('mousemove', onMove);
+          document.addEventListener('mouseup', onUp);
+        });
+      } else {
+        // 2 images: single vertical splitter (width only)
+        const hV = document.createElement('div');
+        hV.className = 'img-resize-handle img-resize-handle-v';
+        const colSplit = page.data.col_split ?? 50;
+        hV.style.left = `calc(${colSplit}% - 5px)`;
+        grid.appendChild(hV);
+
+        hV.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+          hV.classList.add('dragging');
+          const rect = grid.getBoundingClientRect();
+          const startX = e.clientX;
+          const startSplit = page.data.col_split ?? 50;
+          const onMove = (me) => {
+            const newSplit = Math.max(15, Math.min(85, startSplit + (me.clientX - startX) / rect.width * 100));
+            page.data.col_split = newSplit;
+            grid.style.gridTemplateColumns = `${newSplit}fr ${100 - newSplit}fr`;
+            hV.style.left = `calc(${newSplit}% - 5px)`;
+          };
+          const onUp = () => {
+            hV.classList.remove('dragging');
             document.removeEventListener('mousemove', onMove);
             document.removeEventListener('mouseup', onUp);
             scheduleSave(state.activePage);
@@ -5805,9 +5819,14 @@
         <div style="${cornerStyle}top:12px;right:12px;border-top:1.5px solid #8DC4F0;border-right:1.5px solid #8DC4F0;"></div>
         <div style="${cornerStyle}bottom:12px;left:12px;border-bottom:1.5px solid #8DC4F0;border-left:1.5px solid #8DC4F0;"></div>
         <div style="${cornerStyle}bottom:12px;right:12px;border-bottom:1.5px solid #8DC4F0;border-right:1.5px solid #8DC4F0;"></div>
+        <!-- Delta logo top-right -->
+        <div style="position:absolute;top:14px;right:16px;display:flex;align-items:center;gap:6px;z-index:5;">
+          <img src="${TOOLBAR_LOGO_B64}" style="height:28px;width:auto;object-fit:contain;" alt="Delta">
+          <span style="font-family:'Arial Black',Arial,sans-serif;font-size:22px;font-weight:900;color:#0071BA;letter-spacing:1px;line-height:1;">DELTA</span>
+        </div>
         <!-- Type label -->
         <div style="font-family:'JetBrains Mono',monospace;font-size:8px;letter-spacing:0.18em;color:#3A7AD4;align-self:flex-start;margin-bottom:8px;">THERMAL TEST REPORT</div>
-        <div style="font-size:14px;letter-spacing:0px;word-spacing:0px;color:rgba(15,23,42,0.50);padding:6px 8px;margin-bottom:16px;text-align:center;width:100%;">${escHtml(deptUpper)}</div>
+        <div style="font-size:14px;font-weight:700;letter-spacing:0px;word-spacing:0px;color:#1A4E96;padding:6px 8px;margin-bottom:16px;text-align:center;width:100%;">${escHtml(d.dept || '')}</div>
         ${hasImg
           ? `<div style="width:${pdfW}px;height:${pdfH}px;margin-bottom:24px;flex-shrink:0;display:flex;align-items:center;justify-content:center;overflow:hidden;border:1px solid #C2DFF8;">
                <img src="${escapeAttr(d.cover_image)}" style="max-width:100%;max-height:100%;object-fit:contain;">
@@ -5837,11 +5856,13 @@
     function buildImagePageHTML(d) {
       const imgs = d.images || [];
       const count = imgs.length;
+      const colSplit = d.col_split ?? 50;
+      const rowSplit = d.row_split ?? 50;
       // Grid CSS
       let gridStyle = 'flex:1;display:grid;gap:10px;min-height:0;';
       if (count <= 1) gridStyle += 'grid-template-columns:1fr;grid-template-rows:1fr;';
-      else if (count === 2) gridStyle += 'grid-template-columns:1fr 1fr;grid-template-rows:1fr;';
-      else gridStyle += 'grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;';
+      else if (count === 2) gridStyle += `grid-template-columns:${colSplit}fr ${100-colSplit}fr;grid-template-rows:1fr;`;
+      else gridStyle += `grid-template-columns:${colSplit}fr ${100-colSplit}fr;grid-template-rows:${rowSplit}fr ${100-rowSplit}fr;`;
 
       let cells = '';
       for (let i = 0; i < count; i++) {

@@ -7,6 +7,16 @@ const dbAdapter = {
     return { success: true };
   },
 
+  async tryRestore() {
+    if (DB_MODE === 'local') return await fileDb.tryRestore();
+    return { success: true };
+  },
+
+  async reconnect() {
+    if (DB_MODE === 'local') return await fileDb.reconnect();
+    return { success: true };
+  },
+
   isReady() {
     if (DB_MODE === 'local') return fileDb.isReady();
     return true;

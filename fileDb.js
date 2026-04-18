@@ -3,17 +3,50 @@ let dbCache = {};
 
 const fileDb = {
 
-  async openFile() {
+  // Silent restore: tries to reuse a previously granted handle without prompting.
+  // Safe to call on page load (no user gesture). Returns
+  //   { success: true, filename }               when permission already granted
+  //   { success: false, needsPermission: true, filename }  when user needs to click to re-grant
+  //   { success: false, reason: 'no-saved' }    when nothing was saved before
+  async tryRestore() {
     const savedHandle = await this._loadSavedHandle();
-    if (savedHandle) {
-      try {
-        const permission = await savedHandle.requestPermission({ mode: 'readwrite' });
-        if (permission === 'granted') {
-          fileHandle = savedHandle;
-          await this._readFile();
-          return { success: true, filename: fileHandle.name };
-        }
-      } catch(e) {}
+    if (!savedHandle) return { success: false, reason: 'no-saved' };
+    try {
+      const state = await savedHandle.queryPermission({ mode: 'readwrite' });
+      if (state === 'granted') {
+        fileHandle = savedHandle;
+        await this._readFile();
+        return { success: true, filename: fileHandle.name };
+      }
+      return { success: false, needsPermission: true, filename: savedHandle.name };
+    } catch (e) {
+      return { success: false, reason: 'error' };
+    }
+  },
+
+  // Called from a user gesture (button click) to re-grant permission on the saved handle.
+  async reconnect() {
+    const savedHandle = await this._loadSavedHandle();
+    if (!savedHandle) return await this.pickFile();
+    try {
+      const permission = await savedHandle.requestPermission({ mode: 'readwrite' });
+      if (permission === 'granted') {
+        fileHandle = savedHandle;
+        await this._readFile();
+        return { success: true, filename: fileHandle.name };
+      }
+      return { success: false, reason: 'denied' };
+    } catch (e) {
+      return { success: false, reason: 'error' };
+    }
+  },
+
+  async openFile() {
+    const restored = await this.tryRestore();
+    if (restored.success) return restored;
+    if (restored.needsPermission) {
+      // caller on page load cannot prompt; let UI show a click-to-restore button
+      return restored;
     }
     return await this.pickFile();
   },

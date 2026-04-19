@@ -2088,6 +2088,7 @@
 
     .annotation-workspace {
       flex: 1;
+      min-height: 0;
       position: relative;
       overflow: hidden;
       display: flex;
@@ -2095,10 +2096,13 @@
       justify-content: center;
     }
 
+    .annotation-workspace-inner {
+      position: relative;
+      overflow: hidden;
+    }
+
     .annotation-photo-zone {
-      width: 90%;
-      max-width: 680px;
-      aspect-ratio: 680 / 430;
+      position: absolute;
       border: 2px dashed rgba(15,23,42,0.15);
       border-radius: 6px;
       display: flex;
@@ -2106,9 +2110,6 @@
       justify-content: center;
       cursor: pointer;
       overflow: hidden;
-      position: relative;
-      flex-shrink: 1;
-      min-height: 0;
       transition: border-color var(--transition-fast), background var(--transition-fast);
     }
 
@@ -2294,7 +2295,7 @@
     }
 
     .marker-label {
-      width: 80px;
+      width: 53px;
       min-width: 40px;
       padding: 4px 8px;
       background: #fff;
@@ -4057,35 +4058,45 @@
       const hasPhoto = !!d.photo_url_or_base64;
       const annoW = d.anno_photo_w || 680;
       const annoH = d.anno_photo_h || 430;
-      const annoAspect = (annoW / annoH).toFixed(4);
-      const annoWidthPct = d.anno_photo_w_pct || 90;
+
+      const pageW = 842;
+      const titleH = 36;
+      const wsH = 595 - titleH;
+      const pzWPct = (annoW / pageW) * 100;
+      const pzHPct = (annoH / wsH) * 100;
+      const pzLPct = (100 - pzWPct) / 2;
+      const pzTPct = (100 - pzHPct) / 2;
 
       $canvas.innerHTML = editorPageWrapHTML(`
         <div class="annotation-page">
           <input class="annotation-title" type="text" placeholder="TC Thermocouple Placement"
                  value="${escapeAttr(d.title)}" data-field="title">
-          <div class="annotation-workspace" id="anno-workspace">
-            <div class="annotation-photo-zone ${hasPhoto ? 'has-photo' : ''}" id="anno-photo-zone"
-                 style="width:${annoWidthPct}%;aspect-ratio:${annoAspect};">
-              ${hasPhoto
-                ? `<img src="${escapeAttr(d.photo_url_or_base64)}" alt="Annotation photo">
-                   <button class="anno-replace-photo-btn" id="anno-replace-btn">📷 更換圖片</button>
-                   <div class="anno-photo-resize" id="anno-photo-resize"></div>`
-                : `<div class="annotation-photo-placeholder">
-                     <span class="icon">📷</span>
-                     拖拉圖片或 Ctrl+V 貼上照片
-                     <button class="img-browse-btn" data-browse="annotation">瀏覽檔案</button>
-                   </div>`
-              }
-              <input type="file" accept="image/*" id="anno-file-input" style="display:none">
+          <div class="annotation-workspace">
+            <div class="annotation-workspace-inner" id="anno-workspace">
+              <div class="annotation-photo-zone ${hasPhoto ? 'has-photo' : ''}" id="anno-photo-zone"
+                   style="top:${pzTPct}%;left:${pzLPct}%;width:${pzWPct}%;height:${pzHPct}%;">
+                ${hasPhoto
+                  ? `<img src="${escapeAttr(d.photo_url_or_base64)}" alt="Annotation photo">
+                     <button class="anno-replace-photo-btn" id="anno-replace-btn">📷 更換圖片</button>
+                     <div class="anno-photo-resize" id="anno-photo-resize"></div>`
+                  : `<div class="annotation-photo-placeholder">
+                       <span class="icon">📷</span>
+                       拖拉圖片或 Ctrl+V 貼上照片
+                       <button class="img-browse-btn" data-browse="annotation">瀏覽檔案</button>
+                     </div>`
+                }
+                <input type="file" accept="image/*" id="anno-file-input" style="display:none">
+              </div>
+              <svg class="annotation-svg-overlay" id="anno-svg"></svg>
+              <svg class="annotation-drag-line" id="anno-drag-svg" style="display:none">
+                <line x1="0" y1="0" x2="0" y2="0"/>
+              </svg>
             </div>
-            <svg class="annotation-svg-overlay" id="anno-svg"></svg>
-            <svg class="annotation-drag-line" id="anno-drag-svg" style="display:none">
-              <line x1="0" y1="0" x2="0" y2="0"/>
-            </svg>
           </div>
         </div>
       `);
+
+      sizeAnnotationWorkspace(page);
 
       // Title binding
       const titleEl = $canvas.querySelector('[data-field="title"]');
@@ -4106,6 +4117,38 @@
       if (hasPhoto) {
         setupAnnotationClickHandler(page);
       }
+    }
+
+    let _annoResizeObserver = null;
+    function sizeAnnotationWorkspace(page) {
+      const outer = document.querySelector('.annotation-workspace');
+      const inner = document.getElementById('anno-workspace');
+      if (!outer || !inner) return;
+
+      const TARGET_ASPECT = 842 / 559;
+      const fit = () => {
+        const availW = outer.clientWidth;
+        const availH = outer.clientHeight;
+        if (availW <= 0 || availH <= 0) return;
+        let w, h;
+        if (availW / availH > TARGET_ASPECT) {
+          h = availH;
+          w = h * TARGET_ASPECT;
+        } else {
+          w = availW;
+          h = w / TARGET_ASPECT;
+        }
+        inner.style.width = Math.floor(w) + 'px';
+        inner.style.height = Math.floor(h) + 'px';
+        if (page && page.data.photo_url_or_base64 && page.data.markers.length > 0) {
+          renderAnnotationMarkers(page);
+        }
+      };
+      fit();
+
+      if (_annoResizeObserver) _annoResizeObserver.disconnect();
+      _annoResizeObserver = new ResizeObserver(fit);
+      _annoResizeObserver.observe(outer);
     }
 
     function setupAnnotationPhotoHandlers(page) {
@@ -4169,21 +4212,24 @@
 
           const onMove = (ev) => {
             const dx = ev.clientX - startX;
-            let newW = Math.max(300, startW + dx * 2);
-            const maxW = ws ? ws.offsetWidth - 20 : 800;
-            if (newW > maxW) newW = maxW;
-            const parentW = ws ? ws.offsetWidth : 800;
-            zone.style.width = ((newW / parentW) * 100) + '%';
-            zone.style.aspectRatio = aspect.toFixed(4);
+            const innerW = ws ? ws.offsetWidth : 800;
+            const innerH = ws ? ws.offsetHeight : 531;
+            let newW = Math.max(innerW * 0.3, startW + dx * 2);
+            if (newW > innerW * 0.98) newW = innerW * 0.98;
+            const newH = newW / aspect;
+            zone.style.width = (newW / innerW * 100) + '%';
+            zone.style.height = (newH / innerH * 100) + '%';
+            zone.style.left = ((1 - newW / innerW) / 2 * 100) + '%';
+            zone.style.top = ((1 - newH / innerH) / 2 * 100) + '%';
           };
 
           const onUp = () => {
             document.removeEventListener('mousemove', onMove);
             document.removeEventListener('mouseup', onUp);
-            const parentW = ws ? ws.offsetWidth : 800;
-            page.data.anno_photo_w_pct = Math.round((zone.offsetWidth / parentW) * 100);
-            page.data.anno_photo_w = zone.offsetWidth;
-            page.data.anno_photo_h = zone.offsetHeight;
+            const innerW = ws ? ws.offsetWidth : 800;
+            const innerH = ws ? ws.offsetHeight : 531;
+            page.data.anno_photo_w = Math.round((zone.offsetWidth / innerW) * 842);
+            page.data.anno_photo_h = Math.round((zone.offsetHeight / innerH) * 559);
             scheduleSave(state.activePage);
             renderAnnotationMarkers(page);
           };
@@ -4421,7 +4467,7 @@
           label.value = m.label || '';
           label.dataset.id = m.id;
           // Restore saved width or default 80px
-          const savedW = m.label_w || 80;
+          const savedW = m.label_w || 53;
           label.style.width = savedW + 'px';
 
           // Resize handle
@@ -5978,7 +6024,7 @@
         if (m.label_x >= 0 && m.label_y >= 0) {
           const lxPct = m.label_x;
           const lyPct = m.label_y;
-          const lw = m.label_w || 80;
+          const lw = m.label_w || 53;
           // Clamp label so right edge doesn't exceed container
           const maxLw = pageW * ((100 - lxPct) / 100) - 4; // 4px safety margin
           const clampedLw = Math.min(lw, maxLw);

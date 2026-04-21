@@ -2897,6 +2897,8 @@
             <button class="dropdown-item" data-type="conclusion">📝 結論頁</button>
           </div>
         </div>
+        <button class="glass-btn" id="btn-undo" title="復原 (Ctrl+Z)" disabled>↩ 復原</button>
+        <button class="glass-btn" id="btn-redo" title="取消復原 (Ctrl+Shift+Z)" disabled>↪ 重做</button>
         <button class="glass-btn" id="btn-preview">預覽</button>
         <button class="glass-btn" id="btn-export-pdf">匯出 PDF</button>
       </div>
@@ -2977,6 +2979,59 @@
       activePage: null,   // index into pages[]
       saveTimer: null,
     };
+
+    // ━━━ Undo / Redo ━━━
+    const UNDO_MAX = 40;
+    const undoStacks = {};   // pageId → [ JSON snapshots ]
+    const redoStacks = {};   // pageId → [ JSON snapshots ]
+
+    function performUndo() {
+      if (state.activePage === null) return;
+      const page = state.pages[state.activePage];
+      const id = page.id;
+      const stack = undoStacks[id];
+      if (!stack || stack.length === 0) return;
+      if (!redoStacks[id]) redoStacks[id] = [];
+      redoStacks[id].push(JSON.stringify(page.data));
+      page.data = JSON.parse(stack.pop());
+      lastSavedSnapshots[id] = JSON.stringify(page.data);
+      renderCanvas();
+      _skipUndoCapture = true;
+      scheduleSave(state.activePage);
+      _skipUndoCapture = false;
+      updateUndoRedoButtons();
+    }
+
+    function performRedo() {
+      if (state.activePage === null) return;
+      const page = state.pages[state.activePage];
+      const id = page.id;
+      const stack = redoStacks[id];
+      if (!stack || stack.length === 0) return;
+      if (!undoStacks[id]) undoStacks[id] = [];
+      undoStacks[id].push(JSON.stringify(page.data));
+      page.data = JSON.parse(stack.pop());
+      lastSavedSnapshots[id] = JSON.stringify(page.data);
+      renderCanvas();
+      _skipUndoCapture = true;
+      scheduleSave(state.activePage);
+      _skipUndoCapture = false;
+      updateUndoRedoButtons();
+    }
+
+    function updateUndoRedoButtons() {
+      const btnUndo = document.getElementById('btn-undo');
+      const btnRedo = document.getElementById('btn-redo');
+      if (!btnUndo || !btnRedo) return;
+      if (state.activePage === null) {
+        btnUndo.disabled = true;
+        btnRedo.disabled = true;
+        return;
+      }
+      const id = state.pages[state.activePage]?.id;
+      btnUndo.disabled = !(undoStacks[id]?.length > 0);
+      btnRedo.disabled = !(redoStacks[id]?.length > 0);
+    }
 
     // ━━━ DOM refs ━━━
     const $pageList = document.getElementById('page-list');
@@ -3078,12 +3133,32 @@
 
     // ━━━ Debounced auto-save ━━━
     const saveTimers = {};
+    const lastSavedSnapshots = {};
+    let _skipUndoCapture = false;
+
     function scheduleSave(pageIndex) {
+      const page = state.pages[pageIndex];
+      if (page && !_skipUndoCapture) {
+        const id = page.id;
+        if (!saveTimers[pageIndex] && lastSavedSnapshots[id]) {
+          if (!undoStacks[id]) undoStacks[id] = [];
+          undoStacks[id].push(lastSavedSnapshots[id]);
+          if (undoStacks[id].length > UNDO_MAX) undoStacks[id].shift();
+          if (!redoStacks[id]) redoStacks[id] = [];
+          redoStacks[id].length = 0;
+          updateUndoRedoButtons();
+        }
+      }
       if (saveTimers[pageIndex]) clearTimeout(saveTimers[pageIndex]);
       saveTimers[pageIndex] = setTimeout(() => {
         delete saveTimers[pageIndex];
         savePageToFirestore(pageIndex);
+        if (page) lastSavedSnapshots[page.id] = JSON.stringify(page.data);
       }, 1000);
+    }
+
+    function initPageSnapshot(page) {
+      if (page) lastSavedSnapshots[page.id] = JSON.stringify(page.data);
     }
 
     // ━━━ Image handling (base64 / Storage) ━━━
@@ -3209,6 +3284,7 @@
         }
       };
       state.pages.push(page);
+      initPageSnapshot(page);
       renderPageList();
       selectPage(state.pages.length - 1);
       scheduleSave(state.pages.length - 1);
@@ -3267,6 +3343,7 @@
       renderPageList();
       renderCanvas();
       updatePageNavButtons();
+      updateUndoRedoButtons();
     }
 
     // ━━━ Context menu ━━━
@@ -3328,6 +3405,7 @@
 
       // Insert after source
       state.pages.splice(contextTarget + 1, 0, clone);
+      initPageSnapshot(clone);
       // Re-index orders
       state.pages.forEach((p, i) => p.order = i);
 
@@ -3565,6 +3643,13 @@
 
     async function handlePaste(e) {
       if (state.activePage === null) return;
+
+      const el = document.activeElement;
+      const isTextInput = el && (
+        el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable
+      );
+      if (isTextInput) return;
+
       const page = state.pages[state.activePage];
       const dt = e.clipboardData;
       if (!dt) return;
@@ -3732,6 +3817,7 @@
         }
       };
       state.pages.push(page);
+      initPageSnapshot(page);
       renderPageList();
       selectPage(state.pages.length - 1);
       scheduleSave(state.pages.length - 1);
@@ -4048,6 +4134,7 @@
         }
       };
       state.pages.push(page);
+      initPageSnapshot(page);
       renderPageList();
       selectPage(state.pages.length - 1);
       scheduleSave(state.pages.length - 1);
@@ -4649,6 +4736,7 @@
         }
       };
       state.pages.push(page);
+      initPageSnapshot(page);
       renderPageList();
       selectPage(state.pages.length - 1);
       scheduleSave(state.pages.length - 1);
@@ -5165,6 +5253,7 @@
         }
       };
       state.pages.push(page);
+      initPageSnapshot(page);
       renderPageList();
       selectPage(state.pages.length - 1);
       scheduleSave(state.pages.length - 1);
@@ -5546,6 +5635,7 @@
         }
       };
       state.pages.push(page);
+      initPageSnapshot(page);
       renderPageList();
       selectPage(state.pages.length - 1);
       scheduleSave(state.pages.length - 1);
@@ -6631,6 +6721,7 @@ const isLandscape = page.type === 'image' || page.type === 'annotation' || page.
 
       showEditor();
       renderPageList();
+      state.pages.forEach(p => initPageSnapshot(p));
       if (state.pages.length > 0) {
         selectPage(0);
         setStatus('saved', '已儲存');
@@ -6743,6 +6834,24 @@ const isLandscape = page.type === 'image' || page.type === 'annotation' || page.
       // Setup dropdowns
       setupDropdown('toolbar-add-btn', 'toolbar-add-menu');
       setupDropdown('sidebar-add-btn', 'sidebar-add-menu');
+
+      // Undo & Redo
+      document.getElementById('btn-undo').addEventListener('click', performUndo);
+      document.getElementById('btn-redo').addEventListener('click', performRedo);
+      document.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+          const el = document.activeElement;
+          if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return;
+          e.preventDefault();
+          performUndo();
+        }
+        if ((e.ctrlKey || e.metaKey) && ((e.key === 'z' && e.shiftKey) || e.key === 'y')) {
+          const el = document.activeElement;
+          if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return;
+          e.preventDefault();
+          performRedo();
+        }
+      });
 
       // Preview & PDF buttons
       document.getElementById('btn-preview').addEventListener('click', openPreview);

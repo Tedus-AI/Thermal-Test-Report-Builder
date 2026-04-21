@@ -536,6 +536,7 @@
     .scrollable-edit .data-page {
       height: auto;
       min-height: 100%;
+      overflow-y: visible;
     }
     .scrollable-edit .data-table-wrap {
       flex: none;
@@ -1448,6 +1449,14 @@
       background: rgba(56,189,248,0.06);
       border-color: rgba(56,189,248,0.5);
     }
+    .dt-del-header { width: 28px; padding: 0 !important; }
+    .dt-del-cell { width: 28px; padding: 2px !important; text-align: center; }
+    .dt-del-btn {
+      width: 20px; height: 20px; padding: 0; border: none; border-radius: 3px;
+      background: transparent; color: rgba(15,23,42,0.25); font-size: 11px;
+      cursor: pointer; line-height: 1; transition: all 0.15s;
+    }
+    .dt-del-btn:hover { background: rgba(231,76,60,0.12); color: #E74C3C; }
 
     /* Sensor section */
     .sensor-section {
@@ -4843,6 +4852,7 @@
           ${taCells}
           <td class="${pfClass}">${pfText}</td>
           <td><input type="text" placeholder="備註" value="${escapeAttr(comp.note || '')}" data-comp="${ri}" data-comp-field="note"></td>
+          <td class="dt-del-cell"><button class="dt-del-btn" data-del-row="${ri}" title="刪除此列">✕</button></td>
         </tr>`;
       });
 
@@ -4953,6 +4963,7 @@
                   ${taHeaders1}
                   <th rowspan="2">P/F</th>
                   <th rowspan="2">備註</th>
+                  <th rowspan="2" class="dt-del-header"></th>
                 </tr>
                 <tr>${taHeaders2}</tr>
               </thead>
@@ -5192,8 +5203,17 @@
         });
       }
 
-      // ── Row context menu (delete) ──
+      // ── Row delete (button + context menu) ──
       if (tbody) {
+        tbody.addEventListener('click', (e) => {
+          const btn = e.target.closest('.dt-del-btn');
+          if (!btn) return;
+          const ri = parseInt(btn.dataset.delRow);
+          if (isNaN(ri)) return;
+          d.components.splice(ri, 1);
+          scheduleSave(state.activePage);
+          renderDataPage(page);
+        });
         tbody.addEventListener('contextmenu', (e) => {
           const tr = e.target.closest('tr[data-row-idx]');
           if (!tr) return;
@@ -5204,6 +5224,65 @@
             scheduleSave(state.activePage);
             renderDataPage(page);
           }
+        });
+      }
+
+      // ── Excel-style multi-cell paste ──
+      if (tbody) {
+        const pasteFieldMap = [
+          { field: 'category' },
+          { field: 'name' },
+          { field: 'spec_type' },
+          { field: 'tc_spec' },
+          { field: 'derating' },
+          { field: 'tim_type' },
+        ];
+        d.ta_conditions.forEach(ta => pasteFieldMap.push({ taKey: 'ta_' + ta }));
+        pasteFieldMap.push({ field: 'note' });
+
+        tbody.addEventListener('paste', (e) => {
+          const target = e.target;
+          if (target.tagName !== 'INPUT' && target.tagName !== 'SELECT') return;
+
+          const clipText = (e.clipboardData || window.clipboardData).getData('text');
+          if (!clipText || !clipText.includes('\t')) return;
+          e.preventDefault();
+
+          const tr = target.closest('tr[data-row-idx]');
+          if (!tr) return;
+          const startRowIdx = parseInt(tr.dataset.rowIdx);
+          if (isNaN(startRowIdx)) return;
+
+          const editableCells = Array.from(tr.querySelectorAll('input, select'));
+          const startColIdx = editableCells.indexOf(target);
+          if (startColIdx < 0) return;
+
+          const clipRows = clipText.replace(/\r\n?/g, '\n').trimEnd().split('\n');
+          const clipGrid = clipRows.map(row => row.split('\t'));
+
+          for (let r = 0; r < clipGrid.length; r++) {
+            const rowIdx = startRowIdx + r;
+            while (rowIdx >= d.components.length) {
+              d.components.push({ category: 'RF', derating: '0.90', readings: {} });
+            }
+            const comp = d.components[rowIdx];
+            if (!comp.readings) comp.readings = {};
+
+            for (let c = 0; c < clipGrid[r].length; c++) {
+              const colIdx = startColIdx + c;
+              if (colIdx >= pasteFieldMap.length) break;
+              const val = clipGrid[r][c].trim();
+              const fld = pasteFieldMap[colIdx];
+              if (fld.taKey) {
+                comp.readings[fld.taKey] = val;
+              } else {
+                comp[fld.field] = val;
+              }
+            }
+          }
+
+          scheduleSave(state.activePage);
+          renderDataPage(page);
         });
       }
 
@@ -6499,7 +6578,9 @@
       }
 
       const firstRowTop = trs[0].getBoundingClientRect().top - mTop;
-      const avgRowH = (rowBottoms[rowBottoms.length - 1] - firstRowTop) / trs.length;
+      const rowHeights = trs.map((tr, i) =>
+        i === 0 ? rowBottoms[0] - firstRowTop : rowBottoms[i] - rowBottoms[i - 1]
+      );
 
       measurer.innerHTML = `<div style="width:100%;padding:28px 32px 28px;letter-spacing:0;word-spacing:0;">
         <div style="${titleStyle}">THERMAL TEST DATA (續)</div>
@@ -6514,14 +6595,19 @@
       const dummyTr = measurer.querySelector('tbody tr');
       const contRowStartY = dummyTr.getBoundingClientRect().top - measurer.getBoundingClientRect().top;
       const contAvailH = MAX_CONTENT_Y - contRowStartY;
-      const contPageRows = Math.max(Math.floor(contAvailH / avgRowH), 1);
 
       document.body.removeChild(measurer);
 
       const splits = [{ start: 0, end: page1End }];
       let idx = page1End;
       while (idx < rowsHtml.length) {
-        const end = Math.min(idx + contPageRows, rowsHtml.length);
+        let accum = 0;
+        let end = idx;
+        while (end < rowsHtml.length && accum + rowHeights[end] <= contAvailH) {
+          accum += rowHeights[end];
+          end++;
+        }
+        if (end === idx) end = idx + 1;
         splits.push({ start: idx, end });
         idx = end;
       }

@@ -524,6 +524,24 @@
       z-index: 1;
     }
 
+    /* Scrollable data page editor — content grows beyond A4, scrollbar appears */
+    #editor-canvas.scrollable-edit {
+      overflow-y: auto;
+      overflow-x: hidden;
+    }
+    .scrollable-edit .report-page-wrap {
+      height: auto;
+      min-height: 100%;
+    }
+    .scrollable-edit .data-page {
+      height: auto;
+      min-height: 100%;
+    }
+    .scrollable-edit .data-table-wrap {
+      flex: none;
+      overflow: visible;
+    }
+
     /* Page navigation buttons */
     .page-nav-btn {
       position: absolute;
@@ -3420,6 +3438,7 @@
 
     // ━━━ Canvas rendering ━━━
     function renderCanvas() {
+      $canvas.classList.remove('scrollable-edit');
       const canvasTag = document.getElementById('canvas-tag');
       if (state.activePage === null || state.activePage < 0 || !state.pages[state.activePage]) {
         $canvas.classList.remove('landscape');
@@ -4966,6 +4985,7 @@
           </div>
         </div>
       `);
+      $canvas.classList.add('scrollable-edit');
 
       // ── Mark category boundaries ──
       const tbody = document.getElementById('dt-tbody');
@@ -5852,12 +5872,42 @@
       });
     }
 
+    // ━━━ Virtual Pages (flattens data page sub-pages for preview/PDF) ━━━
+    function buildVirtualPages() {
+      const list = [];
+      state.pages.forEach((page, pageIdx) => {
+        if (page.type === 'data') {
+          const subPages = buildDataPagePagesHTML(page.data);
+          subPages.forEach(html => {
+            list.push({ page, pageIdx, html, isLandscape: true });
+          });
+        } else {
+          let html = '';
+          const isLandscape = page.type === 'image' || page.type === 'annotation' || page.type === 'sim_vs_meas';
+          if (page.type === 'cover') html = buildCoverHTML(page.data);
+          else if (page.type === 'image') html = buildImagePageHTML(page.data);
+          else if (page.type === 'annotation') html = buildAnnotationHTML(page.data);
+          else if (page.type === 'sim_vs_meas') html = buildSimVsMeasHTML(page.data);
+          else if (page.type === 'conclusion') html = buildConclusionHTML(page.data);
+          list.push({ page, pageIdx, html, isLandscape });
+        }
+      });
+      return list;
+    }
+
     // ━━━ Preview Mode ━━━
     let previewIdx = 0;
+    let _virtualPages = [];
 
     function openPreview() {
       if (state.pages.length === 0) return;
-      previewIdx = state.activePage !== null ? state.activePage : 0;
+      _virtualPages = buildVirtualPages();
+      if (state.activePage !== null) {
+        const vpIdx = _virtualPages.findIndex(vp => vp.pageIdx === state.activePage);
+        previewIdx = vpIdx >= 0 ? vpIdx : 0;
+      } else {
+        previewIdx = 0;
+      }
       renderPreviewPage();
       document.getElementById('preview-overlay').classList.add('open');
     }
@@ -5869,38 +5919,29 @@
     function renderPreviewPage() {
       const wrap = document.getElementById('preview-canvas-wrap');
       const footer = document.getElementById('preview-footer');
-      const page = state.pages[previewIdx];
-      if (!page) return;
+      const vp = _virtualPages[previewIdx];
+      if (!vp) return;
 
-      const isLandscape = page.type === 'image' || page.type === 'annotation' || page.type === 'sim_vs_meas' || page.type === 'data';
+      const isLandscape = vp.isLandscape;
       const w = isLandscape ? 842 : 595;
       const h = isLandscape ? 595 : 842;
 
-      // Scale to fit viewport
       const vw = window.innerWidth - 64;
       const vh = window.innerHeight - 120;
       const scale = Math.min(vw / w, vh / h, 1);
 
-      // Build static HTML into an isolated div (no live-canvas swapping)
       const el = document.createElement('div');
       el.style.cssText = `width:${w}px;height:${h}px;background:#fff;border-radius:4px;box-shadow:0 8px 40px rgba(0,0,0,0.5);overflow:hidden;transform:scale(${scale});transform-origin:center center;flex-shrink:0;font-family:${getComputedStyle(document.body).fontFamily};`;
-
-      if (page.type === 'cover') el.innerHTML = buildCoverHTML(page.data);
-      else if (page.type === 'image') el.innerHTML = buildImagePageHTML(page.data);
-      else if (page.type === 'annotation') el.innerHTML = buildAnnotationHTML(page.data);
-      else if (page.type === 'data') el.innerHTML = buildDataPageHTML(page.data);
-      else if (page.type === 'sim_vs_meas') el.innerHTML = buildSimVsMeasHTML(page.data);
-      else if (page.type === 'conclusion') el.innerHTML = buildConclusionHTML(page.data);
+      el.innerHTML = vp.html;
 
       wrap.innerHTML = '';
       wrap.appendChild(el);
-      footer.textContent = `第 ${previewIdx + 1} 頁 / 共 ${state.pages.length} 頁`;
+      footer.textContent = `第 ${previewIdx + 1} 頁 / 共 ${_virtualPages.length} 頁`;
 
-      // Update preview nav button states
       const prevBtn = document.getElementById('preview-prev');
       const nextBtn = document.getElementById('preview-next');
       if (prevBtn) prevBtn.disabled = previewIdx <= 0;
-      if (nextBtn) nextBtn.disabled = previewIdx >= state.pages.length - 1;
+      if (nextBtn) nextBtn.disabled = previewIdx >= _virtualPages.length - 1;
     }
 
     // Preview nav buttons
@@ -5908,7 +5949,7 @@
       if (previewIdx > 0) { previewIdx--; renderPreviewPage(); }
     });
     document.getElementById('preview-next').addEventListener('click', () => {
-      if (previewIdx < state.pages.length - 1) { previewIdx++; renderPreviewPage(); }
+      if (previewIdx < _virtualPages.length - 1) { previewIdx++; renderPreviewPage(); }
     });
 
     // Keyboard navigation
@@ -5926,7 +5967,7 @@
           closePreview();
         } else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
           e.preventDefault();
-          if (previewIdx < state.pages.length - 1) { previewIdx++; renderPreviewPage(); }
+          if (previewIdx < _virtualPages.length - 1) { previewIdx++; renderPreviewPage(); }
         } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
           e.preventDefault();
           if (previewIdx > 0) { previewIdx--; renderPreviewPage(); }
@@ -6301,6 +6342,205 @@
       return wrapPageHTML(inner);
     }
 
+    function buildDataPagePagesHTML(d) {
+      const h = d.header || {};
+      const tas = d.ta_conditions || [];
+      const comps = d.components || [];
+
+      const thStyle = 'text-align:center;font-family:"JetBrains Mono",monospace;font-size:8px;font-weight:500;color:#ffffff;padding:4px 5px;background:#0B3D7A;border-bottom:1px solid rgba(255,255,255,0.15);white-space:nowrap;letter-spacing:0.04em;word-spacing:0px;';
+      const tdStyle = 'padding:3px 5px;border-bottom:1px solid rgba(15,23,42,0.05);font-size:10px;white-space:nowrap;letter-spacing:0px;word-spacing:0px;text-align:center;';
+
+      const catCounters = { RF: 0, Digital: 0, PWR: 0 };
+      const rowsHtml = comps.map(comp => {
+        const cat = comp.category || 'RF';
+        catCounters[cat] = (catCounters[cat] || 0) + 1;
+        const autoNum = cat + '-' + catCounters[cat];
+        const tcSpec = parseFloat(comp.tc_spec) || 0;
+        const derating = parseFloat(comp.derating) || 0.9;
+        const derated = tcSpec * derating;
+
+        let rowFail = false;
+        const taCells = tas.map(ta => {
+          const key = 'ta_' + ta;
+          const measured = comp.readings ? comp.readings[key] : '';
+          const mNum = parseFloat(measured);
+          let marginStr = '—', marginBg = '';
+          if (!isNaN(mNum) && derated > 0) {
+            const margin = ((derated - mNum) / derated) * 100;
+            marginStr = margin.toFixed(1) + '%';
+            if (margin >= 10) marginBg = 'background:rgba(39,174,96,0.10);color:#27AE60;';
+            else if (margin >= 0) marginBg = 'background:rgba(243,156,18,0.10);color:#F39C12;';
+            else { marginBg = 'background:rgba(231,76,60,0.08);color:#E74C3C;'; rowFail = true; }
+          }
+          return `<td style="${tdStyle}text-align:center;">${measured || '—'}</td><td style="${tdStyle}text-align:center;font-weight:600;${marginBg}">${marginStr}</td>`;
+        }).join('');
+
+        const catColor = cat === 'RF' ? '#3A7AD4' : cat === 'Digital' ? '#5BA3E6' : '#F39C12';
+        const rowBg = rowFail ? 'background:rgba(231,76,60,0.06);' : '';
+        const pf = rowFail ? '❌' : (tcSpec > 0 ? '✔' : '—');
+
+        return `<tr style="${rowBg}">
+          <td style="${tdStyle}text-align:center;"><span style="display:inline-block;width:3px;height:14px;border-radius:2px;background:${catColor};margin-right:3px;vertical-align:middle;"></span>${escHtml(cat)}</td>
+          <td style="${tdStyle}text-align:center;color:rgba(15,23,42,0.55);font-weight:600;">${autoNum}</td>
+          <td style="${tdStyle}text-align:center;">${escHtml(comp.name)}</td>
+          <td style="${tdStyle}text-align:center;">${escHtml(comp.spec_type)}</td>
+          <td style="${tdStyle}text-align:center;">${tcSpec || '—'}</td>
+          <td style="${tdStyle}text-align:center;">${comp.derating || '0.90'}</td>
+          <td style="${tdStyle}text-align:center;background:rgba(15,23,42,0.03);font-weight:600;">${derated > 0 ? derated.toFixed(1) : '—'}</td>
+          <td style="${tdStyle}text-align:center;">${escHtml(comp.tim_type)}</td>
+          ${taCells}
+          <td style="${tdStyle}text-align:center;font-weight:700;${rowFail ? 'color:#b91c1c;' : 'color:#15803d;'}">${pf}</td>
+          <td style="${tdStyle}text-align:center;">${escHtml(comp.note)}</td>
+        </tr>`;
+      });
+
+      const taHeaders1 = tas.map(ta => `<th colspan="2" style="${thStyle}text-align:center;border-left:2px solid rgba(255,255,255,0.2);">Ta = ${ta}°C</th>`).join('');
+      const taHeaders2 = tas.map(() => `<th style="${thStyle}text-align:center;font-size:7px;">Tc</th><th style="${thStyle}text-align:center;font-size:7px;">Margin</th>`).join('');
+      const headerCols = ['類別','#','元件','Spec','Tc','DR','Derated','TIM'];
+      const theadHtml = `<thead><tr>${headerCols.map(c => `<th style="${thStyle}">${c}</th>`).join('')}${taHeaders1}<th style="${thStyle}">P/F</th><th style="${thStyle}">備註</th></tr><tr>${taHeaders2}</tr></thead>`;
+
+      const taTags = tas.map(t => `<span style="display:inline-block;padding:3px 8px;font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:500;color:#2357A7;background:rgba(35,87,167,0.08);border:1px solid rgba(35,87,167,0.15);clip-path:polygon(4px 0,100% 0,calc(100% - 4px) 100%,0 100%);margin-right:4px;">Ta = ${t}°C</span>`).join('');
+
+      const titleStyle = "font-family:'Space Grotesk',sans-serif;font-size:14px;font-weight:600;letter-spacing:0.02em;word-spacing:0px;color:#0B3D7A;margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid #C2DFF8;";
+      const titleHtml = `<div style="${titleStyle}">THERMAL TEST DATA</div>`;
+
+      const lblStyle = "font-family:'JetBrains Mono',monospace;font-size:8px;font-weight:500;color:#2357A7;letter-spacing:0.06em;";
+      const infoGridHtml = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 20px;margin-bottom:10px;font-size:11px;background:#EDF2F8;padding:8px 10px;">
+        <div><span style="${lblStyle}">TEST DATE</span><div>${escHtml(h.test_date)}</div></div>
+        <div><span style="${lblStyle}">EQUILIBRIUM TIME</span><div>${escHtml(h.eq_time_min)} min</div></div>
+        <div><span style="${lblStyle}">STAGE</span><div>${escHtml(h.stage)}</div></div>
+        <div><span style="${lblStyle}">MOUNTING</span><div>${escHtml(h.mounting)}</div></div>
+        <div><span style="${lblStyle}">SW VERSION</span><div>${escHtml(h.sw_version)}</div></div>
+        <div><span style="${lblStyle}">LOCATION</span><div>${escHtml(h.location)}</div></div>
+      </div>`;
+      const taTagsHtml = `<div style="margin-bottom:10px;">${taTags}</div>`;
+
+      const sensors = d.sensors || [];
+      const sensorsWithData = sensors.filter(s => s.name || Object.values(s.readings || {}).some(v => v));
+      let sensorHtml = '';
+      if (sensorsWithData.length > 0) {
+        const sThStyle = 'text-align:center;font-size:8px;font-weight:700;color:rgba(15,23,42,0.50);padding:4px 5px;background:rgba(15,23,42,0.03);border-bottom:2px solid rgba(15,23,42,0.10);white-space:nowrap;letter-spacing:0px;word-spacing:0px;';
+        const sTdStyle = 'padding:3px 5px;border-bottom:1px solid rgba(15,23,42,0.05);font-size:10px;white-space:nowrap;letter-spacing:0px;word-spacing:0px;text-align:center;';
+        const sensorTaHeaders = tas.map(ta => `<th style="${sThStyle}">Ta ${ta}°C</th>`).join('');
+        const sensorRows = sensorsWithData.map(s => {
+          const taCells = tas.map(ta => {
+            const val = s.readings ? s.readings['ta_' + ta] : '';
+            return `<td style="${sTdStyle}">${escHtml(val) || '—'}</td>`;
+          }).join('');
+          return `<tr>
+            <td style="${sTdStyle}">${escHtml(s.name)}</td>
+            <td style="${sTdStyle}">${escHtml(s.type || 'Tj only')}</td>
+            ${taCells}
+            <td style="${sTdStyle}">${escHtml(s.note)}</td>
+          </tr>`;
+        }).join('');
+        sensorHtml = `
+          <div style="margin-top:10px;border:1px solid rgba(15,23,42,0.08);border-radius:4px;flex-shrink:0;">
+            <div style="padding:6px 10px;font-size:10px;font-weight:700;color:rgba(15,23,42,0.45);background:rgba(15,23,42,0.02);border-bottom:1px solid rgba(15,23,42,0.06);letter-spacing:0px;word-spacing:0px;">EMBEDDED SENSOR READINGS</div>
+            <table style="width:100%;border-collapse:collapse;font-size:10px;">
+              <thead><tr>
+                <th style="${sThStyle}">Sensor</th>
+                <th style="${sThStyle}">類型</th>
+                ${sensorTaHeaders}
+                <th style="${sThStyle}">備註</th>
+              </tr></thead>
+              <tbody>${sensorRows}</tbody>
+            </table>
+          </div>`;
+      }
+
+      const makeInner = (title, headerBlock, rows, sensor) =>
+        `<div style="width:100%;height:100%;display:flex;flex-direction:column;padding:28px 32px 28px;color:rgba(15,23,42,0.90);overflow:hidden;letter-spacing:0px;word-spacing:0px;">
+          ${title}${headerBlock}
+          <div style="flex:1;overflow:hidden;border:1px solid #C2DFF8;">
+            <table style="width:100%;border-collapse:collapse;font-size:10px;">
+              ${theadHtml}
+              <tbody>${rows}</tbody>
+            </table>
+          </div>
+          ${sensor}
+        </div>`;
+
+      if (rowsHtml.length === 0) {
+        return [wrapPageHTML(makeInner(titleHtml, infoGridHtml + taTagsHtml, '', sensorHtml))];
+      }
+
+      const PAGE_H = 595;
+      const MAX_CONTENT_Y = PAGE_H - 28;
+
+      const measurer = document.createElement('div');
+      measurer.style.cssText = `position:fixed;left:-9999px;top:0;width:842px;background:#fff;z-index:-1;visibility:hidden;font-family:${PDF_FONT};`;
+      document.body.appendChild(measurer);
+
+      measurer.innerHTML = `<div style="width:100%;padding:28px 32px 28px;letter-spacing:0;word-spacing:0;">
+        ${titleHtml}${infoGridHtml}${taTagsHtml}
+        <div style="border:1px solid #C2DFF8;">
+          <table style="width:100%;border-collapse:collapse;font-size:10px;">
+            ${theadHtml}
+            <tbody>${rowsHtml.join('')}</tbody>
+          </table>
+        </div>
+      </div>`;
+      void measurer.offsetHeight;
+
+      const mTop = measurer.getBoundingClientRect().top;
+      const trs = Array.from(measurer.querySelectorAll('tbody tr'));
+      const rowBottoms = trs.map(tr => tr.getBoundingClientRect().bottom - mTop);
+
+      let page1End = 0;
+      for (let i = 0; i < rowBottoms.length; i++) {
+        if (rowBottoms[i] <= MAX_CONTENT_Y) page1End = i + 1;
+        else break;
+      }
+
+      if (page1End >= rowsHtml.length) {
+        document.body.removeChild(measurer);
+        return [wrapPageHTML(makeInner(titleHtml, infoGridHtml + taTagsHtml, rowsHtml.join(''), sensorHtml))];
+      }
+
+      const firstRowTop = trs[0].getBoundingClientRect().top - mTop;
+      const avgRowH = (rowBottoms[rowBottoms.length - 1] - firstRowTop) / trs.length;
+
+      measurer.innerHTML = `<div style="width:100%;padding:28px 32px 28px;letter-spacing:0;word-spacing:0;">
+        <div style="${titleStyle}">THERMAL TEST DATA (續)</div>
+        <div style="border:1px solid #C2DFF8;">
+          <table style="width:100%;border-collapse:collapse;font-size:10px;">
+            ${theadHtml}
+            <tbody><tr><td style="padding:0;height:0;line-height:0;font-size:0;border:none;"></td></tr></tbody>
+          </table>
+        </div>
+      </div>`;
+      void measurer.offsetHeight;
+      const dummyTr = measurer.querySelector('tbody tr');
+      const contRowStartY = dummyTr.getBoundingClientRect().top - measurer.getBoundingClientRect().top;
+      const contAvailH = MAX_CONTENT_Y - contRowStartY;
+      const contPageRows = Math.max(Math.floor(contAvailH / avgRowH), 1);
+
+      document.body.removeChild(measurer);
+
+      const splits = [{ start: 0, end: page1End }];
+      let idx = page1End;
+      while (idx < rowsHtml.length) {
+        const end = Math.min(idx + contPageRows, rowsHtml.length);
+        splits.push({ start: idx, end });
+        idx = end;
+      }
+
+      return splits.map((split, i) => {
+        const isFirst = i === 0;
+        const isLast = i === splits.length - 1;
+        const rows = rowsHtml.slice(split.start, split.end).join('');
+        const subTotal = splits.length;
+
+        if (isFirst) {
+          return wrapPageHTML(makeInner(titleHtml, infoGridHtml + taTagsHtml, rows, isLast ? sensorHtml : ''));
+        }
+        const label = `THERMAL TEST DATA (續) · ${i + 1}/${subTotal}`;
+        const contTitle = `<div style="${titleStyle}">${label}</div>`;
+        return wrapPageHTML(makeInner(contTitle, '', rows, isLast ? sensorHtml : ''));
+      });
+    }
+
     function buildSimVsMeasHTML(d) {
       const items = d.items || [];
       const hasSim = !!d.sim_image;
@@ -6399,30 +6639,34 @@
       }
 
       let pdf = null;
+      const virtualPages = buildVirtualPages();
 
       try {
-        for (let i = 0; i < state.pages.length; i++) {
-          const page = state.pages[i];
-const isLandscape = page.type === 'image' || page.type === 'annotation' || page.type === 'sim_vs_meas' || page.type === 'data';
+        for (let i = 0; i < virtualPages.length; i++) {
+          const vp = virtualPages[i];
+          const isLandscape = vp.isLandscape;
           const w = isLandscape ? 842 : 595;
           const h = isLandscape ? 595 : 842;
 
-          // Create offscreen container — completely isolated from the UI
           const offscreen = document.createElement('div');
           document.body.appendChild(offscreen);
-          renderPageOffscreen(page, offscreen);
+          offscreen.style.cssText = `position:fixed;left:-9999px;top:0;width:${w}px;height:${h}px;background:#fff;z-index:-1;overflow:hidden;font-family:${PDF_FONT};letter-spacing:0px;word-spacing:0px;`;
+          const resetStyle = document.createElement('style');
+          resetStyle.textContent = '*, *::before, *::after { letter-spacing: 0px !important; word-spacing: 0px !important; text-transform: none !important; }';
+          offscreen.appendChild(resetStyle);
+          const content = document.createElement('div');
+          content.style.cssText = 'width:100%;height:100%;letter-spacing:0px;word-spacing:0px;';
+          content.innerHTML = vp.html;
+          offscreen.appendChild(content);
 
-          // Wait for all images to load before capturing
           const imgs = offscreen.querySelectorAll('img');
           if (imgs.length > 0) {
             await Promise.all(Array.from(imgs).map(img =>
               img.complete ? Promise.resolve() : new Promise(r => { img.onload = r; img.onerror = r; })
             ));
           }
-          // Extra frame for layout settle
           await new Promise(r => setTimeout(r, 100));
 
-          // Capture
           const canvasImg = await html2canvas(offscreen, {
             scale: 2,
             useCORS: true,
@@ -6438,7 +6682,7 @@ const isLandscape = page.type === 'image' || page.type === 'annotation' || page.
           const pdfW = isLandscape ? 297 : 210;
           const pdfH = isLandscape ? 210 : 297;
 
-          if (i === 0) {
+          if (pdf === null) {
             pdf = new jsPDF({ orientation, unit: 'mm', format: 'a4' });
           } else {
             pdf.addPage('a4', orientation);

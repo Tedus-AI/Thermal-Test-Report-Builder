@@ -528,6 +528,7 @@
     #editor-canvas.scrollable-edit {
       overflow-y: auto;
       overflow-x: hidden;
+      align-items: flex-start;
     }
     .scrollable-edit .report-page-wrap {
       height: auto;
@@ -1137,20 +1138,23 @@
 
     .data-page-title {
       font-size: 14px;
-      font-weight: 700;
+      font-weight: 600;
       text-transform: uppercase;
-      letter-spacing: 0.06em;
-      color: rgba(15,23,42,0.50);
-      margin-bottom: 16px;
-      padding-bottom: 8px;
-      border-bottom: 2px solid rgba(15,23,42,0.08);
+      letter-spacing: 0.02em;
+      color: #0B3D7A;
+      margin-bottom: 10px;
+      padding-bottom: 6px;
+      border-bottom: 2px solid #C2DFF8;
     }
 
     .data-header-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 10px 24px;
-      margin-bottom: 16px;
+      gap: 6px 20px;
+      margin-bottom: 10px;
+      background: #EDF2F8;
+      padding: 8px 10px;
+      border-radius: 4px;
     }
 
     .data-field {
@@ -1160,11 +1164,12 @@
     }
 
     .data-field-label {
-      font-size: 10px;
-      font-weight: 600;
+      font-size: 8px;
+      font-weight: 500;
       text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: rgba(15,23,42,0.40);
+      letter-spacing: 0.06em;
+      color: #2357A7;
+      font-family: var(--font-mono);
     }
 
     .data-field input,
@@ -1246,13 +1251,14 @@
       display: inline-flex;
       align-items: center;
       gap: 5px;
-      padding: 4px 10px;
-      font-size: 12px;
+      padding: 3px 8px;
+      font-size: 10px;
       font-weight: 500;
-      color: #0e7490;
-      background: rgba(6,182,212,0.10);
-      border: 1px solid rgba(6,182,212,0.20);
-      border-radius: 14px;
+      font-family: var(--font-mono);
+      color: #2357A7;
+      background: rgba(35,87,167,0.08);
+      border: 1px solid rgba(35,87,167,0.15);
+      clip-path: polygon(4px 0, 100% 0, calc(100% - 4px) 100%, 0 100%);
       white-space: nowrap;
     }
 
@@ -1314,8 +1320,8 @@
     .data-table-wrap {
       flex: 1;
       overflow: auto;
-      border: 1px solid rgba(15,23,42,0.10);
-      border-radius: 6px;
+      border: 1px solid #C2DFF8;
+      border-radius: 4px;
     }
 
     .data-table {
@@ -1331,27 +1337,24 @@
       top: 0;
       z-index: 2;
       text-align: center;
-      font-size: 9px;
-      font-weight: 700;
-      text-transform: uppercase;
+      font-size: 8px;
+      font-weight: 500;
       letter-spacing: 0.04em;
-      color: rgba(15,23,42,0.50);
-      padding: 5px 6px;
-      background: rgba(15,23,42,0.03);
-      border-bottom: 2px solid rgba(15,23,42,0.10);
+      color: #ffffff;
+      padding: 4px 5px;
+      background: #0B3D7A;
+      border-bottom: 1px solid rgba(255,255,255,0.15);
       white-space: nowrap;
+      font-family: var(--font-mono);
     }
 
     .data-table th.ta-group-header {
       text-align: center;
-      border-left: 2px solid rgba(15,23,42,0.08);
-      font-size: 10px;
-      color: rgba(14,116,144,0.7);
-      background: rgba(6,182,212,0.04);
+      border-left: 2px solid rgba(255,255,255,0.2);
     }
 
     .data-table th.ta-sub-header {
-      font-size: 8px;
+      font-size: 7px;
       text-align: center;
     }
 
@@ -5245,7 +5248,9 @@
           if (target.tagName !== 'INPUT' && target.tagName !== 'SELECT') return;
 
           const clipText = (e.clipboardData || window.clipboardData).getData('text');
-          if (!clipText || !clipText.includes('\t')) return;
+          if (!clipText) return;
+          const isMultiCell = clipText.includes('\t') || clipText.trim().includes('\n');
+          if (!isMultiCell) return;
           e.preventDefault();
 
           const tr = target.closest('tr[data-row-idx]');
@@ -6551,6 +6556,7 @@
       measurer.style.cssText = `position:fixed;left:-9999px;top:0;width:842px;background:#fff;z-index:-1;visibility:hidden;font-family:${PDF_FONT};`;
       document.body.appendChild(measurer);
 
+      // ── Pass 1: measure component row positions on page 1 layout ──
       measurer.innerHTML = `<div style="width:100%;padding:28px 32px 28px;letter-spacing:0;word-spacing:0;">
         ${titleHtml}${infoGridHtml}${taTagsHtml}
         <div style="border:1px solid #C2DFF8;">
@@ -6565,23 +6571,20 @@
       const mTop = measurer.getBoundingClientRect().top;
       const trs = Array.from(measurer.querySelectorAll('tbody tr'));
       const rowBottoms = trs.map(tr => tr.getBoundingClientRect().bottom - mTop);
-
-      let page1End = 0;
-      for (let i = 0; i < rowBottoms.length; i++) {
-        if (rowBottoms[i] <= MAX_CONTENT_Y) page1End = i + 1;
-        else break;
-      }
-
-      if (page1End >= rowsHtml.length) {
-        document.body.removeChild(measurer);
-        return [wrapPageHTML(makeInner(titleHtml, infoGridHtml + taTagsHtml, rowsHtml.join(''), sensorHtml))];
-      }
-
       const firstRowTop = trs[0].getBoundingClientRect().top - mTop;
       const rowHeights = trs.map((tr, i) =>
         i === 0 ? rowBottoms[0] - firstRowTop : rowBottoms[i] - rowBottoms[i - 1]
       );
 
+      // ── Pass 2: measure sensor section height ──
+      let sensorH = 0;
+      if (sensorHtml) {
+        measurer.innerHTML = `<div style="width:100%;padding:0 32px;letter-spacing:0;word-spacing:0;">${sensorHtml}</div>`;
+        void measurer.offsetHeight;
+        sensorH = measurer.firstElementChild.getBoundingClientRect().height + 10;
+      }
+
+      // ── Pass 3: measure continuation page header overhead ──
       measurer.innerHTML = `<div style="width:100%;padding:28px 32px 28px;letter-spacing:0;word-spacing:0;">
         <div style="${titleStyle}">THERMAL TEST DATA (續)</div>
         <div style="border:1px solid #C2DFF8;">
@@ -6592,18 +6595,37 @@
         </div>
       </div>`;
       void measurer.offsetHeight;
-      const dummyTr = measurer.querySelector('tbody tr');
-      const contRowStartY = dummyTr.getBoundingClientRect().top - measurer.getBoundingClientRect().top;
+      const contRowStartY = measurer.querySelector('tbody tr').getBoundingClientRect().top - measurer.getBoundingClientRect().top;
       const contAvailH = MAX_CONTENT_Y - contRowStartY;
 
       document.body.removeChild(measurer);
 
+      // ── Check single-page: all rows + sensor fit? ──
+      const lastRowBottom = rowBottoms[rowBottoms.length - 1];
+      if (lastRowBottom + sensorH <= MAX_CONTENT_Y) {
+        return [wrapPageHTML(makeInner(titleHtml, infoGridHtml + taTagsHtml, rowsHtml.join(''), sensorHtml))];
+      }
+
+      // ── Compute page 1 split (no sensor on page 1 unless it's the only page) ──
+      let page1End = 0;
+      for (let i = 0; i < rowBottoms.length; i++) {
+        if (rowBottoms[i] <= MAX_CONTENT_Y) page1End = i + 1;
+        else break;
+      }
+
+      // ── Build continuation page splits, reserving sensor space on last page ──
       const splits = [{ start: 0, end: page1End }];
       let idx = page1End;
       while (idx < rowsHtml.length) {
+        let totalRemaining = 0;
+        for (let t = idx; t < rowsHtml.length; t++) totalRemaining += rowHeights[t];
+
+        const isLastPage = totalRemaining + sensorH <= contAvailH;
+        const budget = isLastPage ? contAvailH - sensorH : contAvailH;
+
         let accum = 0;
         let end = idx;
-        while (end < rowsHtml.length && accum + rowHeights[end] <= contAvailH) {
+        while (end < rowsHtml.length && accum + rowHeights[end] <= budget) {
           accum += rowHeights[end];
           end++;
         }

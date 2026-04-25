@@ -5032,7 +5032,7 @@
       }).join('');
 
       const sensorTaHeaders = d.ta_conditions.map(ta =>
-        `<th>Ta ${ta}°C</th>`
+        `<th>Ta = ${ta}°C</th>`
       ).join('');
 
       const timCategories = [
@@ -6616,9 +6616,9 @@
       const sensorsWithData = sensors.filter(s => s.name || Object.values(s.readings || {}).some(v => v));
       let sensorSection = '';
       if (sensorsWithData.length > 0) {
-        const sThStyle = 'text-align:center;font-size:8px;font-weight:700;color:rgba(15,23,42,0.50);padding:4px 5px;background:rgba(15,23,42,0.03);border:1px solid rgba(15,23,42,0.10);white-space:nowrap;letter-spacing:0px;word-spacing:0px;';
+        const sThStyle = 'text-align:center;font-size:8px;font-weight:500;color:#ffffff;padding:4px 5px;background:#0B3D7A;border:1px solid rgba(255,255,255,0.3);white-space:nowrap;letter-spacing:0.04em;word-spacing:0px;font-family:"JetBrains Mono",monospace;';
         const sTdStyle = 'padding:3px 5px;border:1px solid rgba(15,23,42,0.08);font-size:10px;white-space:nowrap;letter-spacing:0px;word-spacing:0px;text-align:center;';
-        const sensorTaHeaders = tas.map(ta => `<th style="${sThStyle}">Ta ${ta}°C</th>`).join('');
+        const sensorTaHeaders = tas.map(ta => `<th style="${sThStyle}">Ta = ${ta}°C</th>`).join('');
         const sensorRows = sensorsWithData.map(s => {
           const taCells = tas.map(ta => {
             const val = s.readings ? s.readings['ta_' + ta] : '';
@@ -6632,8 +6632,8 @@
           </tr>`;
         }).join('');
         sensorSection = `
-          <div style="margin-top:10px;border:1px solid rgba(15,23,42,0.08);border-radius:4px;flex-shrink:0;">
-            <div style="padding:6px 10px;font-size:10px;font-weight:700;color:rgba(15,23,42,0.45);background:rgba(15,23,42,0.02);border-bottom:1px solid rgba(15,23,42,0.06);letter-spacing:0px;word-spacing:0px;">EMBEDDED SENSOR READINGS</div>
+          <div style="margin-top:10px;border:1px solid #C2DFF8;border-radius:4px;">
+            <div style="padding:6px 10px;font-size:10px;font-weight:700;color:#ffffff;background:#0B3D7A;border-bottom:1px solid rgba(255,255,255,0.15);letter-spacing:0.04em;word-spacing:0px;font-family:'JetBrains Mono',monospace;">EMBEDDED SENSOR READINGS</div>
             <table style="width:100%;border-collapse:collapse;font-size:10px;">
               <thead><tr>
                 <th style="${sThStyle}">Sensor</th>
@@ -6747,9 +6747,9 @@
       const sensorsWithData = sensors.filter(s => s.name || Object.values(s.readings || {}).some(v => v));
       let sensorHtml = '';
       if (sensorsWithData.length > 0) {
-        const sThStyle = 'text-align:center;font-size:8px;font-weight:700;color:rgba(15,23,42,0.50);padding:4px 5px;background:rgba(15,23,42,0.03);border:1px solid rgba(15,23,42,0.10);white-space:nowrap;letter-spacing:0px;word-spacing:0px;';
+        const sThStyle = 'text-align:center;font-size:8px;font-weight:500;color:#ffffff;padding:4px 5px;background:#0B3D7A;border:1px solid rgba(255,255,255,0.3);white-space:nowrap;letter-spacing:0.04em;word-spacing:0px;font-family:"JetBrains Mono",monospace;';
         const sTdStyle = 'padding:3px 5px;border:1px solid rgba(15,23,42,0.08);font-size:10px;white-space:nowrap;letter-spacing:0px;word-spacing:0px;text-align:center;';
-        const sensorTaHeaders = tas.map(ta => `<th style="${sThStyle}">Ta ${ta}°C</th>`).join('');
+        const sensorTaHeaders = tas.map(ta => `<th style="${sThStyle}">Ta = ${ta}°C</th>`).join('');
         const sensorRows = sensorsWithData.map(s => {
           const taCells = tas.map(ta => {
             const val = s.readings ? s.readings['ta_' + ta] : '';
@@ -6763,8 +6763,8 @@
           </tr>`;
         }).join('');
         sensorHtml = `
-          <div style="margin-top:10px;border:1px solid rgba(15,23,42,0.08);border-radius:4px;flex-shrink:0;">
-            <div style="padding:6px 10px;font-size:10px;font-weight:700;color:rgba(15,23,42,0.45);background:rgba(15,23,42,0.02);border-bottom:1px solid rgba(15,23,42,0.06);letter-spacing:0px;word-spacing:0px;">EMBEDDED SENSOR READINGS</div>
+          <div style="margin-top:10px;border:1px solid #C2DFF8;border-radius:4px;">
+            <div style="padding:6px 10px;font-size:10px;font-weight:700;color:#ffffff;background:#0B3D7A;border-bottom:1px solid rgba(255,255,255,0.15);letter-spacing:0.04em;word-spacing:0px;font-family:'JetBrains Mono',monospace;">EMBEDDED SENSOR READINGS</div>
             <table style="width:100%;border-collapse:collapse;font-size:10px;">
               <thead><tr>
                 <th style="${sThStyle}">Sensor</th>

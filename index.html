@@ -1461,42 +1461,43 @@
     }
     .dt-del-btn:hover { background: rgba(231,76,60,0.12); color: #E74C3C; }
 
-    /* TIM Library Panel */
-    .tim-panel {
+    /* TIM Library Panel — sits in .editor-area, top-left */
+    #tim-panel-container {
       position: absolute;
-      top: 8px;
-      left: 8px;
-      z-index: 20;
+      top: 10px;
+      left: 10px;
+      z-index: 30;
+    }
+    #tim-panel-container:empty { display: none; }
+    .tim-panel {
       width: 340px;
-      background: #ffffff;
-      border: 1px solid #C2DFF8;
+      background: rgba(2,27,58,0.92);
+      border: 1px solid rgba(91,163,230,0.25);
       border-radius: 8px;
-      box-shadow: 0 4px 16px rgba(0,0,0,0.10);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.25);
       font-family: var(--font-ui);
       overflow: hidden;
-      transition: box-shadow 0.2s;
+      backdrop-filter: blur(8px);
     }
-    .tim-panel:hover { box-shadow: 0 6px 24px rgba(0,0,0,0.14); }
     .tim-panel-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 6px 10px;
-      background: #EDF2F8;
+      padding: 7px 12px;
       cursor: pointer;
       user-select: none;
       font-size: 11px;
       font-weight: 600;
-      color: #0B3D7A;
+      color: rgba(194,223,248,0.9);
     }
-    .tim-panel-header:hover { background: #dde8f5; }
-    .tim-panel-arrow { font-size: 9px; transition: transform 0.2s; }
+    .tim-panel-header:hover { background: rgba(91,163,230,0.1); }
+    .tim-panel-arrow { font-size: 9px; transition: transform 0.2s; color: rgba(91,163,230,0.6); }
     .tim-panel-arrow.open { transform: rotate(90deg); }
     .tim-panel-body { display: none; }
     .tim-panel-body.open { display: block; }
     .tim-tabs {
       display: flex;
-      border-bottom: 1px solid #C2DFF8;
+      border-bottom: 1px solid rgba(91,163,230,0.15);
     }
     .tim-tab {
       flex: 1;
@@ -1504,7 +1505,7 @@
       font-size: 9px;
       font-weight: 600;
       text-align: center;
-      color: rgba(15,23,42,0.45);
+      color: rgba(194,223,248,0.45);
       background: transparent;
       border: none;
       border-bottom: 2px solid transparent;
@@ -1512,11 +1513,11 @@
       transition: all 0.15s;
       font-family: var(--font-ui);
     }
-    .tim-tab:hover { color: #0B3D7A; background: rgba(11,61,122,0.04); }
+    .tim-tab:hover { color: rgba(194,223,248,0.8); background: rgba(91,163,230,0.06); }
     .tim-tab.active {
-      color: #0B3D7A;
-      border-bottom-color: #0B3D7A;
-      background: rgba(11,61,122,0.06);
+      color: #8DC4F0;
+      border-bottom-color: #5BA3E6;
+      background: rgba(91,163,230,0.08);
     }
     .tim-list {
       max-height: 220px;
@@ -1529,42 +1530,43 @@
       gap: 4px;
       align-items: center;
       padding: 3px 0;
-      border-bottom: 1px solid rgba(15,23,42,0.04);
+      border-bottom: 1px solid rgba(91,163,230,0.08);
     }
     .tim-entry input {
       font-family: var(--font-ui);
       font-size: 10px;
-      border: 1px solid rgba(15,23,42,0.08);
+      border: 1px solid rgba(91,163,230,0.2);
       border-radius: 3px;
       padding: 2px 4px;
       outline: none;
       width: 100%;
       min-width: 0;
-      color: var(--text-on-white);
+      background: rgba(255,255,255,0.06);
+      color: rgba(194,223,248,0.9);
     }
-    .tim-entry input:focus { border-color: #3A7AD4; }
+    .tim-entry input::placeholder { color: rgba(194,223,248,0.25); }
+    .tim-entry input:focus { border-color: #5BA3E6; background: rgba(255,255,255,0.1); }
     .tim-entry-del {
       width: 20px; height: 20px; padding: 0; border: none;
       border-radius: 3px; background: transparent;
-      color: rgba(15,23,42,0.25); font-size: 11px;
+      color: rgba(194,223,248,0.25); font-size: 11px;
       cursor: pointer; line-height: 1;
     }
-    .tim-entry-del:hover { background: rgba(231,76,60,0.12); color: #E74C3C; }
+    .tim-entry-del:hover { background: rgba(231,76,60,0.2); color: #E74C3C; }
     .tim-add-btn {
       display: block;
-      width: 100%;
       padding: 4px;
       font-size: 10px;
       font-family: var(--font-ui);
-      color: rgba(56,189,248,0.8);
+      color: rgba(91,163,230,0.7);
       background: transparent;
-      border: 1px dashed rgba(56,189,248,0.25);
+      border: 1px dashed rgba(91,163,230,0.25);
       border-radius: 3px;
       cursor: pointer;
       margin: 4px 8px 6px;
       width: calc(100% - 16px);
     }
-    .tim-add-btn:hover { background: rgba(56,189,248,0.06); border-color: rgba(56,189,248,0.5); }
+    .tim-add-btn:hover { background: rgba(91,163,230,0.08); border-color: rgba(91,163,230,0.5); }
     .tim-list-header {
       display: grid;
       grid-template-columns: 1fr 50px 70px 24px;
@@ -1572,10 +1574,10 @@
       padding: 2px 0;
       font-size: 8px;
       font-weight: 600;
-      color: rgba(15,23,42,0.4);
+      color: rgba(194,223,248,0.35);
       letter-spacing: 0.04em;
       font-family: var(--font-mono);
-      border-bottom: 1px solid rgba(15,23,42,0.08);
+      border-bottom: 1px solid rgba(91,163,230,0.15);
       margin: 0 8px;
     }
 
@@ -3094,6 +3096,7 @@
 
       <!-- Editor -->
       <main class="editor-area">
+        <div id="tim-panel-container"></div>
         <div class="canvas-tag" id="canvas-tag">A4 PORTRAIT</div>
         <button class="page-nav-btn prev" id="btn-prev-page" title="上一頁">&#9664;</button>
         <div id="editor-canvas">
@@ -3571,6 +3574,8 @@
     function renderCanvas() {
       $canvas.classList.remove('scrollable-edit');
       const canvasTag = document.getElementById('canvas-tag');
+      const timContainer = document.getElementById('tim-panel-container');
+      if (timContainer) timContainer.innerHTML = '';
       if (state.activePage === null || state.activePage < 0 || !state.pages[state.activePage]) {
         $canvas.classList.remove('landscape');
         $canvas.innerHTML = '<span class="canvas-placeholder">← 請從左側選擇或新增頁面</span>';
@@ -5054,7 +5059,10 @@
         </div>
       </div>`;
 
-      $canvas.innerHTML = timPanelHTML + editorPageWrapHTML(`
+      const timContainer = document.getElementById('tim-panel-container');
+      if (timContainer) timContainer.innerHTML = timPanelHTML;
+
+      $canvas.innerHTML = editorPageWrapHTML(`
         <div class="data-page">
           <div class="data-page-title">Thermal Test Data</div>
 
@@ -5515,47 +5523,50 @@
         });
       }
 
-      $canvas.querySelectorAll('.tim-tab').forEach(btn => {
-        btn.addEventListener('click', () => {
-          state._timActiveTab = btn.dataset.timCat;
-          renderDataPage(page);
+      const timPanel = document.getElementById('tim-panel');
+      if (timPanel) {
+        timPanel.querySelectorAll('.tim-tab').forEach(btn => {
+          btn.addEventListener('click', () => {
+            state._timActiveTab = btn.dataset.timCat;
+            renderDataPage(page);
+          });
         });
-      });
 
-      const timAddBtn = document.getElementById('tim-add-btn');
-      if (timAddBtn) {
-        timAddBtn.addEventListener('click', async () => {
-          const cat = state._timActiveTab || 'grease';
-          if (!state.timLibrary[cat]) state.timLibrary[cat] = [];
-          state.timLibrary[cat].push({ name: '', k_value: '', vendor: '' });
-          try { await dbAdapter.setTimLibrary(state.timLibrary); } catch (e) {}
-          renderDataPage(page);
-        });
-      }
-
-      $canvas.querySelectorAll('.tim-entry input[data-tim-field]').forEach(el => {
-        el.addEventListener('input', async () => {
-          const cat = state._timActiveTab || 'grease';
-          const idx = parseInt(el.closest('.tim-entry').dataset.timIdx);
-          const field = el.dataset.timField;
-          if (state.timLibrary[cat] && state.timLibrary[cat][idx]) {
-            state.timLibrary[cat][idx][field] = el.value;
-            try { await dbAdapter.setTimLibrary(state.timLibrary); } catch (e) {}
-          }
-        });
-      });
-
-      $canvas.querySelectorAll('.tim-entry-del').forEach(btn => {
-        btn.addEventListener('click', async () => {
-          const cat = state._timActiveTab || 'grease';
-          const idx = parseInt(btn.dataset.timDel);
-          if (state.timLibrary[cat]) {
-            state.timLibrary[cat].splice(idx, 1);
+        const timAddBtn = document.getElementById('tim-add-btn');
+        if (timAddBtn) {
+          timAddBtn.addEventListener('click', async () => {
+            const cat = state._timActiveTab || 'grease';
+            if (!state.timLibrary[cat]) state.timLibrary[cat] = [];
+            state.timLibrary[cat].push({ name: '', k_value: '', vendor: '' });
             try { await dbAdapter.setTimLibrary(state.timLibrary); } catch (e) {}
             renderDataPage(page);
-          }
+          });
+        }
+
+        timPanel.querySelectorAll('.tim-entry input[data-tim-field]').forEach(el => {
+          el.addEventListener('input', async () => {
+            const cat = state._timActiveTab || 'grease';
+            const idx = parseInt(el.closest('.tim-entry').dataset.timIdx);
+            const field = el.dataset.timField;
+            if (state.timLibrary[cat] && state.timLibrary[cat][idx]) {
+              state.timLibrary[cat][idx][field] = el.value;
+              try { await dbAdapter.setTimLibrary(state.timLibrary); } catch (e) {}
+            }
+          });
         });
-      });
+
+        timPanel.querySelectorAll('.tim-entry-del').forEach(btn => {
+          btn.addEventListener('click', async () => {
+            const cat = state._timActiveTab || 'grease';
+            const idx = parseInt(btn.dataset.timDel);
+            if (state.timLibrary[cat]) {
+              state.timLibrary[cat].splice(idx, 1);
+              try { await dbAdapter.setTimLibrary(state.timLibrary); } catch (e) {}
+              renderDataPage(page);
+            }
+          });
+        });
+      }
     }
 
     // ━━━ Sim vs Meas Comparison Page Module ━━━

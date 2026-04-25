@@ -1343,7 +1343,7 @@
       color: #ffffff;
       padding: 4px 5px;
       background: #0B3D7A;
-      border-bottom: 1px solid rgba(255,255,255,0.15);
+      border: 1px solid rgba(255,255,255,0.15);
       white-space: nowrap;
       font-family: var(--font-mono);
     }
@@ -1360,7 +1360,7 @@
 
     .data-table td {
       padding: 3px 5px;
-      border-bottom: 1px solid rgba(15,23,42,0.05);
+      border: 1px solid rgba(15,23,42,0.08);
       vertical-align: middle;
       white-space: nowrap;
       text-align: center;
@@ -4884,9 +4884,9 @@
             stage: defaultStage,
             sw_version: '',
             waveform_ver: '',
-            eq_time_min: '',
+            eq_time_min: '120',
             mounting: 'Pole Mount',
-            location: '',
+            location: 'Chamber',
           },
           ta_conditions: [25, 55],
           components: [],
@@ -4907,9 +4907,12 @@
       if (!d.components) d.components = [];
       if (!d.sensors) d.sensors = [];
       const h = d.header;
+      if (!h.eq_time_min && h.eq_time_min !== 0) h.eq_time_min = '120';
+      if (!h.location) h.location = 'Chamber';
 
       const mountOptions = ['Pole Mount', 'Wall Mount', 'Free-standing'];
       const stageOptions = ['Prototype', 'EVT', 'DVT', 'PVT', 'MP'];
+      const locationOptions = ['Chamber', 'Outdoor', 'Lab(open space)'];
       const categoryOptions = ['RF', 'Digital', 'PWR'];
       const specTypeOptions = ['Rec.', 'Abs.'];
       const specTypeLegacy = { 'Recommended': 'Rec.', 'Absolute': 'Abs.' };
@@ -5079,7 +5082,7 @@
             <div class="data-field">
               <span class="data-field-label">Thermal Equilibrium Time</span>
               <div class="data-field-unit">
-                <input type="number" min="0" placeholder="30" value="${escapeAttr(h.eq_time_min || '')}" data-header="eq_time_min">
+                <input type="number" min="0" placeholder="120" value="${escapeAttr(h.eq_time_min !== undefined && h.eq_time_min !== '' ? h.eq_time_min : '120')}" data-header="eq_time_min">
                 <span class="unit-label">min</span>
               </div>
             </div>
@@ -5109,7 +5112,11 @@
             </div>
             <div class="data-field">
               <span class="data-field-label">Location</span>
-              <input type="text" placeholder="Lab / Chamber / Outdoor" value="${escapeAttr(h.location || '')}" data-header="location">
+              <select data-header="location">
+                ${locationOptions.map(loc =>
+                  `<option value="${loc}" ${h.location === loc ? 'selected' : ''}>${loc}</option>`
+                ).join('')}
+              </select>
             </div>
             <div class="data-field">
               <span class="data-field-label">Waveform Ver.</span>
@@ -6583,7 +6590,7 @@
         const pf = rowFail ? '❌' : (tcSpec > 0 ? '✔' : '—');
 
         return `<tr style="${rowBg}">
-          <td style="${tdStyle}"><div style="display:flex;align-items:center;justify-content:center;gap:3px;"><span style="width:3px;height:14px;border-radius:2px;background:${catColor};flex-shrink:0;"></span>${escHtml(cat)}</div></td>
+          <td style="${tdStyle}text-align:left;"><div style="display:inline-flex;align-items:center;gap:3px;"><span style="width:3px;height:14px;border-radius:2px;background:${catColor};flex-shrink:0;"></span>${escHtml(cat)}</div></td>
           <td style="${tdStyle}text-align:center;color:rgba(15,23,42,0.55);font-weight:600;">${autoNum}</td>
           <td style="${tdStyle}text-align:center;">${escHtml(comp.name)}</td>
           <td style="${tdStyle}text-align:center;">${escHtml(specMap[comp.spec_type] || comp.spec_type)}</td>
@@ -6699,7 +6706,7 @@
         const pf = rowFail ? '❌' : (tcSpec > 0 ? '✔' : '—');
 
         return `<tr style="${rowBg}">
-          <td style="${tdStyle}"><div style="display:flex;align-items:center;justify-content:center;gap:3px;"><span style="width:3px;height:14px;border-radius:2px;background:${catColor};flex-shrink:0;"></span>${escHtml(cat)}</div></td>
+          <td style="${tdStyle}text-align:left;"><div style="display:inline-flex;align-items:center;gap:3px;"><span style="width:3px;height:14px;border-radius:2px;background:${catColor};flex-shrink:0;"></span>${escHtml(cat)}</div></td>
           <td style="${tdStyle}text-align:center;color:rgba(15,23,42,0.55);font-weight:600;">${autoNum}</td>
           <td style="${tdStyle}text-align:center;">${escHtml(comp.name)}</td>
           <td style="${tdStyle}text-align:center;">${escHtml(specMap[comp.spec_type] || comp.spec_type)}</td>

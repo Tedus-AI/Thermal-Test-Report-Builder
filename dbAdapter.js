@@ -97,6 +97,17 @@ const dbAdapter = {
     );
   },
 
+  async getTimLibrary() {
+    if (DB_MODE === 'local') return await fileDb.getTimLibrary();
+    const snap = await window._getDoc(window._doc(window._db, 'app_data', 'tim_library'));
+    return snap.exists() ? snap.data() : { grease: [], pad: [], putty: [] };
+  },
+
+  async setTimLibrary(data) {
+    if (DB_MODE === 'local') return await fileDb.setTimLibrary(data);
+    await window._setDoc(window._doc(window._db, 'app_data', 'tim_library'), data);
+  },
+
   async pickFile() {
     if (DB_MODE === 'local') return await fileDb.pickFile();
   },

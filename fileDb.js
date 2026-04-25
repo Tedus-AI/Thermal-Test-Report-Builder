@@ -175,6 +175,17 @@ const fileDb = {
     }
   },
 
+  async getTimLibrary() {
+    this._assertReady();
+    return dbCache['tim_library'] || { grease: [], pad: [], putty: [] };
+  },
+
+  async setTimLibrary(data) {
+    this._assertReady();
+    dbCache['tim_library'] = data;
+    await this._writeFile();
+  },
+
   exportBackup() {
     const blob = new Blob([JSON.stringify(dbCache, null, 2)], { type: 'application/json' });
     const a = document.createElement('a');

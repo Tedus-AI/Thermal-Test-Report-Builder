@@ -1461,6 +1461,124 @@
     }
     .dt-del-btn:hover { background: rgba(231,76,60,0.12); color: #E74C3C; }
 
+    /* TIM Library Panel */
+    .tim-panel {
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      z-index: 20;
+      width: 340px;
+      background: #ffffff;
+      border: 1px solid #C2DFF8;
+      border-radius: 8px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.10);
+      font-family: var(--font-ui);
+      overflow: hidden;
+      transition: box-shadow 0.2s;
+    }
+    .tim-panel:hover { box-shadow: 0 6px 24px rgba(0,0,0,0.14); }
+    .tim-panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 10px;
+      background: #EDF2F8;
+      cursor: pointer;
+      user-select: none;
+      font-size: 11px;
+      font-weight: 600;
+      color: #0B3D7A;
+    }
+    .tim-panel-header:hover { background: #dde8f5; }
+    .tim-panel-arrow { font-size: 9px; transition: transform 0.2s; }
+    .tim-panel-arrow.open { transform: rotate(90deg); }
+    .tim-panel-body { display: none; }
+    .tim-panel-body.open { display: block; }
+    .tim-tabs {
+      display: flex;
+      border-bottom: 1px solid #C2DFF8;
+    }
+    .tim-tab {
+      flex: 1;
+      padding: 5px 4px;
+      font-size: 9px;
+      font-weight: 600;
+      text-align: center;
+      color: rgba(15,23,42,0.45);
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      cursor: pointer;
+      transition: all 0.15s;
+      font-family: var(--font-ui);
+    }
+    .tim-tab:hover { color: #0B3D7A; background: rgba(11,61,122,0.04); }
+    .tim-tab.active {
+      color: #0B3D7A;
+      border-bottom-color: #0B3D7A;
+      background: rgba(11,61,122,0.06);
+    }
+    .tim-list {
+      max-height: 220px;
+      overflow-y: auto;
+      padding: 4px 8px;
+    }
+    .tim-entry {
+      display: grid;
+      grid-template-columns: 1fr 50px 70px 24px;
+      gap: 4px;
+      align-items: center;
+      padding: 3px 0;
+      border-bottom: 1px solid rgba(15,23,42,0.04);
+    }
+    .tim-entry input {
+      font-family: var(--font-ui);
+      font-size: 10px;
+      border: 1px solid rgba(15,23,42,0.08);
+      border-radius: 3px;
+      padding: 2px 4px;
+      outline: none;
+      width: 100%;
+      min-width: 0;
+      color: var(--text-on-white);
+    }
+    .tim-entry input:focus { border-color: #3A7AD4; }
+    .tim-entry-del {
+      width: 20px; height: 20px; padding: 0; border: none;
+      border-radius: 3px; background: transparent;
+      color: rgba(15,23,42,0.25); font-size: 11px;
+      cursor: pointer; line-height: 1;
+    }
+    .tim-entry-del:hover { background: rgba(231,76,60,0.12); color: #E74C3C; }
+    .tim-add-btn {
+      display: block;
+      width: 100%;
+      padding: 4px;
+      font-size: 10px;
+      font-family: var(--font-ui);
+      color: rgba(56,189,248,0.8);
+      background: transparent;
+      border: 1px dashed rgba(56,189,248,0.25);
+      border-radius: 3px;
+      cursor: pointer;
+      margin: 4px 8px 6px;
+      width: calc(100% - 16px);
+    }
+    .tim-add-btn:hover { background: rgba(56,189,248,0.06); border-color: rgba(56,189,248,0.5); }
+    .tim-list-header {
+      display: grid;
+      grid-template-columns: 1fr 50px 70px 24px;
+      gap: 4px;
+      padding: 2px 0;
+      font-size: 8px;
+      font-weight: 600;
+      color: rgba(15,23,42,0.4);
+      letter-spacing: 0.04em;
+      font-family: var(--font-mono);
+      border-bottom: 1px solid rgba(15,23,42,0.08);
+      margin: 0 8px;
+    }
+
     /* Sensor section */
     .sensor-section {
       margin-top: 10px;
@@ -3008,6 +3126,7 @@
       pages: [],          // [{id, type, order, data}]
       activePage: null,   // index into pages[]
       saveTimer: null,
+      timLibrary: { grease: [], pad: [], putty: [] },
     };
 
     // ━━━ Undo / Redo ━━━
@@ -4784,9 +4903,17 @@
       const mountOptions = ['Pole Mount', 'Wall Mount', 'Free-standing'];
       const stageOptions = ['Prototype', 'EVT', 'DVT', 'PVT', 'MP'];
       const categoryOptions = ['RF', 'Digital', 'PWR'];
-      const specTypeOptions = ['Recommended', 'Absolute'];
+      const specTypeOptions = ['Rec.', 'Abs.'];
+      const specTypeLegacy = { 'Recommended': 'Rec.', 'Absolute': 'Abs.' };
       const deratingOptions = ['0.80', '0.85', '0.90', '0.95', '1.00'];
       const sensorTypeOptions = ['Tj only', 'Tj+Tc'];
+
+      const timLib = state.timLibrary || { grease: [], pad: [], putty: [] };
+      const allTimNames = [
+        ...timLib.grease.map(t => t.name),
+        ...timLib.pad.map(t => t.name),
+        ...timLib.putty.map(t => t.name),
+      ].filter(Boolean);
 
       const taTagsHTML = d.ta_conditions.map((temp, i) =>
         `<span class="ta-tag">Ta = ${temp}°C<button class="ta-tag-remove" data-ta-idx="${i}" title="刪除">✕</button></span>`
@@ -4799,6 +4926,7 @@
         if (!comp.readings) comp.readings = {};
         if (!comp.category) comp.category = 'RF';
         if (!comp.derating) comp.derating = '0.90';
+        if (specTypeLegacy[comp.spec_type]) comp.spec_type = specTypeLegacy[comp.spec_type];
         const cat = comp.category;
         catCounters[cat] = (catCounters[cat] || 0) + 1;
         const autoNum = cat + '-' + catCounters[cat];
@@ -4851,7 +4979,10 @@
               `<option value="${v}" ${comp.derating === v ? 'selected' : ''}>${v}</option>`).join('')}
             </select></td>
           <td class="dt-readonly">${derated > 0 ? derated.toFixed(1) : '—'}</td>
-          <td><input type="text" placeholder="e.g. Coolzorb" value="${escapeAttr(comp.tim_type || '')}" data-comp="${ri}" data-comp-field="tim_type" style="min-width:70px;"></td>
+          <td><select data-comp="${ri}" data-comp-field="tim_type"><option value="">N/A</option>${allTimNames.map(n =>
+              `<option value="${escapeAttr(n)}" ${comp.tim_type === n ? 'selected' : ''}>${escHtml(n)}</option>`).join('')}${comp.tim_type && !allTimNames.includes(comp.tim_type)
+              ? `<option value="${escapeAttr(comp.tim_type)}" selected>${escHtml(comp.tim_type)}</option>` : ''}
+            </select></td>
           ${taCells}
           <td class="${pfClass}">${pfText}</td>
           <td><input type="text" placeholder="備註" value="${escapeAttr(comp.note || '')}" data-comp="${ri}" data-comp-field="note"></td>
@@ -4891,7 +5022,39 @@
         `<th>Ta ${ta}°C</th>`
       ).join('');
 
-      $canvas.innerHTML = editorPageWrapHTML(`
+      const timCategories = [
+        { key: 'grease', label: 'Thermal Grease' },
+        { key: 'pad',    label: 'Thermal Pad' },
+        { key: 'putty',  label: 'Thermal Putty' },
+      ];
+      const timActiveTab = state._timActiveTab || 'grease';
+      const timPanelHTML = `<div class="tim-panel" id="tim-panel">
+        <div class="tim-panel-header" id="tim-panel-toggle">
+          <span>TIM 資料列表</span>
+          <span class="tim-panel-arrow${state._timPanelOpen ? ' open' : ''}" id="tim-panel-arrow">▶</span>
+        </div>
+        <div class="tim-panel-body${state._timPanelOpen ? ' open' : ''}" id="tim-panel-body">
+          <div class="tim-tabs">
+            ${timCategories.map(c =>
+              `<button class="tim-tab${timActiveTab === c.key ? ' active' : ''}" data-tim-cat="${c.key}">${c.label}</button>`
+            ).join('')}
+          </div>
+          <div class="tim-list-header"><span>名稱</span><span>K值</span><span>廠商</span><span></span></div>
+          <div class="tim-list" id="tim-list">
+            ${(timLib[timActiveTab] || []).map((item, idx) =>
+              `<div class="tim-entry" data-tim-idx="${idx}">
+                <input type="text" value="${escapeAttr(item.name || '')}" data-tim-field="name" placeholder="名稱">
+                <input type="text" value="${escapeAttr(item.k_value || '')}" data-tim-field="k_value" placeholder="K值">
+                <input type="text" value="${escapeAttr(item.vendor || '')}" data-tim-field="vendor" placeholder="廠商">
+                <button class="tim-entry-del" data-tim-del="${idx}" title="刪除">✕</button>
+              </div>`
+            ).join('')}
+          </div>
+          <button class="tim-add-btn" id="tim-add-btn">+ 新增 TIM</button>
+        </div>
+      </div>`;
+
+      $canvas.innerHTML = timPanelHTML + editorPageWrapHTML(`
         <div class="data-page">
           <div class="data-page-title">Thermal Test Data</div>
 
@@ -5194,7 +5357,7 @@
           d.components.push({
             category: lastCat,
             name: '',
-            spec_type: 'Recommended',
+            spec_type: 'Rec.',
             tc_spec: '',
             derating: '0.90',
             tim_type: '',
@@ -5333,13 +5496,66 @@
           d.sensors.push({ name: '', type: 'Tj only', readings: {}, note: '' });
           scheduleSave(state.activePage);
           renderDataPage(page);
-          // Auto-open sensor section
           if (!sensorBody.classList.contains('open')) {
             sensorBody.classList.add('open');
             sensorArrow.classList.add('open');
           }
         });
       }
+
+      // ── TIM Panel bindings ──
+      const timPanelToggle = document.getElementById('tim-panel-toggle');
+      const timPanelBody = document.getElementById('tim-panel-body');
+      const timPanelArrowEl = document.getElementById('tim-panel-arrow');
+      if (timPanelToggle) {
+        timPanelToggle.addEventListener('click', () => {
+          state._timPanelOpen = !state._timPanelOpen;
+          timPanelBody.classList.toggle('open');
+          timPanelArrowEl.classList.toggle('open');
+        });
+      }
+
+      $canvas.querySelectorAll('.tim-tab').forEach(btn => {
+        btn.addEventListener('click', () => {
+          state._timActiveTab = btn.dataset.timCat;
+          renderDataPage(page);
+        });
+      });
+
+      const timAddBtn = document.getElementById('tim-add-btn');
+      if (timAddBtn) {
+        timAddBtn.addEventListener('click', async () => {
+          const cat = state._timActiveTab || 'grease';
+          if (!state.timLibrary[cat]) state.timLibrary[cat] = [];
+          state.timLibrary[cat].push({ name: '', k_value: '', vendor: '' });
+          try { await dbAdapter.setTimLibrary(state.timLibrary); } catch (e) {}
+          renderDataPage(page);
+        });
+      }
+
+      $canvas.querySelectorAll('.tim-entry input[data-tim-field]').forEach(el => {
+        el.addEventListener('input', async () => {
+          const cat = state._timActiveTab || 'grease';
+          const idx = parseInt(el.closest('.tim-entry').dataset.timIdx);
+          const field = el.dataset.timField;
+          if (state.timLibrary[cat] && state.timLibrary[cat][idx]) {
+            state.timLibrary[cat][idx][field] = el.value;
+            try { await dbAdapter.setTimLibrary(state.timLibrary); } catch (e) {}
+          }
+        });
+      });
+
+      $canvas.querySelectorAll('.tim-entry-del').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const cat = state._timActiveTab || 'grease';
+          const idx = parseInt(btn.dataset.timDel);
+          if (state.timLibrary[cat]) {
+            state.timLibrary[cat].splice(idx, 1);
+            try { await dbAdapter.setTimLibrary(state.timLibrary); } catch (e) {}
+            renderDataPage(page);
+          }
+        });
+      });
     }
 
     // ━━━ Sim vs Meas Comparison Page Module ━━━
@@ -6316,6 +6532,7 @@
       const h = d.header || {};
       const tas = d.ta_conditions || [];
       const comps = d.components || [];
+      const specMap = { 'Recommended': 'Rec.', 'Absolute': 'Abs.' };
 
       const thStyle = 'text-align:center;font-family:"JetBrains Mono",monospace;font-size:8px;font-weight:500;color:#ffffff;padding:4px 5px;background:#0B3D7A;border-bottom:1px solid rgba(255,255,255,0.15);white-space:nowrap;letter-spacing:0.04em;word-spacing:0px;';
       const tdStyle = 'padding:3px 5px;border-bottom:1px solid rgba(15,23,42,0.05);font-size:10px;white-space:nowrap;letter-spacing:0px;word-spacing:0px;text-align:center;';
@@ -6350,14 +6567,14 @@
         const pf = rowFail ? '❌' : (tcSpec > 0 ? '✔' : '—');
 
         return `<tr style="${rowBg}">
-          <td style="${tdStyle}text-align:center;"><span style="display:inline-block;width:3px;height:14px;border-radius:2px;background:${catColor};margin-right:3px;vertical-align:middle;"></span>${escHtml(cat)}</td>
+          <td style="${tdStyle}"><div style="display:flex;align-items:center;justify-content:center;gap:3px;"><span style="width:3px;height:14px;border-radius:2px;background:${catColor};flex-shrink:0;"></span>${escHtml(cat)}</div></td>
           <td style="${tdStyle}text-align:center;color:rgba(15,23,42,0.55);font-weight:600;">${autoNum}</td>
           <td style="${tdStyle}text-align:center;">${escHtml(comp.name)}</td>
-          <td style="${tdStyle}text-align:center;">${escHtml(comp.spec_type)}</td>
+          <td style="${tdStyle}text-align:center;">${escHtml(specMap[comp.spec_type] || comp.spec_type)}</td>
           <td style="${tdStyle}text-align:center;">${tcSpec || '—'}</td>
           <td style="${tdStyle}text-align:center;">${comp.derating || '0.90'}</td>
           <td style="${tdStyle}text-align:center;background:rgba(15,23,42,0.03);font-weight:600;">${derated > 0 ? derated.toFixed(1) : '—'}</td>
-          <td style="${tdStyle}text-align:center;">${escHtml(comp.tim_type)}</td>
+          <td style="${tdStyle}text-align:center;">${escHtml(comp.tim_type || 'N/A')}</td>
           ${taCells}
           <td style="${tdStyle}text-align:center;font-weight:700;${rowFail ? 'color:#b91c1c;' : 'color:#15803d;'}">${pf}</td>
           <td style="${tdStyle}text-align:center;">${escHtml(comp.note)}</td>
@@ -6431,6 +6648,7 @@
       const h = d.header || {};
       const tas = d.ta_conditions || [];
       const comps = d.components || [];
+      const specMap = { 'Recommended': 'Rec.', 'Absolute': 'Abs.' };
 
       const thStyle = 'text-align:center;font-family:"JetBrains Mono",monospace;font-size:8px;font-weight:500;color:#ffffff;padding:4px 5px;background:#0B3D7A;border-bottom:1px solid rgba(255,255,255,0.15);white-space:nowrap;letter-spacing:0.04em;word-spacing:0px;';
       const tdStyle = 'padding:3px 5px;border-bottom:1px solid rgba(15,23,42,0.05);font-size:10px;white-space:nowrap;letter-spacing:0px;word-spacing:0px;text-align:center;';
@@ -6465,14 +6683,14 @@
         const pf = rowFail ? '❌' : (tcSpec > 0 ? '✔' : '—');
 
         return `<tr style="${rowBg}">
-          <td style="${tdStyle}text-align:center;"><span style="display:inline-block;width:3px;height:14px;border-radius:2px;background:${catColor};margin-right:3px;vertical-align:middle;"></span>${escHtml(cat)}</td>
+          <td style="${tdStyle}"><div style="display:flex;align-items:center;justify-content:center;gap:3px;"><span style="width:3px;height:14px;border-radius:2px;background:${catColor};flex-shrink:0;"></span>${escHtml(cat)}</div></td>
           <td style="${tdStyle}text-align:center;color:rgba(15,23,42,0.55);font-weight:600;">${autoNum}</td>
           <td style="${tdStyle}text-align:center;">${escHtml(comp.name)}</td>
-          <td style="${tdStyle}text-align:center;">${escHtml(comp.spec_type)}</td>
+          <td style="${tdStyle}text-align:center;">${escHtml(specMap[comp.spec_type] || comp.spec_type)}</td>
           <td style="${tdStyle}text-align:center;">${tcSpec || '—'}</td>
           <td style="${tdStyle}text-align:center;">${comp.derating || '0.90'}</td>
           <td style="${tdStyle}text-align:center;background:rgba(15,23,42,0.03);font-weight:600;">${derated > 0 ? derated.toFixed(1) : '—'}</td>
-          <td style="${tdStyle}text-align:center;">${escHtml(comp.tim_type)}</td>
+          <td style="${tdStyle}text-align:center;">${escHtml(comp.tim_type || 'N/A')}</td>
           ${taCells}
           <td style="${tdStyle}text-align:center;font-weight:700;${rowFail ? 'color:#b91c1c;' : 'color:#15803d;'}">${pf}</td>
           <td style="${tdStyle}text-align:center;">${escHtml(comp.note)}</td>
@@ -7032,6 +7250,9 @@
       state.reportId = reportId;
       state.pages = [];
       state.activePage = null;
+
+      try { state.timLibrary = await dbAdapter.getTimLibrary(); }
+      catch (e) { state.timLibrary = { grease: [], pad: [], putty: [] }; }
 
       // Load pages — tolerate gaps from previously broken deletes
       try {

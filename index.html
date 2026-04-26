@@ -1862,21 +1862,14 @@
 
     .sim-table .sim-judge { text-align: center; font-size: 12px; }
 
-    /* Bottom note */
-    .sim-note-input {
-      width: 100%;
-      font-family: var(--font-ui);
-      font-size: 11px;
-      color: var(--text-on-white);
-      border: 1px solid rgba(15,23,42,0.10);
-      border-radius: 4px;
-      outline: none;
-      padding: 6px 8px;
-      background: transparent;
+    /* Static notes block */
+    .sim-notes-block {
+      font-size: 10px;
+      color: rgba(15,23,42,0.50);
+      line-height: 1.7;
       flex-shrink: 0;
+      text-align: left;
     }
-    .sim-note-input::placeholder { color: rgba(15,23,42,0.22); }
-    .sim-note-input:focus { border-color: rgba(56,189,248,0.4); }
 
     /* Component selection modal */
     .sim-modal-overlay {
@@ -5147,7 +5140,7 @@
                   <th rowspan="2">Spec Type</th>
                   <th rowspan="2">Tc Spec</th>
                   <th rowspan="2">Derating</th>
-                  <th rowspan="2">Derated</th>
+                  <th rowspan="2">Derated Tc</th>
                   <th rowspan="2">TIM Type</th>
                   ${taHeaders1}
                   <th rowspan="2">P/F</th>
@@ -5741,10 +5734,10 @@
             const dp = (dc / measTc) * 100;
             devPct = dp.toFixed(1) + '%';
             const absDp = Math.abs(dp);
-            if (absDp <= 10) {
+            if (absDp <= 5) {
               devCClass = devPClass = 'sim-dev-good';
               judgeText = '✅'; judgeClass = 'sim-dev-good';
-            } else if (absDp <= 20) {
+            } else if (absDp <= 10) {
               devCClass = devPClass = 'sim-dev-warn';
               judgeText = '⚠️'; judgeClass = 'sim-dev-warn';
             } else {
@@ -5757,7 +5750,7 @@
         const catClass = item.category === 'RF' ? 'cat-rf' : item.category === 'Digital' ? 'cat-digital' : 'cat-pwr';
 
         return `<tr data-sim-row="${i}">
-          <td><span class="dt-cat-strip ${catClass}"></span><span class="sim-readonly">${escapeAttr(item.category)}</span></td>
+          <td style="text-align:left;"><span class="dt-cat-strip ${catClass}"></span><span class="sim-readonly">${escapeAttr(item.category)}</span></td>
           <td class="sim-readonly">${escapeAttr(item.component_name)}</td>
           <td class="sim-readonly">${item.tc_derated ? parseFloat(item.tc_derated).toFixed(1) : '—'}</td>
           <td><input type="number" step="any" style="width:55px;text-align:center;" placeholder="—" value="${item.sim_tc !== undefined && item.sim_tc !== '' ? escapeAttr(String(item.sim_tc)) : ''}" data-sim-idx="${i}" data-sim-field="sim_tc"></td>
@@ -5783,7 +5776,7 @@
                 <tr>
                   <th>類別</th>
                   <th>元件名稱</th>
-                  <th>Derated</th>
+                  <th>Derated Tc (°C)</th>
                   <th>Sim Tc</th>
                   <th>Meas Tc</th>
                   <th>Dev (°C)</th>
@@ -5796,9 +5789,11 @@
             </table>
           </div>
 
-          <!-- Bottom note -->
-          <input class="sim-note-input" type="text" placeholder="請輸入模擬條件說明，如邊界條件假設、功耗設定..."
-                 value="${escapeAttr(d.sim_note || '')}" id="sim-note">
+          <!-- Static notes -->
+          <div class="sim-notes-block">
+            <div>※ 備註 1：判斷規則：偏差 ≤5% 為 ✅，5%~10% 為 ⚠️，&gt;10% 為 ❌。</div>
+            <div>※ 備註 2：Sim Tc 為實測瓦數後的模擬校正值。</div>
+          </div>
         </div>
       `);
 
@@ -5830,15 +5825,6 @@
           scheduleSave(state.activePage);
         });
       });
-
-      // ── Bottom sim note ──
-      const simNote = document.getElementById('sim-note');
-      if (simNote) {
-        simNote.addEventListener('input', () => {
-          d.sim_note = simNote.value;
-          scheduleSave(state.activePage);
-        });
-      }
 
       // ── Row right-click delete ──
       const simTbody = document.getElementById('sim-tbody');
@@ -6626,7 +6612,7 @@
         </div>
         <div style="border:1px solid #C2DFF8;">
           <table style="width:100%;border-collapse:collapse;font-size:10px;">
-            <thead><tr><th rowspan="2" style="${thStyle}">類別</th><th rowspan="2" style="${thStyle}">#</th><th rowspan="2" style="${thStyle}">元件名稱</th><th rowspan="2" style="${thStyle}">Spec Type</th><th rowspan="2" style="${thStyle}">Tc Spec</th><th rowspan="2" style="${thStyle}">Derating</th><th rowspan="2" style="${thStyle}">Derated</th><th rowspan="2" style="${thStyle}">TIM Type</th>${taHeaders1}<th rowspan="2" style="${thStyle}">P/F</th><th rowspan="2" style="${thStyle}">備註</th></tr><tr>${taHeaders2}</tr></thead>
+            <thead><tr><th rowspan="2" style="${thStyle}">類別</th><th rowspan="2" style="${thStyle}">#</th><th rowspan="2" style="${thStyle}">元件名稱</th><th rowspan="2" style="${thStyle}">Spec Type</th><th rowspan="2" style="${thStyle}">Tc Spec</th><th rowspan="2" style="${thStyle}">Derating</th><th rowspan="2" style="${thStyle}">Derated Tc</th><th rowspan="2" style="${thStyle}">TIM Type</th>${taHeaders1}<th rowspan="2" style="${thStyle}">P/F</th><th rowspan="2" style="${thStyle}">備註</th></tr><tr>${taHeaders2}</tr></thead>
             <tbody>${rows}</tbody>
           </table>
         </div>
@@ -6690,7 +6676,7 @@
 
       const taHeaders1 = tas.map(ta => `<th colspan="2" style="${thStyle}text-align:center;border-left:2px solid rgba(255,255,255,0.2);">Ta = ${ta}°C</th>`).join('');
       const taHeaders2 = tas.map(() => `<th style="${thStyle}text-align:center;font-size:7px;">Tc</th><th style="${thStyle}text-align:center;font-size:7px;">Margin</th>`).join('');
-      const theadHtml = `<thead><tr><th rowspan="2" style="${thStyle}">類別</th><th rowspan="2" style="${thStyle}">#</th><th rowspan="2" style="${thStyle}">元件名稱</th><th rowspan="2" style="${thStyle}">Spec Type</th><th rowspan="2" style="${thStyle}">Tc Spec</th><th rowspan="2" style="${thStyle}">Derating</th><th rowspan="2" style="${thStyle}">Derated</th><th rowspan="2" style="${thStyle}">TIM Type</th>${taHeaders1}<th rowspan="2" style="${thStyle}">P/F</th><th rowspan="2" style="${thStyle}">備註</th></tr><tr>${taHeaders2}</tr></thead>`;
+      const theadHtml = `<thead><tr><th rowspan="2" style="${thStyle}">類別</th><th rowspan="2" style="${thStyle}">#</th><th rowspan="2" style="${thStyle}">元件名稱</th><th rowspan="2" style="${thStyle}">Spec Type</th><th rowspan="2" style="${thStyle}">Tc Spec</th><th rowspan="2" style="${thStyle}">Derating</th><th rowspan="2" style="${thStyle}">Derated Tc</th><th rowspan="2" style="${thStyle}">TIM Type</th>${taHeaders1}<th rowspan="2" style="${thStyle}">P/F</th><th rowspan="2" style="${thStyle}">備註</th></tr><tr>${taHeaders2}</tr></thead>`;
 
       const taTags = tas.map(t => `<span style="display:inline-block;padding:3px 8px;font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:500;color:#2357A7;background:rgba(35,87,167,0.08);border:1px solid rgba(35,87,167,0.15);clip-path:polygon(4px 0,100% 0,calc(100% - 4px) 100%,0 100%);margin-right:4px;">Ta = ${t}°C</span>`).join('');
 
@@ -6877,13 +6863,13 @@
           devC = dc.toFixed(1);
           devPct = dp.toFixed(1) + '%';
           const absDp = Math.abs(dp);
-          if (absDp <= 10) { devStyle = 'background:rgba(39,174,96,0.10);color:#27AE60;'; judgeText = '✅'; }
-          else if (absDp <= 20) { devStyle = 'background:rgba(243,156,18,0.10);color:#F39C12;'; judgeText = '⚠️'; }
+          if (absDp <= 5) { devStyle = 'background:rgba(39,174,96,0.10);color:#27AE60;'; judgeText = '✅'; }
+          else if (absDp <= 10) { devStyle = 'background:rgba(243,156,18,0.10);color:#F39C12;'; judgeText = '⚠️'; }
           else { devStyle = 'background:rgba(231,76,60,0.08);color:#E74C3C;'; judgeText = '❌'; }
         }
         const catColor = item.category === 'RF' ? '#3A7AD4' : item.category === 'Digital' ? '#5BA3E6' : '#F39C12';
         return `<tr>
-          <td style="${tdStyle}"><span style="display:inline-block;width:3px;height:14px;border-radius:2px;background:${catColor};margin-right:3px;vertical-align:middle;"></span>${escHtml(item.category)}</td>
+          <td style="${tdStyle}text-align:left;"><span style="display:inline-block;width:3px;height:14px;border-radius:2px;background:${catColor};margin-right:3px;vertical-align:middle;"></span>${escHtml(item.category)}</td>
           <td style="${tdStyle}">${escHtml(item.component_name)}</td>
           <td style="${tdStyle}text-align:center;">${item.tc_derated ? parseFloat(item.tc_derated).toFixed(1) : '—'}</td>
           <td style="${tdStyle}text-align:center;">${!isNaN(simTc) ? simTc.toFixed(1) : '—'}</td>
@@ -6900,14 +6886,17 @@
         <div style="border:1px solid #C2DFF8;">
           <table style="width:100%;border-collapse:collapse;font-size:10px;">
             <thead><tr>
-              <th style="${thStyle}">類別</th><th style="${thStyle}">元件名稱</th><th style="${thStyle}">Derated</th>
+              <th style="${thStyle}">類別</th><th style="${thStyle}">元件名稱</th><th style="${thStyle}">Derated Tc (°C)</th>
               <th style="${thStyle}">Sim Tc</th><th style="${thStyle}">Meas Tc</th>
               <th style="${thStyle}">Dev (°C)</th><th style="${thStyle}">Dev (%)</th><th style="${thStyle}">判斷</th><th style="${thStyle}">備註</th>
             </tr></thead>
             <tbody>${rows}</tbody>
           </table>
         </div>
-        ${d.sim_note ? `<div style="font-size:11px;color:rgba(15,23,42,0.55);padding:4px 0;">${escHtml(d.sim_note)}</div>` : ''}
+        <div style="font-size:9px;color:rgba(15,23,42,0.55);padding:6px 0 0;text-align:left;line-height:1.6;">
+          <div>※ 備註 1：判斷規則：偏差 ≤5% 為 ✅，5%~10% 為 ⚠️，&gt;10% 為 ❌。</div>
+          <div>※ 備註 2：Sim Tc 為實測瓦數後的模擬校正值。</div>
+        </div>
       </div>`;
       return wrapPageHTML(inner);
     }

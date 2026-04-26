@@ -1862,6 +1862,14 @@
 
     .sim-table .sim-judge { text-align: center; font-size: 12px; }
 
+    .sim-del-cell { text-align: center; padding: 0 !important; }
+    .sim-del-btn {
+      background: none; border: none; cursor: pointer;
+      color: rgba(15,23,42,0.25); font-size: 12px; padding: 2px 6px;
+      line-height: 1; transition: color 0.15s;
+    }
+    .sim-del-btn:hover { color: #dc2626; }
+
     /* Static notes block */
     .sim-notes-block {
       font-size: 10px;
@@ -5761,6 +5769,7 @@
           <td class="${devPClass}" style="text-align:center;">${devPct}</td>
           <td class="sim-judge ${judgeClass}">${judgeText}</td>
           <td><input type="text" placeholder="備註" value="${escapeAttr(item.note || '')}" data-sim-idx="${i}" data-sim-field="note"></td>
+          <td class="sim-del-cell"><button class="sim-del-btn" data-sim-del="${i}" title="刪除此元件">✕</button></td>
         </tr>`;
       }).join('');
 
@@ -5785,6 +5794,7 @@
                   <th>Dev (%)</th>
                   <th>判斷</th>
                   <th>備註</th>
+                  <th style="width:30px;"></th>
                 </tr>
               </thead>
               <tbody id="sim-tbody">${rows}</tbody>
@@ -5844,6 +5854,16 @@
           const idx = parseInt(el.dataset.simIdx);
           d.items[idx].note = el.value;
           scheduleSave(state.activePage);
+        });
+      });
+
+      // ── Delete buttons ──
+      $canvas.querySelectorAll('[data-sim-del]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const idx = parseInt(btn.dataset.simDel);
+          d.items.splice(idx, 1);
+          scheduleSave(state.activePage);
+          renderSimVsMeasPage(page);
         });
       });
 

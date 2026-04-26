@@ -6484,7 +6484,7 @@
       const issues = (d.issues || []).filter(s => s);
       const acts = d.actions || [];
 
-      const thStyle = 'text-align:left;font-family:"JetBrains Mono",monospace;font-size:10px;font-weight:500;letter-spacing:0.04em;word-spacing:0px;color:#2357A7;padding:6px 8px;border-bottom:2px solid #C2DFF8;';
+      const thStyle = 'text-align:left;font-family:&apos;JetBrains Mono&apos;,monospace;font-size:10px;font-weight:500;letter-spacing:0.04em;word-spacing:0px;color:#2357A7;padding:6px 8px;border-bottom:2px solid #C2DFF8;';
       const tdStyle = 'padding:5px 8px;border-bottom:1px solid rgba(15,23,42,0.06);font-size:12px;letter-spacing:0px;word-spacing:0px;';
 
       let compRows = comp.map(r => {
@@ -6533,7 +6533,7 @@
       const comps = d.components || [];
       const specMap = { 'Recommended': 'Rec.', 'Absolute': 'Abs.' };
 
-      const thStyle = 'text-align:center;font-family:"JetBrains Mono",monospace;font-size:8px;font-weight:500;color:#ffffff;padding:4px 5px;background:#0B3D7A;border:1px solid rgba(255,255,255,0.3);white-space:nowrap;letter-spacing:0.04em;word-spacing:0px;';
+      const thStyle = 'text-align:center;font-family:&apos;JetBrains Mono&apos;,monospace;font-size:8px;font-weight:500;color:#ffffff;padding:4px 5px;background:#0B3D7A;border:1px solid rgba(255,255,255,0.3);white-space:nowrap;letter-spacing:0.04em;word-spacing:0px;';
       const tdStyle = 'padding:3px 5px;border:1px solid rgba(15,23,42,0.08);font-size:10px;white-space:nowrap;letter-spacing:0px;word-spacing:0px;text-align:center;';
 
       const catCounters = { RF: 0, Digital: 0, PWR: 0 };
@@ -6581,7 +6581,7 @@
       }).join('');
 
       const taHeaders1 = tas.map(ta => `<th colspan="2" style="${thStyle}text-align:center;border-left:2px solid rgba(255,255,255,0.2);">Ta = ${ta}°C</th>`).join('');
-      const taHeaders2 = tas.map(() => `<th style="${thStyle}text-align:center;font-size:7px;">Tc</th><th style="${thStyle}text-align:center;font-size:7px;">Margin</th>`).join('');
+      const taHeaders2 = tas.map(() => `<th style="${thStyle}text-align:center;font-size:7px;">Tc 實測</th><th style="${thStyle}text-align:center;font-size:7px;">Margin</th>`).join('');
 
       const taTags = tas.map(t => `<span style="display:inline-block;padding:3px 8px;font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:500;color:#2357A7;background:rgba(35,87,167,0.08);border:1px solid rgba(35,87,167,0.15);clip-path:polygon(4px 0,100% 0,calc(100% - 4px) 100%,0 100%);margin-right:4px;">Ta = ${t}°C</span>`).join('');
 
@@ -6590,7 +6590,7 @@
       const sensorsWithData = sensors.filter(s => s.name || Object.values(s.readings || {}).some(v => v));
       let sensorSection = '';
       if (sensorsWithData.length > 0) {
-        const sThStyle = 'text-align:center;font-size:8px;font-weight:500;color:#ffffff;padding:4px 5px;background:#0B3D7A;border:1px solid rgba(255,255,255,0.3);white-space:nowrap;letter-spacing:0.04em;word-spacing:0px;font-family:"JetBrains Mono",monospace;';
+        const sThStyle = 'text-align:center;font-size:8px;font-weight:500;color:#ffffff;padding:4px 5px;background:#0B3D7A;border:1px solid rgba(255,255,255,0.3);white-space:nowrap;letter-spacing:0.04em;word-spacing:0px;font-family:&apos;JetBrains Mono&apos;,monospace;';
         const sTdStyle = 'padding:3px 5px;border:1px solid rgba(15,23,42,0.08);font-size:10px;white-space:nowrap;letter-spacing:0px;word-spacing:0px;text-align:center;';
         const sensorTaHeaders = tas.map(ta => `<th style="${sThStyle}">Ta = ${ta}°C</th>`).join('');
         const sensorRows = sensorsWithData.map(s => {
@@ -6648,7 +6648,7 @@
       const comps = d.components || [];
       const specMap = { 'Recommended': 'Rec.', 'Absolute': 'Abs.' };
 
-      const thStyle = 'text-align:center;font-family:"JetBrains Mono",monospace;font-size:8px;font-weight:500;color:#ffffff;padding:4px 5px;background:#0B3D7A;border:1px solid rgba(255,255,255,0.3);white-space:nowrap;letter-spacing:0.04em;word-spacing:0px;';
+      const thStyle = 'text-align:center;font-family:&apos;JetBrains Mono&apos;,monospace;font-size:8px;font-weight:500;color:#ffffff;padding:4px 5px;background:#0B3D7A;border:1px solid rgba(255,255,255,0.3);white-space:nowrap;letter-spacing:0.04em;word-spacing:0px;';
       const tdStyle = 'padding:3px 5px;border:1px solid rgba(15,23,42,0.08);font-size:10px;white-space:nowrap;letter-spacing:0px;word-spacing:0px;text-align:center;';
 
       const catCounters = { RF: 0, Digital: 0, PWR: 0 };
@@ -6696,7 +6696,7 @@
       });
 
       const taHeaders1 = tas.map(ta => `<th colspan="2" style="${thStyle}text-align:center;border-left:2px solid rgba(255,255,255,0.2);">Ta = ${ta}°C</th>`).join('');
-      const taHeaders2 = tas.map(() => `<th style="${thStyle}text-align:center;font-size:7px;">Tc</th><th style="${thStyle}text-align:center;font-size:7px;">Margin</th>`).join('');
+      const taHeaders2 = tas.map(() => `<th style="${thStyle}text-align:center;font-size:7px;">Tc 實測</th><th style="${thStyle}text-align:center;font-size:7px;">Margin</th>`).join('');
       const theadHtml = `<thead><tr><th rowspan="2" style="${thStyle}">類別</th><th rowspan="2" style="${thStyle}">#</th><th rowspan="2" style="${thStyle}">元件名稱</th><th rowspan="2" style="${thStyle}">Spec Type</th><th rowspan="2" style="${thStyle}">Tc Spec</th><th rowspan="2" style="${thStyle}">Derating</th><th rowspan="2" style="${thStyle}">Derated Tc</th><th rowspan="2" style="${thStyle}">TIM Type</th>${taHeaders1}<th rowspan="2" style="${thStyle}">P/F</th><th rowspan="2" style="${thStyle}">備註</th></tr><tr>${taHeaders2}</tr></thead>`;
 
       const taTags = tas.map(t => `<span style="display:inline-block;padding:3px 8px;font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:500;color:#2357A7;background:rgba(35,87,167,0.08);border:1px solid rgba(35,87,167,0.15);clip-path:polygon(4px 0,100% 0,calc(100% - 4px) 100%,0 100%);margin-right:4px;">Ta = ${t}°C</span>`).join('');
@@ -6720,7 +6720,7 @@
       const sensorsWithData = sensors.filter(s => s.name || Object.values(s.readings || {}).some(v => v));
       let sensorHtml = '';
       if (sensorsWithData.length > 0) {
-        const sThStyle = 'text-align:center;font-size:8px;font-weight:500;color:#ffffff;padding:4px 5px;background:#0B3D7A;border:1px solid rgba(255,255,255,0.3);white-space:nowrap;letter-spacing:0.04em;word-spacing:0px;font-family:"JetBrains Mono",monospace;';
+        const sThStyle = 'text-align:center;font-size:8px;font-weight:500;color:#ffffff;padding:4px 5px;background:#0B3D7A;border:1px solid rgba(255,255,255,0.3);white-space:nowrap;letter-spacing:0.04em;word-spacing:0px;font-family:&apos;JetBrains Mono&apos;,monospace;';
         const sTdStyle = 'padding:3px 5px;border:1px solid rgba(15,23,42,0.08);font-size:10px;white-space:nowrap;letter-spacing:0px;word-spacing:0px;text-align:center;';
         const sensorTaHeaders = tas.map(ta => `<th style="${sThStyle}">Ta = ${ta}°C</th>`).join('');
         const sensorRows = sensorsWithData.map(s => {
@@ -6871,7 +6871,7 @@
       const hasSim = !!d.sim_image;
       const hasMeas = !!d.meas_image;
 
-      const thStyle = 'text-align:center;font-family:"JetBrains Mono",monospace;font-size:8px;font-weight:500;color:#ffffff;padding:4px 6px;background:#0B3D7A;border:1px solid rgba(255,255,255,0.3);white-space:nowrap;letter-spacing:0.04em;word-spacing:0px;';
+      const thStyle = 'text-align:center;font-family:&apos;JetBrains Mono&apos;,monospace;font-size:8px;font-weight:500;color:#ffffff;padding:4px 6px;background:#0B3D7A;border:1px solid rgba(255,255,255,0.3);white-space:nowrap;letter-spacing:0.04em;word-spacing:0px;';
       const tdStyle = 'padding:3px 5px;border:1px solid rgba(15,23,42,0.08);font-size:10px;white-space:nowrap;letter-spacing:0px;word-spacing:0px;text-align:center;';
 
       const rows = items.map(item => {

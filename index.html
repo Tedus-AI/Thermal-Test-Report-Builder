@@ -5814,8 +5814,27 @@
           const idx = parseInt(el.dataset.simIdx);
           d.items[idx].sim_tc = el.value;
           scheduleSave(state.activePage);
-          // Re-render for computed Dev columns
-          renderSimVsMeasPage(page);
+          const tr = el.closest('tr');
+          if (!tr) return;
+          const item = d.items[idx];
+          const simTc = parseFloat(item.sim_tc);
+          const measTc = parseFloat(item.meas_tc);
+          let devC = '—', devPct = '—', judgeText = '—';
+          let devCClass = '', devPClass = '', judgeClass = '';
+          if (!isNaN(simTc) && !isNaN(measTc) && measTc !== 0) {
+            const dc = simTc - measTc;
+            const dp = (dc / measTc) * 100;
+            devC = dc.toFixed(1);
+            devPct = dp.toFixed(1) + '%';
+            const absDp = Math.abs(dp);
+            if (absDp <= 5) { devCClass = devPClass = 'sim-dev-good'; judgeText = '✅'; judgeClass = 'sim-dev-good'; }
+            else if (absDp <= 10) { devCClass = devPClass = 'sim-dev-warn'; judgeText = '⚠️'; judgeClass = 'sim-dev-warn'; }
+            else { devCClass = devPClass = 'sim-dev-bad'; judgeText = '❌'; judgeClass = 'sim-dev-bad'; }
+          }
+          const tds = tr.querySelectorAll('td');
+          tds[5].className = devCClass; tds[5].textContent = devC;
+          tds[6].className = devPClass; tds[6].textContent = devPct;
+          tds[7].className = 'sim-judge ' + judgeClass; tds[7].textContent = judgeText;
         });
       });
 

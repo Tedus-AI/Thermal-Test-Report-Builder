@@ -1599,7 +1599,7 @@
       font-size: 11px;
       font-weight: 600;
       font-family: var(--font-ui);
-      color: rgba(15,23,42,0.50);
+      color: #0B3D7A;
       background: rgba(15,23,42,0.02);
       border: none;
       cursor: pointer;
@@ -6633,7 +6633,7 @@
         }).join('');
         sensorSection = `
           <div style="margin-top:10px;border:1px solid #C2DFF8;border-radius:4px;">
-            <div style="padding:6px 10px;font-size:10px;font-weight:700;color:#ffffff;background:#0B3D7A;border-bottom:1px solid rgba(255,255,255,0.15);letter-spacing:0.04em;word-spacing:0px;font-family:'JetBrains Mono',monospace;">EMBEDDED SENSOR READINGS</div>
+            <div style="padding:6px 10px;font-size:10px;font-weight:700;color:#0B3D7A;background:#ffffff;border-bottom:1px solid #C2DFF8;letter-spacing:0.04em;word-spacing:0px;font-family:'JetBrains Mono',monospace;">EMBEDDED SENSOR READINGS</div>
             <table style="width:100%;border-collapse:collapse;font-size:10px;">
               <thead><tr>
                 <th style="${sThStyle}">Sensor</th>
@@ -6657,7 +6657,6 @@
           <div><span style="font-family:'JetBrains Mono',monospace;font-size:8px;font-weight:500;color:#2357A7;letter-spacing:0.06em;">WAVEFORM VER.</span><div>${escHtml(h.waveform_ver)}</div></div>
           <div><span style="font-family:'JetBrains Mono',monospace;font-size:8px;font-weight:500;color:#2357A7;letter-spacing:0.06em;">LOCATION</span><div>${escHtml(h.location)}</div></div>
         </div>
-        <div style="margin-bottom:10px;">${taTags}</div>
         <div style="border:1px solid #C2DFF8;">
           <table style="width:100%;border-collapse:collapse;font-size:10px;">
             <thead><tr><th rowspan="2" style="${thStyle}">類別</th><th rowspan="2" style="${thStyle}">#</th><th rowspan="2" style="${thStyle}">元件名稱</th><th rowspan="2" style="${thStyle}">Spec Type</th><th rowspan="2" style="${thStyle}">Tc Spec</th><th rowspan="2" style="${thStyle}">Derating</th><th rowspan="2" style="${thStyle}">Derated</th><th rowspan="2" style="${thStyle}">TIM Type</th>${taHeaders1}<th rowspan="2" style="${thStyle}">P/F</th><th rowspan="2" style="${thStyle}">備註</th></tr><tr>${taHeaders2}</tr></thead>
@@ -6741,7 +6740,7 @@
         <div><span style="${lblStyle}">WAVEFORM VER.</span><div>${escHtml(h.waveform_ver)}</div></div>
         <div><span style="${lblStyle}">LOCATION</span><div>${escHtml(h.location)}</div></div>
       </div>`;
-      const taTagsHtml = `<div style="margin-bottom:10px;">${taTags}</div>`;
+      const taTagsHtml = '';
 
       const sensors = d.sensors || [];
       const sensorsWithData = sensors.filter(s => s.name || Object.values(s.readings || {}).some(v => v));
@@ -6764,7 +6763,7 @@
         }).join('');
         sensorHtml = `
           <div style="margin-top:10px;border:1px solid #C2DFF8;border-radius:4px;">
-            <div style="padding:6px 10px;font-size:10px;font-weight:700;color:#ffffff;background:#0B3D7A;border-bottom:1px solid rgba(255,255,255,0.15);letter-spacing:0.04em;word-spacing:0px;font-family:'JetBrains Mono',monospace;">EMBEDDED SENSOR READINGS</div>
+            <div style="padding:6px 10px;font-size:10px;font-weight:700;color:#0B3D7A;background:#ffffff;border-bottom:1px solid #C2DFF8;letter-spacing:0.04em;word-spacing:0px;font-family:'JetBrains Mono',monospace;">EMBEDDED SENSOR READINGS</div>
             <table style="width:100%;border-collapse:collapse;font-size:10px;">
               <thead><tr>
                 <th style="${sThStyle}">Sensor</th>

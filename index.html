@@ -5009,8 +5009,10 @@
       ).join('');
 
       // ── Sensor rows ──
+      const validSensorTypes = ['Local', 'Remote'];
       const sensorRows = d.sensors.map((s, si) => {
         if (!s.readings) s.readings = {};
+        if (!validSensorTypes.includes(s.type)) s.type = 'Local';
         const taSensorCells = d.ta_conditions.map(ta => {
           const key = 'ta_' + ta;
           return `<td><input type="text" placeholder="—" value="${escapeAttr(s.readings[key] || '')}" data-sensor="${si}" data-sensor-ta="${key}"></td>`;
@@ -6579,7 +6581,7 @@
           }).join('');
           return `<tr>
             <td style="${sTdStyle}">${escHtml(s.name)}</td>
-            <td style="${sTdStyle}">${escHtml(s.type || 'Local')}</td>
+            <td style="${sTdStyle}">${escHtml(['Local','Remote'].includes(s.type) ? s.type : 'Local')}</td>
             ${taCells}
             <td style="${sTdStyle}">${escHtml(s.note)}</td>
           </tr>`;
@@ -6709,7 +6711,7 @@
           }).join('');
           return `<tr>
             <td style="${sTdStyle}">${escHtml(s.name)}</td>
-            <td style="${sTdStyle}">${escHtml(s.type || 'Local')}</td>
+            <td style="${sTdStyle}">${escHtml(['Local','Remote'].includes(s.type) ? s.type : 'Local')}</td>
             ${taCells}
             <td style="${sTdStyle}">${escHtml(s.note)}</td>
           </tr>`;

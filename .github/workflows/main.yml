@@ -1,1 +1,39 @@
+name: CI
 
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    name: Validate sources
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Check required files exist and are non-empty
+        run: |
+          set -e
+          for f in index.html config.js dbAdapter.js fileDb.js; do
+            if [ ! -s "$f" ]; then
+              echo "::error file=$f::Required file '$f' is missing or empty"
+              exit 1
+            fi
+            echo "OK: $f"
+          done
+
+      - name: Syntax-check JavaScript files
+        run: |
+          set -e
+          for f in config.js dbAdapter.js fileDb.js; do
+            node --check "$f"
+            echo "Syntax OK: $f"
+          done

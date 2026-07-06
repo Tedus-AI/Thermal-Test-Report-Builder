@@ -7017,16 +7017,32 @@
       }
 
       // Ensure webfonts are fully loaded before measuring row heights — otherwise
-      // pagination measures with fallback metrics and the rendered page can overflow.
+      // pagination measures with fallback metrics and the rendered page overflows.
+      // IMPORTANT: Google Fonts splits CJK into many unicode-range subsets, and
+      // document.fonts.load() with the default Latin probe string never fetches
+      // the subset that contains 元件名稱/備註 etc. We must load with the ACTUAL
+      // glyphs that will be rendered, or the measurer lays CJK out with a shorter
+      // system fallback (under-measuring) while the export renders the taller
+      // webfont — pushing the last row onto the footer.
       try {
         if (document.fonts && document.fonts.load) {
-          await Promise.all([
-            document.fonts.load("600 14px 'Space Grotesk'"),
-            document.fonts.load("500 8px 'JetBrains Mono'"),
-            document.fonts.load("400 10px 'Noto Sans TC'"),
-            document.fonts.load("500 10px 'Noto Sans TC'"),
-          ]).catch(() => {});
+          let glyphs = '類別元件名稱備註類型實測頁THERMAL TEST DATA EMBEDDED SENSOR READINGS SensorLocalRemoteRFDigitalPWRRecAbs0123456789.-/%°C';
+          try {
+            (state.pages || []).forEach(p => {
+              if (p.type === 'data' && p.data) {
+                (p.data.components || []).forEach(c => { glyphs += (c.name || '') + (c.note || '') + (c.tim_type || ''); });
+                (p.data.sensors || []).forEach(s => { glyphs += (s.name || '') + (s.note || ''); });
+              }
+            });
+          } catch (_) {}
+          const specs = [];
+          ["'Space Grotesk'", "'DM Sans'", "'Noto Sans TC'", "'JetBrains Mono'"].forEach(fam => {
+            ['400', '500', '600', '700'].forEach(w => specs.push(`${w} 12px ${fam}`));
+          });
+          await Promise.all(specs.map(s => document.fonts.load(s, glyphs).catch(() => {}))).catch(() => {});
           if (document.fonts.ready) await document.fonts.ready;
+          // let layout pick up the freshly-applied fonts before we measure
+          await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
         }
       } catch (e) { /* non-fatal: fall back to immediate render */ }
 

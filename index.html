@@ -529,6 +529,16 @@
       overflow-y: auto;
       overflow-x: hidden;
       align-items: flex-start;
+      /* The data page is a working editor, not a 1:1 paper preview. Its width
+         normally derives from the A4-landscape aspect ratio (width = height ×
+         842/595), so on small screens the sheet is short → narrow → all the
+         columns get crammed. Break the aspect ratio here and let the sheet
+         reclaim most of the blue side margins so every column stays readable;
+         cap the width on large screens so columns don't over-stretch.
+         PDF export uses separate render functions and is unaffected. */
+      aspect-ratio: auto;
+      width: calc(100% - 140px);
+      max-width: 1500px;
     }
     .scrollable-edit .report-page-wrap {
       height: auto;

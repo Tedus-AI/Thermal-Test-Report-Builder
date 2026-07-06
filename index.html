@@ -1407,6 +1407,13 @@
 
     .data-table select { cursor: pointer; appearance: auto; width: auto; min-width: 50px; }
 
+    /* 元件名稱 column: keep a comfortable minimum width so it isn't squeezed
+       on smaller screens (e.g. 17"). This is a floor only — on wider screens
+       the auto table-layout still gives it more room. Screen editor only;
+       PDF export uses its own inline styles and is unaffected. */
+    .data-table th.dt-name-col,
+    .data-table td.dt-name-col { min-width: 160px; }
+
     .dt-readonly {
       background: rgba(15,23,42,0.03) !important;
       color: rgba(15,23,42,0.55);
@@ -4985,7 +4992,7 @@
               `<option value="${c}" ${cat === c ? 'selected' : ''}>${c}</option>`).join('')}
             </select></td>
           <td class="dt-readonly">${autoNum}</td>
-          <td><input type="text" placeholder="元件名稱" value="${escapeAttr(comp.name || '')}" data-comp="${ri}" data-comp-field="name"></td>
+          <td class="dt-name-col"><input type="text" placeholder="元件名稱" value="${escapeAttr(comp.name || '')}" data-comp="${ri}" data-comp-field="name"></td>
           <td><select data-comp="${ri}" data-comp-field="spec_type">${specTypeOptions.map(s =>
               `<option value="${s}" ${comp.spec_type === s ? 'selected' : ''}>${s}</option>`).join('')}
             </select></td>
@@ -5146,7 +5153,7 @@
                 <tr>
                   <th rowspan="2">類別</th>
                   <th rowspan="2">#</th>
-                  <th rowspan="2">元件名稱</th>
+                  <th rowspan="2" class="dt-name-col">元件名稱</th>
                   <th rowspan="2">Spec Type</th>
                   <th rowspan="2">Tc Spec</th>
                   <th rowspan="2">Derating</th>

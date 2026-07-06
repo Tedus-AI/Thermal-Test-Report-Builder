@@ -6860,47 +6860,71 @@
         return [wrapPageHTML(makeInner(titleHtml, infoGridHtml + taTagsHtml, rowsHtml.join(''), sensorHtml))];
       }
 
-      // ── Compute page 1 split (no sensor on page 1 unless it's the only page) ──
+      const sumRows = (a, b) => { let s = 0; for (let i = a; i < b; i++) s += rowHeights[i]; return s; };
+
+      // ── Split the component rows across pages (rows only; the sensor block is
+      //    placed afterwards so it can never be crammed onto an overflowing page). ──
+      //    Page 1 carries the info grid, so its rows start lower (firstRowTop);
+      //    continuation pages only repeat the table header (contRowStartY).
+      const rowPages = [];
       let page1End = 0;
       for (let i = 0; i < rowBottoms.length; i++) {
         if (rowBottoms[i] <= MAX_CONTENT_Y) page1End = i + 1;
         else break;
       }
-
-      // ── Build continuation page splits, reserving sensor space on last page ──
-      const splits = [{ start: 0, end: page1End }];
+      if (page1End === 0) page1End = 1; // always place at least one row
+      rowPages.push({ start: 0, end: page1End, top: firstRowTop });
       let idx = page1End;
       while (idx < rowsHtml.length) {
-        let totalRemaining = 0;
-        for (let t = idx; t < rowsHtml.length; t++) totalRemaining += rowHeights[t];
-
-        const isLastPage = totalRemaining + sensorH <= contAvailH;
-        const budget = isLastPage ? contAvailH - sensorH : contAvailH;
-
         let accum = 0;
         let end = idx;
-        while (end < rowsHtml.length && accum + rowHeights[end] <= budget) {
+        while (end < rowsHtml.length && accum + rowHeights[end] <= contAvailH) {
           accum += rowHeights[end];
           end++;
         }
         if (end === idx) end = idx + 1;
-        splits.push({ start: idx, end });
+        rowPages.push({ start: idx, end, top: contRowStartY });
         idx = end;
       }
 
-      return splits.map((split, i) => {
-        const isFirst = i === 0;
-        const isLast = i === splits.length - 1;
-        const rows = rowsHtml.slice(split.start, split.end).join('');
-        const subTotal = splits.length;
-
-        if (isFirst) {
-          return wrapPageHTML(makeInner(titleHtml, infoGridHtml + taTagsHtml, rows, isLast ? sensorHtml : ''));
+      // ── Decide where the sensor block goes: on the last row page if it fits
+      //    below that page's rows, otherwise on a dedicated continuation page. ──
+      let sensorPageIndex = -1;
+      let sensorOwnPage = false;
+      if (sensorHtml) {
+        const lp = rowPages[rowPages.length - 1];
+        const rowsBottomOnLast = lp.top + sumRows(lp.start, lp.end);
+        if (rowsBottomOnLast + sensorH <= MAX_CONTENT_Y) {
+          sensorPageIndex = rowPages.length - 1;
+        } else {
+          sensorOwnPage = true;
         }
-        const label = `THERMAL TEST DATA · ${i + 1}/${subTotal}`;
-        const contTitle = `<div style="${titleStyle}">${label}</div>`;
-        return wrapPageHTML(makeInner(contTitle, '', rows, isLast ? sensorHtml : ''));
+      }
+
+      const totalPages = rowPages.length + (sensorOwnPage ? 1 : 0);
+      const contInner = (label, rows, sensor) =>
+        makeInner(`<div style="${titleStyle}">${label}</div>`, '', rows, sensor);
+
+      const out = rowPages.map((rp, i) => {
+        const rows = rowsHtml.slice(rp.start, rp.end).join('');
+        const sensor = i === sensorPageIndex ? sensorHtml : '';
+        if (i === 0) {
+          return wrapPageHTML(makeInner(titleHtml, infoGridHtml + taTagsHtml, rows, sensor));
+        }
+        return wrapPageHTML(contInner(`THERMAL TEST DATA · ${i + 1}/${totalPages}`, rows, sensor));
       });
+
+      if (sensorOwnPage) {
+        const i = rowPages.length;
+        out.push(wrapPageHTML(
+          `<div style="width:100%;height:100%;padding:28px 32px 28px;color:rgba(15,23,42,0.90);overflow:hidden;letter-spacing:0px;word-spacing:0px;">
+            <div style="${titleStyle}">THERMAL TEST DATA · ${i + 1}/${totalPages}</div>
+            ${sensorHtml}
+          </div>`
+        ));
+      }
+
+      return out;
     }
 
     function buildSimVsMeasHTML(d) {
@@ -6988,6 +7012,20 @@
       } else {
         filename += '_' + new Date().toISOString().slice(0, 10);
       }
+
+      // Ensure webfonts are fully loaded before measuring row heights — otherwise
+      // pagination measures with fallback metrics and the rendered page can overflow.
+      try {
+        if (document.fonts && document.fonts.load) {
+          await Promise.all([
+            document.fonts.load("600 14px 'Space Grotesk'"),
+            document.fonts.load("500 8px 'JetBrains Mono'"),
+            document.fonts.load("400 10px 'Noto Sans TC'"),
+            document.fonts.load("500 10px 'Noto Sans TC'"),
+          ]).catch(() => {});
+          if (document.fonts.ready) await document.fonts.ready;
+        }
+      } catch (e) { /* non-fatal: fall back to immediate render */ }
 
       let pdf = null;
       const virtualPages = buildVirtualPages();

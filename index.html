@@ -6804,10 +6804,13 @@
       }
 
       const PAGE_H = 595;
-      // Reserve space at the bottom for the footer band drawn by wrapPageHTML
-      // (the "CONFIDENTIAL" text starts ~y572 and the progress bar at y585), so a
-      // row that just fits never renders on top of the footer.
-      const MAX_CONTENT_Y = PAGE_H - 35;
+      // Bottom cut-off for content on a page. Calibrated from the real rendered
+      // layout (Noto Sans TC loaded): component rows are ~24px tall, so on page 1
+      // (which also carries the info grid) row N ends near y=260+24*N — e.g. row
+      // 11 ≈ y520, row 12 ≈ y544 — while the footer band ("CONFIDENTIAL") starts
+      // ~y572. A cut-off of 532 keeps 11 rows on the first page and pushes the
+      // 12th onto the next page, with a comfortable gap above the footer.
+      const MAX_CONTENT_Y = 532;
 
       // NOTE: the measurer is positioned off-screen but must stay *renderable*
       // (no visibility:hidden) — a hidden element can be measured with fallback

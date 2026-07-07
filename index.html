@@ -5454,6 +5454,9 @@
           const autoNum = cat + '-' + catCounters2[cat];
           const tds = tr.querySelectorAll('td');
           if (tds[1]) tds[1].textContent = autoNum;
+          // Refresh the category colour strip so it follows the current category
+          const strip = tds[0] && tds[0].querySelector('.dt-cat-strip');
+          if (strip) strip.className = 'dt-cat-strip ' + catClassOf(cat);
           // Category boundary
           if (prevCat2 !== null && cat !== prevCat2) {
             tr.classList.add('category-boundary');

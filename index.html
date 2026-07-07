@@ -564,6 +564,16 @@
       overflow: visible;
     }
 
+    /* Annotation page: widen the editor canvas on small screens (like the data
+       page) so there's room for the side panels, without changing the fixed
+       photo layout or scroll behaviour. Editor only — buildAnnotationHTML (PDF)
+       is unaffected. */
+    #editor-canvas.anno-wide {
+      aspect-ratio: auto;
+      width: calc(100% - 120px);
+      max-width: 1500px;
+    }
+
     /* Page navigation buttons */
     .page-nav-btn {
       position: absolute;
@@ -2358,6 +2368,89 @@
       background: rgba(56,189,248,0.06);
     }
 
+    /* Title row: category dropdown + fixed "Thermocouple Location" text */
+    .annotation-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 16px 8px;
+      flex-shrink: 0;
+      z-index: 5;
+    }
+    .anno-cat-strip { width: 4px; height: 18px; border-radius: 2px; flex-shrink: 0; }
+    .annotation-cat-select {
+      font-family: var(--font-ui);
+      font-size: 15px;
+      font-weight: 700;
+      color: #0B3D7A;
+      border: 1px solid rgba(15,23,42,0.14);
+      border-radius: 4px;
+      background: #fff;
+      padding: 2px 6px;
+      cursor: pointer;
+      appearance: auto;
+    }
+    .annotation-title-fixed {
+      font-size: 15px;
+      font-weight: 700;
+      color: #0B3D7A;
+      letter-spacing: 0.02em;
+    }
+
+    /* Body = photo workspace + right-hand component list */
+    .annotation-body {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      align-items: stretch;
+    }
+    .annotation-side {
+      width: 190px;
+      flex-shrink: 0;
+      border-left: 1px solid rgba(15,23,42,0.08);
+      padding: 10px 12px 12px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .anno-side-title {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: rgba(15,23,42,0.45);
+      margin-bottom: 8px;
+      flex-shrink: 0;
+    }
+    .anno-comp-list { list-style: none; margin: 0; padding: 0; flex: 1; overflow-y: auto; }
+    .anno-comp-item {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+      padding: 3px 0;
+      font-size: 11px;
+      border-bottom: 1px dashed rgba(15,23,42,0.06);
+    }
+    .anno-comp-idx {
+      flex-shrink: 0;
+      min-width: 16px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: #2357A7;
+      font-weight: 600;
+    }
+    .anno-comp-name { color: var(--text-on-white); word-break: break-word; }
+    .anno-comp-empty { color: rgba(15,23,42,0.30); font-size: 11px; padding: 4px 0; }
+    .anno-comp-count {
+      flex-shrink: 0;
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid rgba(15,23,42,0.10);
+      font-size: 11px;
+      font-weight: 700;
+      color: #0B3D7A;
+    }
+
     .annotation-workspace {
       flex: 1;
       min-height: 0;
@@ -3695,6 +3788,7 @@
     // ━━━ Canvas rendering ━━━
     function renderCanvas() {
       $canvas.classList.remove('scrollable-edit');
+      $canvas.classList.remove('anno-wide');
       const editorArea = $canvas.closest('.editor-area');
       if (editorArea) editorArea.classList.remove('has-tim-panel');
       const canvasTag = document.getElementById('canvas-tag');
@@ -4421,6 +4515,10 @@
 
     function renderAnnotationPage(page) {
       const d = page.data;
+      if (!d.tc_category) d.tc_category = 'RF';
+      // Title is composed from the category dropdown; kept in d.title so the PDF
+      // (buildAnnotationHTML, which reads d.title) shows it too.
+      d.title = d.tc_category + ' Thermocouple Location';
       const hasPhoto = !!d.photo_url_or_base64;
       const annoW = d.anno_photo_w || 680;
       const annoH = d.anno_photo_h || 430;
@@ -4433,41 +4531,59 @@
       const pzLPct = (100 - pzWPct) / 2;
       const pzTPct = (100 - pzHPct) / 2;
 
+      const catOptions = CATEGORY_OPTIONS.map(c =>
+        `<option value="${c}" ${c === d.tc_category ? 'selected' : ''}>${c}</option>`).join('');
+
       $canvas.innerHTML = editorPageWrapHTML(`
         <div class="annotation-page">
-          <input class="annotation-title" type="text" placeholder="TC Thermocouple Placement"
-                 value="${escapeAttr(d.title)}" data-field="title">
-          <div class="annotation-workspace">
-            <div class="annotation-workspace-inner" id="anno-workspace">
-              <div class="annotation-photo-zone ${hasPhoto ? 'has-photo' : ''}" id="anno-photo-zone"
-                   style="top:${pzTPct}%;left:${pzLPct}%;width:${pzWPct}%;height:${pzHPct}%;">
-                ${hasPhoto
-                  ? `<img src="${escapeAttr(d.photo_url_or_base64)}" alt="Annotation photo">
-                     <button class="anno-replace-photo-btn" id="anno-replace-btn">📷 更換圖片</button>
-                     <div class="anno-photo-resize" id="anno-photo-resize"></div>`
-                  : `<div class="annotation-photo-placeholder">
-                       <span class="icon">📷</span>
-                       拖拉圖片或 Ctrl+V 貼上照片
-                       <button class="img-browse-btn" data-browse="annotation">瀏覽檔案</button>
-                     </div>`
-                }
-                <input type="file" accept="image/*" id="anno-file-input" style="display:none">
+          <div class="annotation-header">
+            <span class="anno-cat-strip" style="background:${catColorOf(d.tc_category)};"></span>
+            <select class="annotation-cat-select" data-field="tc_category">${catOptions}</select>
+            <span class="annotation-title-fixed">Thermocouple Location</span>
+          </div>
+          <div class="annotation-body">
+            <div class="annotation-workspace">
+              <div class="annotation-workspace-inner" id="anno-workspace">
+                <div class="annotation-photo-zone ${hasPhoto ? 'has-photo' : ''}" id="anno-photo-zone"
+                     style="top:${pzTPct}%;left:${pzLPct}%;width:${pzWPct}%;height:${pzHPct}%;">
+                  ${hasPhoto
+                    ? `<img src="${escapeAttr(d.photo_url_or_base64)}" alt="Annotation photo">
+                       <button class="anno-replace-photo-btn" id="anno-replace-btn">📷 更換圖片</button>
+                       <div class="anno-photo-resize" id="anno-photo-resize"></div>`
+                    : `<div class="annotation-photo-placeholder">
+                         <span class="icon">📷</span>
+                         拖拉圖片或 Ctrl+V 貼上照片
+                         <button class="img-browse-btn" data-browse="annotation">瀏覽檔案</button>
+                       </div>`
+                  }
+                  <input type="file" accept="image/*" id="anno-file-input" style="display:none">
+                </div>
+                <svg class="annotation-svg-overlay" id="anno-svg"></svg>
+                <svg class="annotation-drag-line" id="anno-drag-svg" style="display:none">
+                  <line x1="0" y1="0" x2="0" y2="0"/>
+                </svg>
               </div>
-              <svg class="annotation-svg-overlay" id="anno-svg"></svg>
-              <svg class="annotation-drag-line" id="anno-drag-svg" style="display:none">
-                <line x1="0" y1="0" x2="0" y2="0"/>
-              </svg>
             </div>
+            <aside class="annotation-side">
+              <div class="anno-side-title">元件列表</div>
+              <ol class="anno-comp-list" id="anno-comp-list"></ol>
+              <div class="anno-comp-count" id="anno-comp-count">標註數量：0</div>
+            </aside>
           </div>
         </div>
       `);
+      $canvas.classList.add('anno-wide');
 
       sizeAnnotationWorkspace(page);
+      updateAnnoCompList(page);
 
-      // Title binding
-      const titleEl = $canvas.querySelector('[data-field="title"]');
-      titleEl?.addEventListener('input', () => {
-        d.title = titleEl.value;
+      // Category dropdown binding (updates strip colour + composed title)
+      const catSel = $canvas.querySelector('[data-field="tc_category"]');
+      catSel?.addEventListener('change', () => {
+        d.tc_category = catSel.value;
+        d.title = catSel.value + ' Thermocouple Location';
+        const strip = $canvas.querySelector('.anno-cat-strip');
+        if (strip) strip.style.background = catColorOf(catSel.value);
         scheduleSave(state.activePage);
       });
 
@@ -4727,11 +4843,25 @@
       });
     }
 
+    // Right-hand component list — mirrors the markers (TC labels) + live count
+    function updateAnnoCompList(page) {
+      const list = document.getElementById('anno-comp-list');
+      const count = document.getElementById('anno-comp-count');
+      if (!list) return;
+      const markers = page.data.markers || [];
+      list.innerHTML = markers.length
+        ? markers.map((m, i) =>
+            `<li class="anno-comp-item"><span class="anno-comp-idx">${i + 1}</span><span class="anno-comp-name">${escHtml(m.label || ('TC' + (i + 1)))}</span></li>`).join('')
+        : '<li class="anno-comp-empty">尚無標註</li>';
+      if (count) count.textContent = '標註數量：' + markers.length;
+    }
+
     function renderAnnotationMarkers(page) {
       const workspace = document.getElementById('anno-workspace');
       const zone = document.getElementById('anno-photo-zone');
       const svg = document.getElementById('anno-svg');
       if (!workspace || !zone || !svg) return;
+      updateAnnoCompList(page);
 
       // Remove old markers & labels (but keep photo zone and SVGs)
       workspace.querySelectorAll('.marker-dot, .marker-label, .marker-label-wrap').forEach(el => el.remove());
@@ -4865,6 +4995,7 @@
           // Editable
           label.addEventListener('input', () => {
             m.label = label.value;
+            updateAnnoCompList(page);
             scheduleSave(state.activePage);
           });
 

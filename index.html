@@ -553,6 +553,16 @@
       flex: none;
       overflow: visible;
     }
+    /* Comparison page uses the same widened, scrollable editor treatment. */
+    .scrollable-edit .sim-page {
+      height: auto;
+      min-height: 100%;
+      overflow-y: visible;
+    }
+    .scrollable-edit .sim-table-wrap {
+      flex: none;
+      overflow: visible;
+    }
 
     /* Page navigation buttons */
     .page-nav-btn {
@@ -1698,7 +1708,7 @@
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.06em;
-      color: rgba(15,23,42,0.50);
+      color: #0B3D7A;
     }
 
     .sim-select-btn {
@@ -1828,7 +1838,7 @@
     .sim-table {
       width: 100%;
       border-collapse: collapse;
-      font-size: 10px;
+      font-size: 11px;
     }
 
     .sim-table th {
@@ -1857,7 +1867,7 @@
 
     .sim-table input {
       font-family: var(--font-ui);
-      font-size: 10px;
+      font-size: 11px;
       color: var(--text-on-white);
       border: none;
       outline: none;
@@ -1868,10 +1878,15 @@
     .sim-table input::placeholder { color: rgba(15,23,42,0.20); }
     .sim-table input:focus { background: rgba(56,189,248,0.05); }
 
+    /* Auto-filled (read-only) component data — same font/colour as the data page */
     .sim-table .sim-readonly {
-      color: rgba(15,23,42,0.55);
-      font-size: 10px;
+      color: var(--text-on-white);
+      font-size: 11px;
     }
+
+    /* Sim Tc is the only user-entered field — grey it like the data page's
+       "Derated Tc" cell so it reads as the field to fill in. */
+    .sim-table td.sim-tc-cell { background: rgba(15,23,42,0.03); }
 
     .sim-dev-good  { background: #dcfce7 !important; color: #15803d !important; font-weight: 600; text-align: center; }
     .sim-dev-warn  { background: #fef9c3 !important; color: #a16207 !important; font-weight: 600; text-align: center; }
@@ -5640,17 +5655,22 @@
           const derating = parseFloat(comp.derating) || 0.9;
           const derated = tcSpec * derating;
 
-          // Find meas Tc at Ta=55 (or highest Ta)
+          // Meas Tc = the measured Tc taken from the data page. Prefer the
+          // reading at Ta=55°C; if that is empty, fall back to the highest Ta
+          // condition that actually has a value, so it still populates when the
+          // measurement was entered at a different Ta.
           let measTc = '';
-          const ta55Key = 'ta_55';
-          if (comp.readings && comp.readings[ta55Key] !== undefined && comp.readings[ta55Key] !== '') {
-            measTc = comp.readings[ta55Key];
-          } else if (tas.length > 0) {
-            // Fallback: use the last (highest) Ta
-            const lastTa = tas[tas.length - 1];
-            const lastKey = 'ta_' + lastTa;
-            if (comp.readings && comp.readings[lastKey] !== undefined) {
-              measTc = comp.readings[lastKey];
+          const readingAt = (ta) => {
+            const v = comp.readings ? comp.readings['ta_' + ta] : undefined;
+            return (v !== undefined && v !== '') ? v : null;
+          };
+          const preferred = readingAt(55);
+          if (preferred !== null) {
+            measTc = preferred;
+          } else {
+            for (let i = tas.length - 1; i >= 0; i--) {
+              const v = readingAt(tas[i]);
+              if (v !== null) { measTc = v; break; }
             }
           }
 
@@ -5780,7 +5800,7 @@
           <td style="text-align:left;"><span class="dt-cat-strip ${catClass}"></span><span class="sim-readonly">${escapeAttr(item.category)}</span></td>
           <td class="sim-readonly">${escapeAttr(item.component_name)}</td>
           <td class="sim-readonly">${item.tc_derated ? parseFloat(item.tc_derated).toFixed(1) : '—'}</td>
-          <td><input type="number" step="any" style="width:55px;text-align:center;" placeholder="—" value="${item.sim_tc !== undefined && item.sim_tc !== '' ? escapeAttr(String(item.sim_tc)) : ''}" data-sim-idx="${i}" data-sim-field="sim_tc"></td>
+          <td class="sim-tc-cell"><input type="number" step="any" style="width:55px;text-align:center;" placeholder="—" value="${item.sim_tc !== undefined && item.sim_tc !== '' ? escapeAttr(String(item.sim_tc)) : ''}" data-sim-idx="${i}" data-sim-field="sim_tc"></td>
           <td class="sim-readonly">${!isNaN(measTc) ? measTc.toFixed(1) : '—'}</td>
           <td class="${devCClass}" style="text-align:center;">${devC}</td>
           <td class="${devPClass}" style="text-align:center;">${devPct}</td>
@@ -5825,6 +5845,7 @@
           </div>
         </div>
       `);
+      $canvas.classList.add('scrollable-edit');
 
       // ── Select components button ──
       document.getElementById('sim-select-comp').addEventListener('click', () => {

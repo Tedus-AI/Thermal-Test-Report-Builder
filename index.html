@@ -1486,9 +1486,10 @@
       vertical-align: middle;
       margin-right: 2px;
     }
-    .dt-cat-strip.cat-rf   { background: #3b82f6; }
-    .dt-cat-strip.cat-digital { background: #8b5cf6; }
-    .dt-cat-strip.cat-pwr  { background: #f97316; }
+    .dt-cat-strip.cat-rf      { background: #2563EB; }
+    .dt-cat-strip.cat-digital { background: #16A34A; }
+    .dt-cat-strip.cat-pwr     { background: #EA580C; }
+    .dt-cat-strip.cat-other   { background: #9333EA; }
 
     .data-table input,
     .data-table select {
@@ -2060,9 +2061,10 @@
       border-radius: 3px;
       font-weight: 600;
     }
-    .sim-modal-item-cat.cat-rf { background: rgba(59,130,246,0.2); color: #60a5fa; }
-    .sim-modal-item-cat.cat-digital { background: rgba(139,92,246,0.2); color: #a78bfa; }
-    .sim-modal-item-cat.cat-pwr { background: rgba(249,115,22,0.2); color: #fb923c; }
+    .sim-modal-item-cat.cat-rf { background: rgba(37,99,235,0.2); color: #60a5fa; }
+    .sim-modal-item-cat.cat-digital { background: rgba(22,163,74,0.2); color: #4ade80; }
+    .sim-modal-item-cat.cat-pwr { background: rgba(234,88,12,0.2); color: #fb923c; }
+    .sim-modal-item-cat.cat-other { background: rgba(147,51,234,0.2); color: #c084fc; }
 
     .sim-modal-footer {
       padding: 10px 16px;
@@ -5032,7 +5034,7 @@
       const mountOptions = ['Pole Mount', 'Wall Mount', 'Free-standing'];
       const stageOptions = ['Prototype', 'EVT', 'DVT', 'PVT', 'MP'];
       const locationOptions = ['Chamber', 'Outdoor', 'Lab(open space)'];
-      const categoryOptions = ['RF', 'Digital', 'PWR'];
+      const categoryOptions = CATEGORY_OPTIONS;
       const specTypeOptions = ['Rec.', 'Abs.'];
       const specTypeLegacy = { 'Recommended': 'Rec.', 'Absolute': 'Abs.' };
       const deratingOptions = ['0.80', '0.85', '0.90', '0.95', '1.00'];
@@ -5051,7 +5053,7 @@
 
       // ── Build component rows ──
       // Assign auto-increment numbers per category
-      const catCounters = { RF: 0, Digital: 0, PWR: 0 };
+      const catCounters = { RF: 0, Digital: 0, PWR: 0, Other: 0 };
       const compRows = d.components.map((comp, ri) => {
         if (!comp.readings) comp.readings = {};
         if (!comp.category) comp.category = 'RF';
@@ -5060,7 +5062,7 @@
         const cat = comp.category;
         catCounters[cat] = (catCounters[cat] || 0) + 1;
         const autoNum = cat + '-' + catCounters[cat];
-        const catClass = cat === 'RF' ? 'cat-rf' : cat === 'Digital' ? 'cat-digital' : 'cat-pwr';
+        const catClass = catClassOf(cat);
 
         const tcSpec = parseFloat(comp.tc_spec) || 0;
         const derating = parseFloat(comp.derating) || 0.9;
@@ -5441,7 +5443,7 @@
       }
 
       function updateAutoNumbers() {
-        const catCounters2 = { RF: 0, Digital: 0, PWR: 0 };
+        const catCounters2 = { RF: 0, Digital: 0, PWR: 0, Other: 0 };
         let prevCat2 = null;
         tbody?.querySelectorAll('tr[data-row-idx]').forEach(tr => {
           const idx = parseInt(tr.dataset.rowIdx);
@@ -5723,6 +5725,19 @@
       scheduleSave(state.pages.length - 1);
     }
 
+    // ── Component category colours (kept clearly distinct across all 4) ──
+    // RF = blue, Digital = green, PWR = orange, Other = purple. Same values are
+    // used on screen (via the .cat-* classes) and in the exported PDF.
+    const CATEGORY_OPTIONS = ['RF', 'Digital', 'PWR', 'Other'];
+    function catClassOf(cat) {
+      return cat === 'RF' ? 'cat-rf' : cat === 'Digital' ? 'cat-digital'
+        : cat === 'PWR' ? 'cat-pwr' : 'cat-other';
+    }
+    function catColorOf(cat) {
+      return cat === 'RF' ? '#2563EB' : cat === 'Digital' ? '#16A34A'
+        : cat === 'PWR' ? '#EA580C' : '#9333EA';
+    }
+
     function getDataPageComponents() {
       // Gather all components from all data pages
       const result = [];
@@ -5730,7 +5745,7 @@
         if (p.type !== 'data') return;
         const comps = p.data.components || [];
         const tas = p.data.ta_conditions || [];
-        const catCounters = { RF: 0, Digital: 0, PWR: 0 };
+        const catCounters = { RF: 0, Digital: 0, PWR: 0, Other: 0 };
         comps.forEach(comp => {
           const cat = comp.category || 'RF';
           catCounters[cat] = (catCounters[cat] || 0) + 1;
@@ -5786,7 +5801,7 @@
 
       let itemsHTML = available.map((comp, i) => {
         const checked = existing.has(comp.component_name) ? 'checked' : '';
-        const catClass = comp.category === 'RF' ? 'cat-rf' : comp.category === 'Digital' ? 'cat-digital' : 'cat-pwr';
+        const catClass = catClassOf(comp.category);
         return `<label class="sim-modal-item">
           <input type="checkbox" value="${i}" ${checked}>
           <span class="sim-modal-item-cat ${catClass}">${comp.category}</span>
@@ -5867,7 +5882,7 @@
           }
         }
 
-        const catClass = item.category === 'RF' ? 'cat-rf' : item.category === 'Digital' ? 'cat-digital' : 'cat-pwr';
+        const catClass = catClassOf(item.category);
 
         return `<tr data-sim-row="${i}">
           <td style="text-align:left;"><span class="dt-cat-strip ${catClass}"></span><span class="sim-readonly">${escapeAttr(item.category)}</span></td>
@@ -6782,7 +6797,7 @@
       const thStyle = 'text-align:center;font-family:&apos;JetBrains Mono&apos;,monospace;font-size:8px;font-weight:500;color:#ffffff;padding:4px 5px;background:#0B3D7A;border:1px solid rgba(255,255,255,0.3);white-space:nowrap;letter-spacing:0.04em;word-spacing:0px;';
       const tdStyle = 'padding:3px 5px;border:1px solid rgba(15,23,42,0.08);font-size:10px;white-space:nowrap;letter-spacing:0px;word-spacing:0px;text-align:center;';
 
-      const catCounters = { RF: 0, Digital: 0, PWR: 0 };
+      const catCounters = { RF: 0, Digital: 0, PWR: 0, Other: 0 };
       const rows = comps.map(comp => {
         const cat = comp.category || 'RF';
         catCounters[cat] = (catCounters[cat] || 0) + 1;
@@ -6807,7 +6822,7 @@
           return `<td style="${tdStyle}text-align:center;">${measured || '—'}</td><td style="${tdStyle}text-align:center;font-weight:600;${marginBg}">${marginStr}</td>`;
         }).join('');
 
-        const catColor = cat === 'RF' ? '#3A7AD4' : cat === 'Digital' ? '#5BA3E6' : '#F39C12';
+        const catColor = catColorOf(cat);
         const rowBg = rowFail ? 'background:rgba(231,76,60,0.06);' : '';
         const pf = rowFail ? '❌' : (tcSpec > 0 ? '✔' : '—');
 
@@ -6897,7 +6912,7 @@
       const thStyle = 'text-align:center;font-family:&apos;JetBrains Mono&apos;,monospace;font-size:8px;font-weight:500;color:#ffffff;padding:4px 5px;background:#0B3D7A;border:1px solid rgba(255,255,255,0.3);white-space:nowrap;letter-spacing:0.04em;word-spacing:0px;';
       const tdStyle = 'padding:3px 5px;border:1px solid rgba(15,23,42,0.08);font-size:10px;white-space:nowrap;letter-spacing:0px;word-spacing:0px;text-align:center;';
 
-      const catCounters = { RF: 0, Digital: 0, PWR: 0 };
+      const catCounters = { RF: 0, Digital: 0, PWR: 0, Other: 0 };
       const rowsHtml = comps.map(comp => {
         const cat = comp.category || 'RF';
         catCounters[cat] = (catCounters[cat] || 0) + 1;
@@ -6922,7 +6937,7 @@
           return `<td style="${tdStyle}text-align:center;">${measured || '—'}</td><td style="${tdStyle}text-align:center;font-weight:600;${marginBg}">${marginStr}</td>`;
         }).join('');
 
-        const catColor = cat === 'RF' ? '#3A7AD4' : cat === 'Digital' ? '#5BA3E6' : '#F39C12';
+        const catColor = catColorOf(cat);
         const rowBg = rowFail ? 'background:rgba(231,76,60,0.06);' : '';
         const pf = rowFail ? '❌' : (tcSpec > 0 ? '✔' : '—');
 
@@ -7164,7 +7179,7 @@
           else if (absDp <= 10) { devStyle = 'background:rgba(243,156,18,0.10);color:#F39C12;'; judgeText = '⚠️'; }
           else { devStyle = 'background:rgba(231,76,60,0.08);color:#E74C3C;'; judgeText = '❌'; }
         }
-        const catColor = item.category === 'RF' ? '#3A7AD4' : item.category === 'Digital' ? '#5BA3E6' : '#F39C12';
+        const catColor = catColorOf(item.category);
         return `<tr>
           <td style="${tdStyle}text-align:left;"><span style="display:inline-block;width:3px;height:14px;border-radius:2px;background:${catColor};margin-right:3px;vertical-align:middle;"></span>${escHtml(item.category)}</td>
           <td style="${tdStyle}">${escHtml(item.component_name)}</td>

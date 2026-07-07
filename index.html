@@ -937,11 +937,63 @@
       height: 100%;
       display: flex;
       flex-direction: column;
-      padding: 3.8% 4.7% 2.8%;
+      padding: 24px 30px 26px;
       font-family: var(--font-ui);
       color: var(--text-on-white);
       overflow-y: auto;
-      gap: 2.4%;
+      gap: 16px;
+    }
+    /* Conclusion uses the same widened, scrollable editor treatment as the data page */
+    .scrollable-edit .conclusion-page {
+      height: auto;
+      min-height: 100%;
+      overflow-y: visible;
+    }
+
+    .concl-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid #C2DFF8;
+    }
+    .concl-page-title {
+      font-size: 15px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: #0B3D7A;
+    }
+    .concl-overall {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 12px;
+      border-radius: 6px;
+      border: 1px solid rgba(15,23,42,0.10);
+    }
+    .concl-overall-label {
+      font-size: 9px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: rgba(15,23,42,0.45);
+    }
+    .concl-overall-value { font-size: 13px; font-weight: 700; white-space: nowrap; }
+    .concl-overall-pass    { background: rgba(34,197,94,0.10);  border-color: rgba(34,197,94,0.35); }
+    .concl-overall-pass .concl-overall-value    { color: #15803d; }
+    .concl-overall-warning { background: rgba(250,204,21,0.14); border-color: rgba(202,138,4,0.35); }
+    .concl-overall-warning .concl-overall-value { color: #a16207; }
+    .concl-overall-fail    { background: rgba(239,68,68,0.10);  border-color: rgba(239,68,68,0.35); }
+    .concl-overall-fail .concl-overall-value    { color: #b91c1c; }
+    .concl-overall-none .concl-overall-value    { color: rgba(15,23,42,0.45); }
+
+    .concl-columns {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      align-items: start;
     }
 
     .concl-section {
@@ -1038,6 +1090,36 @@
     .concl-verdict-pass { background: rgba(34,197,94,0.12); color: #166534; }
     .concl-verdict-warning { background: rgba(250,204,21,0.18); color: #854d0e; }
     .concl-verdict-fail { background: rgba(239,68,68,0.12); color: #991b1b; }
+
+    /* Auto-filled (read-only) compliance cells — pulled from the data page */
+    .concl-table td.concl-readonly {
+      color: var(--text-on-white);
+      font-weight: 600;
+      text-align: center;
+    }
+    .concl-table td.concl-readonly:first-child { font-weight: 500; }
+    .concl-margin-pass { color: #15803d; }
+    .concl-margin-warn { color: #a16207; }
+    .concl-margin-fail { color: #b91c1c; }
+    .concl-table td.concl-empty {
+      text-align: center;
+      color: rgba(15,23,42,0.35);
+      padding: 12px 8px;
+      font-size: 11px;
+    }
+    .concl-del-cell { text-align: center; }
+    .concl-del-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: rgba(15,23,42,0.28);
+      font-size: 12px;
+      line-height: 1;
+      padding: 2px 4px;
+      border-radius: 3px;
+      transition: color var(--transition-fast), background var(--transition-fast);
+    }
+    .concl-del-btn:hover { color: #b91c1c; background: rgba(239,68,68,0.08); }
 
     .concl-add-btn {
       display: inline-flex;
@@ -3624,7 +3706,7 @@
 
       const page = state.pages[state.activePage];
       // Switch canvas orientation
-      if (page.type === 'image' || page.type === 'annotation' || page.type === 'sim_vs_meas' || page.type === 'data') {
+      if (page.type === 'image' || page.type === 'annotation' || page.type === 'sim_vs_meas' || page.type === 'data' || page.type === 'conclusion') {
         $canvas.classList.add('landscape');
         if (canvasTag) canvasTag.textContent = 'A4 LANDSCAPE';
       } else {
@@ -5686,15 +5768,17 @@
       return result;
     }
 
-    function showComponentSelectModal(page, callback) {
+    // Generic data-page component picker. `preCheckedNames` is a Set/array of
+    // component_names to pre-check; `onConfirm` receives the raw selected
+    // getDataPageComponents() entries so each caller can map them as needed.
+    function showComponentSelectModal(preCheckedNames, onConfirm) {
       const available = getDataPageComponents();
       if (available.length === 0) {
         alert('尚無數據頁元件可選取。請先在數據頁新增元件。');
         return;
       }
 
-      // Track already-selected names
-      const existing = new Set((page.data.items || []).map(it => it.component_name));
+      const existing = preCheckedNames instanceof Set ? preCheckedNames : new Set(preCheckedNames || []);
 
       const overlay = document.createElement('div');
       overlay.className = 'sim-modal-overlay';
@@ -5733,21 +5817,9 @@
       overlay.querySelector('#sim-modal-confirm').addEventListener('click', () => {
         const checked = overlay.querySelectorAll('input[type="checkbox"]:checked');
         const selected = [];
-        checked.forEach(cb => {
-          const comp = available[parseInt(cb.value)];
-          // Preserve existing sim_tc / note if already present
-          const existingItem = (page.data.items || []).find(it => it.component_name === comp.component_name);
-          selected.push({
-            category: comp.category,
-            component_name: comp.component_name,
-            tc_derated: comp.tc_derated,
-            sim_tc: existingItem ? existingItem.sim_tc : '',
-            meas_tc: comp.meas_tc,
-            note: existingItem ? existingItem.note : '',
-          });
-        });
+        checked.forEach(cb => { selected.push(available[parseInt(cb.value)]); });
         document.body.removeChild(overlay);
-        callback(selected);
+        onConfirm(selected);
       });
     }
 
@@ -5849,8 +5921,18 @@
 
       // ── Select components button ──
       document.getElementById('sim-select-comp').addEventListener('click', () => {
-        showComponentSelectModal(page, (selected) => {
-          d.items = selected;
+        showComponentSelectModal(new Set((d.items || []).map(it => it.component_name)), (rawComps) => {
+          d.items = rawComps.map(comp => {
+            const prev = (d.items || []).find(it => it.component_name === comp.component_name);
+            return {
+              category: comp.category,
+              component_name: comp.component_name,
+              tc_derated: comp.tc_derated,
+              sim_tc: prev ? prev.sim_tc : '',
+              meas_tc: comp.meas_tc,
+              note: prev ? prev.note : '',
+            };
+          });
           scheduleSave(state.activePage);
           renderSimVsMeasPage(page);
         });
@@ -6018,23 +6100,56 @@
       scheduleSave(state.pages.length - 1);
     }
 
+    // Margin between measured Tc and derated spec, coloured like the data page
+    function conclMargin(tc, spec) {
+      const t = parseFloat(tc), s = parseFloat(spec);
+      if (isNaN(t) || isNaN(s) || s === 0) return { str: '—', cls: '' };
+      const m = ((s - t) / s) * 100;
+      const cls = m >= 10 ? 'concl-margin-pass' : m >= 0 ? 'concl-margin-warn' : 'concl-margin-fail';
+      return { str: m.toFixed(1) + '%', cls };
+    }
+
+    // Overall result derived from the individual component verdicts
+    function conclOverall(compliance) {
+      const v = (compliance || []).map(r => r.verdict).filter(Boolean);
+      if (v.includes('fail'))    return { status: 'fail',    label: '❌ FAIL' };
+      if (v.includes('warning')) return { status: 'warning', label: '⚠️ CONDITIONAL PASS' };
+      if (v.includes('pass'))    return { status: 'pass',    label: '✅ PASS' };
+      return { status: 'none', label: '尚未判定' };
+    }
+
     function renderConclusionPage(page) {
       const d = page.data;
       if (!d.issues) d.issues = [''];
       if (!d.compliance) d.compliance = [];
       if (!d.actions) d.actions = [];
 
-      // Build compliance rows
-      let complianceRows = '';
-      d.compliance.forEach((row, i) => {
+      // Keep the auto-filled Tc / Derated Spec in sync with the data page
+      // (the user only picks components and chooses the Verdict).
+      const latestComps = getDataPageComponents();
+      d.compliance.forEach(row => {
+        const match = latestComps.find(c => c.component_name === row.component);
+        if (match) {
+          row.tc_max = match.meas_tc;
+          row.spec = (match.tc_derated || match.tc_derated === 0) ? Number(match.tc_derated).toFixed(1) : '';
+        }
+      });
+
+      const overall = conclOverall(d.compliance);
+
+      // Build compliance rows (Component / Tc / Spec auto-filled & read-only)
+      let complianceRows = d.compliance.map((row, i) => {
         const verdictClass = row.verdict === 'pass' ? 'concl-verdict-pass'
           : row.verdict === 'warning' ? 'concl-verdict-warning'
           : row.verdict === 'fail' ? 'concl-verdict-fail' : '';
-        complianceRows += `
+        const mi = conclMargin(row.tc_max, row.spec);
+        const val = v => (v !== undefined && v !== '' && v !== null) ? escapeAttr(String(v)) : '—';
+        return `
           <tr>
-            <td><input type="text" placeholder="元件名稱" value="${escapeAttr(row.component)}" data-comp-idx="${i}" data-comp-field="component"></td>
-            <td><input type="text" placeholder="°C" value="${escapeAttr(row.tc_max)}" data-comp-idx="${i}" data-comp-field="tc_max"></td>
-            <td><input type="text" placeholder="°C" value="${escapeAttr(row.spec)}" data-comp-idx="${i}" data-comp-field="spec"></td>
+            <td class="concl-readonly" style="text-align:left;">${val(row.component)}</td>
+            <td class="concl-readonly">${val(row.tc_max)}</td>
+            <td class="concl-readonly">${val(row.spec)}</td>
+            <td class="${mi.cls}" style="text-align:center;font-weight:600;">${mi.str}</td>
             <td class="${verdictClass}">
               <select data-comp-idx="${i}" data-comp-field="verdict">
                 <option value="" ${!row.verdict ? 'selected' : ''}>—</option>
@@ -6043,33 +6158,40 @@
                 <option value="fail" ${row.verdict === 'fail' ? 'selected' : ''}>❌ Fail</option>
               </select>
             </td>
+            <td class="concl-del-cell"><button class="concl-del-btn" data-comp-del="${i}" title="移除此元件">✕</button></td>
           </tr>`;
-      });
+      }).join('');
+      if (d.compliance.length === 0) {
+        complianceRows = `<tr><td colspan="6" class="concl-empty">尚未選取元件 — 點下方按鈕從數據頁選取有疑慮的元件</td></tr>`;
+      }
 
       // Build issues
-      let issuesHtml = '';
-      d.issues.forEach((issue, i) => {
-        issuesHtml += `
+      let issuesHtml = d.issues.map((issue, i) => `
           <li class="concl-issue-item">
             <span class="concl-issue-bullet">•</span>
             <input class="concl-issue-input" type="text" placeholder="輸入問題描述..."
                    value="${escapeAttr(issue)}" data-issue-idx="${i}">
-          </li>`;
-      });
+          </li>`).join('');
 
       // Build actions rows
-      let actionsRows = '';
-      d.actions.forEach((act, i) => {
-        actionsRows += `
+      let actionsRows = d.actions.map((act, i) => `
           <tr>
             <td><input type="text" placeholder="行動描述" value="${escapeAttr(act.description)}" data-act-idx="${i}" data-act-field="description"></td>
             <td><input type="text" placeholder="Owner" value="${escapeAttr(act.owner)}" data-act-idx="${i}" data-act-field="owner"></td>
             <td><input type="date" value="${escapeAttr(act.due_date)}" data-act-idx="${i}" data-act-field="due_date"></td>
-          </tr>`;
-      });
+            <td class="concl-del-cell"><button class="concl-del-btn" data-act-del="${i}" title="移除此行動">✕</button></td>
+          </tr>`).join('');
 
       $canvas.innerHTML = editorPageWrapHTML(`
         <div class="conclusion-page">
+          <div class="concl-header">
+            <div class="concl-page-title">Test Conclusion</div>
+            <div class="concl-overall concl-overall-${overall.status}">
+              <span class="concl-overall-label">Overall Result</span>
+              <span class="concl-overall-value">${overall.label}</span>
+            </div>
+          </div>
+
           <!-- 1. Summary -->
           <div class="concl-section">
             <div class="concl-section-title">Conclusion</div>
@@ -6080,43 +6202,49 @@
           <!-- 2. Compliance Summary -->
           <div class="concl-section">
             <div class="concl-section-title">Compliance Summary</div>
-            <table class="concl-table">
-              <thead>
-                <tr>
-                  <th style="width:30%">Component</th>
-                  <th style="width:20%">Max Tc (°C)</th>
-                  <th style="width:20%">Derated Spec</th>
-                  <th style="width:30%">Verdict</th>
-                </tr>
-              </thead>
-              <tbody id="compliance-tbody">${complianceRows}</tbody>
-            </table>
-            <button class="concl-add-btn" id="add-compliance-btn">+ 新增元件</button>
+            <div class="concl-table-wrap">
+              <table class="concl-table">
+                <thead>
+                  <tr>
+                    <th style="width:34%">Component</th>
+                    <th style="width:15%">Max Tc (°C)</th>
+                    <th style="width:16%">Derated Spec (°C)</th>
+                    <th style="width:13%">Margin</th>
+                    <th style="width:18%">Verdict</th>
+                    <th style="width:4%"></th>
+                  </tr>
+                </thead>
+                <tbody id="compliance-tbody">${complianceRows}</tbody>
+              </table>
+            </div>
+            <button class="concl-add-btn" id="add-compliance-btn">+ 從數據頁選取元件</button>
           </div>
 
-          <!-- 3. Issues Found -->
-          <div class="concl-section">
-            <div class="concl-section-title">Issues Found</div>
-            <ul class="concl-issues-list" id="issues-list">${issuesHtml}</ul>
-          </div>
-
-          <!-- 4. Next Action -->
-          <div class="concl-section">
-            <div class="concl-section-title">Next Action</div>
-            <table class="concl-actions-table">
-              <thead>
-                <tr>
-                  <th style="width:50%">Action</th>
-                  <th style="width:25%">Owner</th>
-                  <th style="width:25%">Due Date</th>
-                </tr>
-              </thead>
-              <tbody id="actions-tbody">${actionsRows}</tbody>
-            </table>
-            <button class="concl-add-btn" id="add-action-btn">+ 新增行動</button>
+          <!-- 3 + 4. Issues / Next Action side by side -->
+          <div class="concl-columns">
+            <div class="concl-section">
+              <div class="concl-section-title">Issues Found</div>
+              <ul class="concl-issues-list" id="issues-list">${issuesHtml}</ul>
+            </div>
+            <div class="concl-section">
+              <div class="concl-section-title">Next Action</div>
+              <table class="concl-actions-table">
+                <thead>
+                  <tr>
+                    <th style="width:52%">Action</th>
+                    <th style="width:24%">Owner</th>
+                    <th style="width:20%">Due Date</th>
+                    <th style="width:4%"></th>
+                  </tr>
+                </thead>
+                <tbody id="actions-tbody">${actionsRows}</tbody>
+              </table>
+              <button class="concl-add-btn" id="add-action-btn">+ 新增行動</button>
+            </div>
           </div>
         </div>
       `);
+      $canvas.classList.add('scrollable-edit');
 
       bindConclusionHandlers(page);
     }
@@ -6158,16 +6286,30 @@
         });
       });
 
-      // Add compliance row
+      // Add compliance rows — pick components from the data page (Tc/Spec auto-fill)
       document.getElementById('add-compliance-btn')?.addEventListener('click', () => {
-        d.compliance.push({ component: '', tc_max: '', spec: '', verdict: '' });
-        renderConclusionPage(page);
-        scheduleSave(pageIdx);
-        // Focus the last component input
-        setTimeout(() => {
-          const inputs = $canvas.querySelectorAll('[data-comp-field="component"]');
-          inputs[inputs.length - 1]?.focus();
-        }, 30);
+        showComponentSelectModal(new Set((d.compliance || []).map(r => r.component)), (rawComps) => {
+          d.compliance = rawComps.map(comp => {
+            const prev = (d.compliance || []).find(r => r.component === comp.component_name);
+            return {
+              component: comp.component_name,
+              tc_max: comp.meas_tc,
+              spec: (comp.tc_derated || comp.tc_derated === 0) ? Number(comp.tc_derated).toFixed(1) : '',
+              verdict: prev ? prev.verdict : '',
+            };
+          });
+          renderConclusionPage(page);
+          scheduleSave(pageIdx);
+        });
+      });
+
+      // Delete a compliance row
+      $canvas.querySelectorAll('[data-comp-del]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          d.compliance.splice(parseInt(btn.dataset.compDel), 1);
+          renderConclusionPage(page);
+          scheduleSave(pageIdx);
+        });
       });
 
       // Issues inputs
@@ -6227,6 +6369,15 @@
           inputs[inputs.length - 1]?.focus();
         }, 30);
       });
+
+      // Delete an action row
+      $canvas.querySelectorAll('[data-act-del]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          d.actions.splice(parseInt(btn.dataset.actDel), 1);
+          renderConclusionPage(page);
+          scheduleSave(pageIdx);
+        });
+      });
     }
 
     // ━━━ Virtual Pages (flattens data page sub-pages for preview/PDF) ━━━
@@ -6240,7 +6391,7 @@
           });
         } else {
           let html = '';
-          const isLandscape = page.type === 'image' || page.type === 'annotation' || page.type === 'sim_vs_meas';
+          const isLandscape = page.type === 'image' || page.type === 'annotation' || page.type === 'sim_vs_meas' || page.type === 'conclusion';
           if (page.type === 'cover') html = buildCoverHTML(page.data);
           else if (page.type === 'image') html = buildImagePageHTML(page.data);
           else if (page.type === 'annotation') html = buildAnnotationHTML(page.data);
@@ -6542,45 +6693,81 @@
       const issues = (d.issues || []).filter(s => s);
       const acts = d.actions || [];
 
-      const thStyle = 'text-align:left;font-family:&apos;JetBrains Mono&apos;,monospace;font-size:10px;font-weight:500;letter-spacing:0.04em;word-spacing:0px;color:#2357A7;padding:6px 8px;border-bottom:2px solid #C2DFF8;';
-      const tdStyle = 'padding:5px 8px;border-bottom:1px solid rgba(15,23,42,0.06);font-size:12px;letter-spacing:0px;word-spacing:0px;';
+      const overall = conclOverall(comp);
+      const oColor = overall.status === 'pass' ? '#15803d' : overall.status === 'warning' ? '#a16207'
+        : overall.status === 'fail' ? '#b91c1c' : 'rgba(15,23,42,0.45)';
+      const oBg = overall.status === 'pass' ? 'rgba(34,197,94,0.10)' : overall.status === 'warning' ? 'rgba(250,204,21,0.14)'
+        : overall.status === 'fail' ? 'rgba(239,68,68,0.10)' : 'rgba(15,23,42,0.03)';
+      const oBorder = overall.status === 'pass' ? 'rgba(34,197,94,0.35)' : overall.status === 'warning' ? 'rgba(202,138,4,0.35)'
+        : overall.status === 'fail' ? 'rgba(239,68,68,0.35)' : 'rgba(15,23,42,0.10)';
 
-      let compRows = comp.map(r => {
-        let bg = '';
-        let vLabel = '—';
+      const thStyle = 'text-align:center;font-family:&apos;JetBrains Mono&apos;,monospace;font-size:9px;font-weight:500;letter-spacing:0.04em;word-spacing:0px;color:#ffffff;background:#0B3D7A;padding:5px 6px;border:1px solid rgba(255,255,255,0.3);';
+      const tdStyle = 'padding:4px 8px;border:1px solid rgba(15,23,42,0.08);font-size:11px;letter-spacing:0px;word-spacing:0px;text-align:center;';
+      const tdLeft = tdStyle + 'text-align:left;';
+      const show = v => (v !== undefined && v !== '' && v !== null) ? escHtml(String(v)) : '—';
+
+      const compRows = comp.map(r => {
+        let bg = '', vLabel = '—';
         if (r.verdict === 'pass')    { bg = 'background:rgba(34,197,94,0.12);color:#166534;'; vLabel = '✅ Pass'; }
         if (r.verdict === 'warning') { bg = 'background:rgba(250,204,21,0.18);color:#854d0e;'; vLabel = '⚠️ Warning'; }
         if (r.verdict === 'fail')    { bg = 'background:rgba(239,68,68,0.12);color:#991b1b;'; vLabel = '❌ Fail'; }
-        return `<tr><td style="${tdStyle}">${escHtml(r.component)}</td><td style="${tdStyle}">${escHtml(r.tc_max)}</td><td style="${tdStyle}">${escHtml(r.spec)}</td><td style="${tdStyle}${bg}">${vLabel}</td></tr>`;
+        const mi = conclMargin(r.tc_max, r.spec);
+        const mColor = mi.cls === 'concl-margin-pass' ? 'color:#15803d;' : mi.cls === 'concl-margin-warn' ? 'color:#a16207;' : mi.cls === 'concl-margin-fail' ? 'color:#b91c1c;' : '';
+        return `<tr>
+          <td style="${tdLeft}">${show(r.component)}</td>
+          <td style="${tdStyle}">${show(r.tc_max)}</td>
+          <td style="${tdStyle}">${show(r.spec)}</td>
+          <td style="${tdStyle}font-weight:600;${mColor}">${mi.str}</td>
+          <td style="${tdStyle}font-weight:600;${bg}">${vLabel}</td>
+        </tr>`;
       }).join('');
 
-      let issuesHtml = issues.map(s => `<li style="margin-bottom:4px;font-size:13px;line-height:1.7;">• ${escHtml(s)}</li>`).join('');
+      const issuesHtml = issues.length
+        ? issues.map(s => `<li style="margin-bottom:5px;font-size:11px;line-height:1.6;">• ${escHtml(s)}</li>`).join('')
+        : `<li style="list-style:none;font-size:11px;color:rgba(15,23,42,0.4);">—</li>`;
 
-      let actRows = acts.map(a => `<tr><td style="${tdStyle}">${escHtml(a.description)}</td><td style="${tdStyle}">${escHtml(a.owner)}</td><td style="${tdStyle}">${escHtml(a.due_date)}</td></tr>`).join('');
+      const actTd = 'padding:4px 8px;border:1px solid rgba(15,23,42,0.08);font-size:11px;letter-spacing:0px;word-spacing:0px;text-align:left;';
+      const actRows = acts.length
+        ? acts.map(a => `<tr><td style="${actTd}">${escHtml(a.description)}</td><td style="${actTd}">${escHtml(a.owner)}</td><td style="${actTd}">${escHtml(a.due_date)}</td></tr>`).join('')
+        : `<tr><td style="${actTd}color:rgba(15,23,42,0.4);" colspan="3">—</td></tr>`;
 
-      const secTitle = "font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:500;letter-spacing:0.08em;word-spacing:0px;color:#2357A7;margin-bottom:8px;";
+      const secTitle = "font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:600;letter-spacing:0.08em;word-spacing:0px;color:#2357A7;margin-bottom:6px;text-transform:uppercase;";
 
-      const inner = `<div style="width:100%;height:100%;display:flex;flex-direction:column;padding:34px 44px 32px;gap:18px;color:rgba(15,23,42,0.90);overflow-y:auto;letter-spacing:0px;word-spacing:0px;">
-        <div>
-          <div style="${secTitle}">CONCLUSION</div>
-          <div style="min-height:60px;padding:10px 12px;border:1px solid #C2DFF8;font-size:13px;line-height:1.7;">${d.summary || ''}</div>
+      const inner = `<div style="width:100%;height:100%;display:flex;flex-direction:column;padding:26px 34px 24px;gap:14px;color:rgba(15,23,42,0.90);overflow:hidden;letter-spacing:0px;word-spacing:0px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding-bottom:8px;border-bottom:2px solid #C2DFF8;">
+          <div style="font-family:'Space Grotesk',sans-serif;font-size:16px;font-weight:600;letter-spacing:0.02em;color:#0B3D7A;">TEST CONCLUSION</div>
+          <div style="display:flex;align-items:center;gap:8px;padding:5px 12px;border-radius:6px;background:${oBg};border:1px solid ${oBorder};">
+            <span style="font-family:'JetBrains Mono',monospace;font-size:8px;font-weight:600;letter-spacing:0.08em;color:rgba(15,23,42,0.45);text-transform:uppercase;">Overall Result</span>
+            <span style="font-size:13px;font-weight:700;color:${oColor};">${overall.label}</span>
+          </div>
         </div>
-        ${comp.length > 0 ? `<div>
-          <div style="${secTitle}">COMPLIANCE SUMMARY</div>
-          <table style="width:100%;border-collapse:collapse;font-size:12px;"><thead><tr>
-            <th style="${thStyle}">Component</th><th style="${thStyle}">Max Tc</th><th style="${thStyle}">Spec</th><th style="${thStyle}">Verdict</th>
-          </tr></thead><tbody>${compRows}</tbody></table>
-        </div>` : ''}
-        ${issues.length > 0 ? `<div>
-          <div style="${secTitle}">ISSUES FOUND</div>
-          <ul style="list-style:none;padding:0;">${issuesHtml}</ul>
-        </div>` : ''}
-        ${acts.length > 0 ? `<div>
-          <div style="${secTitle}">NEXT ACTION</div>
-          <table style="width:100%;border-collapse:collapse;font-size:12px;"><thead><tr>
-            <th style="${thStyle}">Action</th><th style="${thStyle}">Owner</th><th style="${thStyle}">Due Date</th>
-          </tr></thead><tbody>${actRows}</tbody></table>
-        </div>` : ''}
+
+        <div>
+          <div style="${secTitle}">Conclusion</div>
+          <div style="min-height:48px;padding:9px 12px;border:1px solid #C2DFF8;border-radius:4px;font-size:12px;line-height:1.6;">${d.summary || ''}</div>
+        </div>
+
+        <div>
+          <div style="${secTitle}">Compliance Summary</div>
+          ${comp.length > 0 ? `<div style="border:1px solid #C2DFF8;"><table style="width:100%;border-collapse:collapse;">
+            <thead><tr>
+              <th style="${thStyle}text-align:left;">Component</th><th style="${thStyle}">Max Tc (°C)</th><th style="${thStyle}">Derated Spec (°C)</th><th style="${thStyle}">Margin</th><th style="${thStyle}">Verdict</th>
+            </tr></thead><tbody>${compRows}</tbody></table></div>`
+            : `<div style="font-size:11px;color:rgba(15,23,42,0.4);padding:6px 2px;">尚未選取元件</div>`}
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start;">
+          <div>
+            <div style="${secTitle}">Issues Found</div>
+            <ul style="list-style:none;padding:0;margin:0;">${issuesHtml}</ul>
+          </div>
+          <div>
+            <div style="${secTitle}">Next Action</div>
+            <div style="border:1px solid #C2DFF8;"><table style="width:100%;border-collapse:collapse;">
+              <thead><tr><th style="${thStyle}text-align:left;">Action</th><th style="${thStyle}text-align:left;">Owner</th><th style="${thStyle}text-align:left;">Due Date</th></tr></thead>
+              <tbody>${actRows}</tbody></table></div>
+          </div>
+        </div>
       </div>`;
       return wrapPageHTML(inner);
     }

@@ -1101,6 +1101,7 @@
     .concl-margin-pass { color: #15803d; }
     .concl-margin-warn { color: #a16207; }
     .concl-margin-fail { color: #b91c1c; }
+    .concl-table td.concl-verdict-cell { text-align: center; font-weight: 600; }
     .concl-table td.concl-empty {
       text-align: center;
       color: rgba(15,23,42,0.35);
@@ -6109,12 +6110,33 @@
       return { str: m.toFixed(1) + '%', cls };
     }
 
-    // Overall result derived from the individual component verdicts
+    // Verdict is derived automatically from the Margin (same thresholds as the
+    // data page): margin ≥ 10% → Pass, 0–10% → Warning (amber), < 0% → Fail (red).
+    // Empty when Tc / Spec aren't available yet.
+    function conclVerdict(tc, spec) {
+      const cls = conclMargin(tc, spec).cls;
+      if (cls === 'concl-margin-pass') return 'pass';
+      if (cls === 'concl-margin-warn') return 'warning';
+      if (cls === 'concl-margin-fail') return 'fail';
+      return '';
+    }
+
+    const CONCL_VERDICT = {
+      pass:    { label: '✅ Pass',    cls: 'concl-verdict-pass' },
+      warning: { label: '⚠️ Warning', cls: 'concl-verdict-warning' },
+      fail:    { label: '❌ Fail',    cls: 'concl-verdict-fail' },
+      '':      { label: '—',          cls: '' },
+    };
+
+    // Overall result derived from the component margins/verdicts.
+    // An empty Compliance Summary means nothing was flagged → PASS.
     function conclOverall(compliance) {
-      const v = (compliance || []).map(r => r.verdict).filter(Boolean);
-      if (v.includes('fail'))    return { status: 'fail',    label: '❌ FAIL' };
-      if (v.includes('warning')) return { status: 'warning', label: '⚠️ CONDITIONAL PASS' };
-      if (v.includes('pass'))    return { status: 'pass',    label: '✅ PASS' };
+      const rows = compliance || [];
+      if (rows.length === 0) return { status: 'pass', label: '✅ PASS' };
+      const verdicts = rows.map(r => conclVerdict(r.tc_max, r.spec));
+      if (verdicts.includes('fail'))    return { status: 'fail',    label: '❌ FAIL' };
+      if (verdicts.includes('warning')) return { status: 'warning', label: '⚠️ CONDITIONAL PASS' };
+      if (verdicts.every(v => v === 'pass')) return { status: 'pass', label: '✅ PASS' };
       return { status: 'none', label: '尚未判定' };
     }
 
@@ -6137,12 +6159,11 @@
 
       const overall = conclOverall(d.compliance);
 
-      // Build compliance rows (Component / Tc / Spec auto-filled & read-only)
+      // Build compliance rows (Component / Tc / Spec / Margin / Verdict all
+      // auto-filled & read-only; Verdict follows the Margin automatically)
       let complianceRows = d.compliance.map((row, i) => {
-        const verdictClass = row.verdict === 'pass' ? 'concl-verdict-pass'
-          : row.verdict === 'warning' ? 'concl-verdict-warning'
-          : row.verdict === 'fail' ? 'concl-verdict-fail' : '';
         const mi = conclMargin(row.tc_max, row.spec);
+        const vd = CONCL_VERDICT[conclVerdict(row.tc_max, row.spec)] || CONCL_VERDICT[''];
         const val = v => (v !== undefined && v !== '' && v !== null) ? escapeAttr(String(v)) : '—';
         return `
           <tr>
@@ -6150,14 +6171,7 @@
             <td class="concl-readonly">${val(row.tc_max)}</td>
             <td class="concl-readonly">${val(row.spec)}</td>
             <td class="${mi.cls}" style="text-align:center;font-weight:600;">${mi.str}</td>
-            <td class="${verdictClass}">
-              <select data-comp-idx="${i}" data-comp-field="verdict">
-                <option value="" ${!row.verdict ? 'selected' : ''}>—</option>
-                <option value="pass" ${row.verdict === 'pass' ? 'selected' : ''}>✅ Pass</option>
-                <option value="warning" ${row.verdict === 'warning' ? 'selected' : ''}>⚠️ Warning</option>
-                <option value="fail" ${row.verdict === 'fail' ? 'selected' : ''}>❌ Fail</option>
-              </select>
-            </td>
+            <td class="${vd.cls} concl-verdict-cell">${vd.label}</td>
             <td class="concl-del-cell"><button class="concl-del-btn" data-comp-del="${i}" title="移除此元件">✕</button></td>
           </tr>`;
       }).join('');
@@ -6269,22 +6283,8 @@
         });
       }
 
-      // Compliance table inputs
-      $canvas.querySelectorAll('[data-comp-idx]').forEach(el => {
-        const idx = parseInt(el.dataset.compIdx);
-        const field = el.dataset.compField;
-        const eventType = el.tagName === 'SELECT' ? 'change' : 'input';
-        el.addEventListener(eventType, () => {
-          if (d.compliance[idx]) {
-            d.compliance[idx][field] = el.value;
-            // Re-render to update verdict color
-            if (field === 'verdict') {
-              renderConclusionPage(page);
-            }
-            scheduleSave(pageIdx);
-          }
-        });
-      });
+      // (Compliance Component / Tc / Spec / Margin / Verdict are all auto-filled
+      //  and read-only — Verdict follows the Margin — so there are no inputs here.)
 
       // Add compliance rows — pick components from the data page (Tc/Spec auto-fill)
       document.getElementById('add-compliance-btn')?.addEventListener('click', () => {
@@ -6707,10 +6707,11 @@
       const show = v => (v !== undefined && v !== '' && v !== null) ? escHtml(String(v)) : '—';
 
       const compRows = comp.map(r => {
+        const verdict = conclVerdict(r.tc_max, r.spec);
         let bg = '', vLabel = '—';
-        if (r.verdict === 'pass')    { bg = 'background:rgba(34,197,94,0.12);color:#166534;'; vLabel = '✅ Pass'; }
-        if (r.verdict === 'warning') { bg = 'background:rgba(250,204,21,0.18);color:#854d0e;'; vLabel = '⚠️ Warning'; }
-        if (r.verdict === 'fail')    { bg = 'background:rgba(239,68,68,0.12);color:#991b1b;'; vLabel = '❌ Fail'; }
+        if (verdict === 'pass')    { bg = 'background:rgba(34,197,94,0.12);color:#166534;'; vLabel = '✅ Pass'; }
+        if (verdict === 'warning') { bg = 'background:rgba(250,204,21,0.18);color:#854d0e;'; vLabel = '⚠️ Warning'; }
+        if (verdict === 'fail')    { bg = 'background:rgba(239,68,68,0.12);color:#991b1b;'; vLabel = '❌ Fail'; }
         const mi = conclMargin(r.tc_max, r.spec);
         const mColor = mi.cls === 'concl-margin-pass' ? 'color:#15803d;' : mi.cls === 'concl-margin-warn' ? 'color:#a16207;' : mi.cls === 'concl-margin-fail' ? 'color:#b91c1c;' : '';
         return `<tr>

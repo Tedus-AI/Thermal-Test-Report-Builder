@@ -2725,6 +2725,34 @@
       transform: scale(1.15);
     }
 
+    /* Copy/duplicate this marker (dot + label) */
+    .marker-copy-btn {
+      position: absolute;
+      top: -8px;
+      left: -8px;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #2357A7;
+      color: #fff;
+      border: 1.5px solid #fff;
+      font-size: 9px;
+      line-height: 1;
+      font-weight: 700;
+      cursor: pointer;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.25);
+      z-index: 21;
+    }
+    .marker-label-wrap:hover .marker-copy-btn,
+    .marker-label-wrap:focus-within .marker-copy-btn {
+      display: flex;
+    }
+    .marker-copy-btn:hover { background: #0B3D7A; transform: scale(1.15); }
+
     .marker-label {
       width: 53px;
       min-width: 40px;
@@ -5197,9 +5225,34 @@
             scheduleSave(state.activePage);
           });
 
+          // Copy button — duplicate this marker (dot + label), offset slightly
+          const copyBtn = document.createElement('button');
+          copyBtn.className = 'marker-copy-btn';
+          copyBtn.type = 'button';
+          copyBtn.textContent = '⧉';
+          copyBtn.title = '複製此標籤';
+          copyBtn.addEventListener('mousedown', (e) => { e.preventDefault(); e.stopPropagation(); });
+          copyBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const dup = {
+              id: 'm_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+              x: Math.min(98, (m.x || 0) + 4),
+              y: Math.min(98, (m.y || 0) + 4),
+              label: m.label || '',
+              label_x: (m.label_x >= 0) ? Math.min(95, m.label_x + 3) : m.label_x,
+              label_y: (m.label_y >= 0) ? Math.min(95, m.label_y + 3) : m.label_y,
+              label_w: m.label_w,
+            };
+            page.data.markers.push(dup);
+            renderAnnotationMarkers(page);
+            scheduleSave(state.activePage);
+          });
+
           wrap.appendChild(label);
           wrap.appendChild(resizeHandle);
           wrap.appendChild(deleteBtn);
+          wrap.appendChild(copyBtn);
 
           // Editable
           label.addEventListener('input', () => {
@@ -5622,6 +5675,7 @@
             </table>
           </div>
           <button class="dt-add-row-btn" id="dt-add-row">+ 新增元件</button>
+          <button class="dt-add-row-btn" id="dt-import-anno" style="margin-left:8px;">⇩ 帶入標註頁元件</button>
 
           <!-- Embedded Sensor Section -->
           <div class="sensor-section">
@@ -5852,6 +5906,36 @@
           });
           scheduleSave(state.activePage);
           renderDataPage(page);
+        });
+      }
+
+      // ── Import all components from annotation page(s) ──
+      const importBtn = document.getElementById('dt-import-anno');
+      if (importBtn) {
+        importBtn.addEventListener('click', () => {
+          showAnnotationImportModal((selectedPages) => {
+            let added = 0;
+            selectedPages.forEach(ap => {
+              const cat = ap.data.tc_category || 'RF';
+              (ap.data.markers || []).forEach((m, i) => {
+                d.components.push({
+                  category: cat,
+                  name: m.label || ('TC' + (i + 1)),
+                  spec_type: 'Rec.',
+                  tc_spec: '',
+                  derating: '0.90',
+                  tim_type: '',
+                  readings: {},
+                  note: '',
+                });
+                added++;
+              });
+            });
+            if (added > 0) {
+              scheduleSave(state.activePage);
+              renderDataPage(page);
+            }
+          });
         });
       }
 
@@ -6130,6 +6214,48 @@
     // Generic data-page component picker. `preCheckedNames` is a Set/array of
     // component_names to pre-check; `onConfirm` receives the raw selected
     // getDataPageComponents() entries so each caller can map them as needed.
+    // Pick which annotation page(s) to import components (markers) from.
+    // onConfirm receives the selected annotation page objects.
+    function showAnnotationImportModal(onConfirm) {
+      const annoPages = state.pages.filter(p => p.type === 'annotation');
+      if (annoPages.length === 0) {
+        alert('尚無標註頁可帶入。請先新增標註頁並放置標註。');
+        return;
+      }
+
+      const overlay = document.createElement('div');
+      overlay.className = 'sim-modal-overlay';
+      const itemsHTML = annoPages.map((p, i) => {
+        const title = p.data.title || ((p.data.tc_category || 'RF') + ' Thermocouple Location');
+        const count = (p.data.markers || []).length;
+        return `<label class="sim-modal-item">
+          <input type="checkbox" value="${i}" ${count > 0 ? 'checked' : ''}>
+          <span class="sim-modal-item-label">${escapeAttr(title)}</span>
+          <span style="margin-left:auto;font-size:11px;color:rgba(255,255,255,0.5);white-space:nowrap;">${count} 個元件</span>
+        </label>`;
+      }).join('');
+
+      overlay.innerHTML = `
+        <div class="sim-modal">
+          <div class="sim-modal-header">帶入標註頁元件</div>
+          <div class="sim-modal-body">${itemsHTML}</div>
+          <div class="sim-modal-footer">
+            <button class="sim-modal-btn" id="anno-import-cancel">取消</button>
+            <button class="sim-modal-btn primary" id="anno-import-confirm">帶入</button>
+          </div>
+        </div>`;
+      document.body.appendChild(overlay);
+      const close = () => document.body.removeChild(overlay);
+      overlay.querySelector('#anno-import-cancel').addEventListener('click', close);
+      overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+      overlay.querySelector('#anno-import-confirm').addEventListener('click', () => {
+        const checked = overlay.querySelectorAll('input[type="checkbox"]:checked');
+        const selected = Array.from(checked).map(cb => annoPages[parseInt(cb.value)]);
+        close();
+        onConfirm(selected);
+      });
+    }
+
     function showComponentSelectModal(preCheckedNames, onConfirm) {
       const available = getDataPageComponents();
       if (available.length === 0) {

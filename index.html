@@ -2377,7 +2377,6 @@
       flex-shrink: 0;
       z-index: 5;
     }
-    .anno-cat-strip { width: 4px; height: 18px; border-radius: 2px; flex-shrink: 0; }
     .annotation-cat-select {
       font-family: var(--font-ui);
       font-size: 15px;
@@ -4626,7 +4625,6 @@
       $canvas.innerHTML = editorPageWrapHTML(`
         <div class="annotation-page">
           <div class="annotation-header">
-            <span class="anno-cat-strip" style="background:${catColorOf(d.tc_category)};"></span>
             <select class="annotation-cat-select" data-field="tc_category">${catOptions}</select>
             <span class="annotation-title-fixed">Thermocouple Location</span>
           </div>
@@ -4678,13 +4676,11 @@
       sizeAnnotationWorkspace(page);
       updateAnnoCompList(page);
 
-      // Category dropdown binding (updates strip colour + composed title)
+      // Category dropdown binding (updates the composed title)
       const catSel = $canvas.querySelector('[data-field="tc_category"]');
       catSel?.addEventListener('change', () => {
         d.tc_category = catSel.value;
         d.title = catSel.value + ' Thermocouple Location';
-        const strip = $canvas.querySelector('.anno-cat-strip');
-        if (strip) strip.style.background = catColorOf(catSel.value);
         scheduleSave(state.activePage);
       });
 

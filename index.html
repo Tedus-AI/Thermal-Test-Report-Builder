@@ -857,6 +857,12 @@
       background: rgba(239,68,68,0.8);
     }
 
+    .photo-action-btn.icon {
+      padding: 4px 7px;
+      font-size: 13px;
+      line-height: 1;
+    }
+
     .cover-divider {
       width: 48px;
       height: 2px;
@@ -4340,6 +4346,7 @@
           </div>
         </div>
       `);
+      $canvas.classList.add('anno-wide');
 
       // Bind title
       const titleInput = $canvas.querySelector('[data-field="title"]');
@@ -4454,8 +4461,12 @@
         return `
           <div class="image-cell">
             <div class="image-drop-zone has-image" data-pos="${position}">
-              <img src="${escapeAttr(imgData.url_or_base64)}" alt="Image ${position + 1}">
+              <img src="${escapeAttr(imgData.url_or_base64)}" alt="Image ${position + 1}" style="transform:${cssImgTransform(imgData.rotate, imgData.flip_h, imgData.flip_v)};">
               <div class="image-cell-actions">
+                <button class="photo-action-btn icon img-edit-btn" data-pos="${position}" data-edit="rotate-left" title="左轉 90°">↺</button>
+                <button class="photo-action-btn icon img-edit-btn" data-pos="${position}" data-edit="rotate-right" title="右轉 90°">↻</button>
+                <button class="photo-action-btn icon img-edit-btn" data-pos="${position}" data-edit="flip-h" title="水平翻轉">⇋</button>
+                <button class="photo-action-btn icon img-edit-btn" data-pos="${position}" data-edit="flip-v" title="垂直翻轉">⇅</button>
                 <button class="photo-action-btn img-replace-btn" data-pos="${position}">替換</button>
                 <button class="photo-action-btn danger img-delete-btn" data-pos="${position}">刪除</button>
               </div>
@@ -4550,6 +4561,23 @@
             scheduleSave(state.activePage);
           });
         }
+
+        // Rotate / flip — per image, applied in place (reflected in the PDF too)
+        zone.querySelectorAll('.img-edit-btn').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const im = page.data.images[pos];
+            if (!im) return;
+            const edit = btn.dataset.edit;
+            if (edit === 'rotate-left')  im.rotate = (((im.rotate || 0) - 90) % 360 + 360) % 360;
+            else if (edit === 'rotate-right') im.rotate = ((im.rotate || 0) + 90) % 360;
+            else if (edit === 'flip-h') im.flip_h = !im.flip_h;
+            else if (edit === 'flip-v') im.flip_v = !im.flip_v;
+            const imgEl = zone.querySelector('img');
+            if (imgEl) imgEl.style.transform = cssImgTransform(im.rotate, im.flip_h, im.flip_v);
+            scheduleSave(state.activePage);
+          });
+        });
       });
     }
 
@@ -4592,11 +4620,15 @@
 
     // CSS transform applied to the annotation photo (rotate / flip). Same string
     // is used in the editor and in the exported PDF so they always match.
-    function annoImgTransform(d) {
-      const r = d.anno_rotate || 0;
-      const sx = d.anno_flip_h ? -1 : 1;
-      const sy = d.anno_flip_v ? -1 : 1;
+    // Generic image transform (rotate + flip); shared by annotation & image pages.
+    function cssImgTransform(rotate, flipH, flipV) {
+      const r = rotate || 0;
+      const sx = flipH ? -1 : 1;
+      const sy = flipV ? -1 : 1;
       return `rotate(${r}deg) scale(${sx}, ${sy})`;
+    }
+    function annoImgTransform(d) {
+      return cssImgTransform(d.anno_rotate, d.anno_flip_h, d.anno_flip_v);
     }
 
     function addAnnotationPage() {
@@ -7106,7 +7138,7 @@
         const src = img && img.url_or_base64;
         cells += `<div style="display:flex;flex-direction:column;min-height:0;min-width:0;">
           <div style="flex:1;border:${src ? '1px solid rgba(15,23,42,0.08)' : '2px dashed rgba(15,23,42,0.15)'};border-radius:6px;display:flex;align-items:center;justify-content:center;overflow:hidden;min-height:0;">
-            ${src ? `<img src="${escapeAttr(src)}" style="max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;">` : ''}
+            ${src ? `<img src="${escapeAttr(src)}" style="max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;transform:${cssImgTransform(img.rotate, img.flip_h, img.flip_v)};">` : ''}
           </div>
           ${src && img.caption ? `<div style="font-size:12px;color:rgba(15,23,42,0.55);padding:4px 6px;margin-top:4px;border-bottom:1px dashed rgba(15,23,42,0.12);">${escHtml(img.caption)}</div>` : ''}
         </div>`;

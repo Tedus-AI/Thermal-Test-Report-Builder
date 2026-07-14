@@ -3804,6 +3804,42 @@
       return await fileToDataURL(file);
     }
 
+    // Quality used when re-encoding inserted photos (annotation & image pages).
+    const PHOTO_JPEG_QUALITY = 0.5;
+
+    // Re-encode an inserted photo as JPEG at the given quality to shrink the
+    // stored base64. Keeps the original pixel dimensions — only quality drops.
+    // Falls back to the untouched original if decoding/encoding fails.
+    function processImageCompressed(file, quality) {
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onerror = () => resolve('');
+        reader.onload = () => {
+          const original = reader.result;
+          const img = new Image();
+          img.onerror = () => resolve(original);
+          img.onload = () => {
+            try {
+              const canvas = document.createElement('canvas');
+              canvas.width = img.naturalWidth || img.width;
+              canvas.height = img.naturalHeight || img.height;
+              const ctx = canvas.getContext('2d');
+              ctx.fillStyle = '#ffffff';                    // JPEG has no alpha → white behind any transparency
+              ctx.fillRect(0, 0, canvas.width, canvas.height);
+              ctx.drawImage(img, 0, 0);
+              const out = canvas.toDataURL('image/jpeg', quality);
+              // Guard: if somehow larger than the original, keep the original.
+              resolve(out && out.length < original.length ? out : original);
+            } catch (err) {
+              resolve(original);
+            }
+          };
+          img.src = original;
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
     // Compress image with adaptive quality to fit within targetBytes (base64 size)
     function compressImageToTarget(file, targetBytes) {
       return new Promise((resolve, reject) => {
@@ -4883,7 +4919,7 @@
     }
 
     async function handleImagePageImage(page, position, file) {
-      const imageData = await processImage(file);
+      const imageData = await processImageCompressed(file, PHOTO_JPEG_QUALITY);
 
       // If position exists, replace; otherwise add
       if (page.data.images[position]) {
@@ -5461,7 +5497,7 @@
     }
 
     async function handleAnnotationPhoto(page, file) {
-      const imageData = await processImage(file);
+      const imageData = await processImageCompressed(file, PHOTO_JPEG_QUALITY);
       annoCropOriginals.delete(page.data); // new bitmap → drop stale crop original
       page.data.photo_url_or_base64 = imageData;
       renderAnnotationPage(page);

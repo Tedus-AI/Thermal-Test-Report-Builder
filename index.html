@@ -2636,6 +2636,104 @@
       pointer-events: none;
     }
 
+    /* ── Shared image cropper modal ── */
+    .crop-modal {
+      width: min(88vw, 900px);
+      max-width: 900px;
+      background: rgba(15,23,42,0.94);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255,255,255,0.10);
+      border-radius: 10px;
+      box-shadow: 0 16px 48px rgba(0,0,0,0.5);
+      color: #e2e8f0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .crop-stage {
+      flex: 1;
+      min-height: 0;
+      height: min(64vh, 560px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 18px;
+      background:
+        repeating-conic-gradient(rgba(255,255,255,0.05) 0% 25%, transparent 0% 50%) 50% / 20px 20px;
+    }
+    .crop-frame {
+      position: relative;
+      user-select: none;
+      touch-action: none;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    }
+    .crop-base {
+      display: block;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      -webkit-user-drag: none;
+    }
+    .crop-sel {
+      position: absolute;
+      box-sizing: border-box;
+      border: 1px solid rgba(255,255,255,0.95);
+      box-shadow: 0 0 0 9999px rgba(0,0,0,0.5);
+      cursor: move;
+    }
+    .crop-sel::before {
+      /* rule-of-thirds guides */
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.35) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.35) 1px, transparent 1px);
+      background-size: 33.33% 33.33%;
+      background-position: 0 0;
+      pointer-events: none;
+      opacity: 0.6;
+    }
+    .crop-h {
+      position: absolute;
+      width: 14px;
+      height: 14px;
+      background: #fff;
+      border: 1px solid rgba(15,23,42,0.4);
+      border-radius: 50%;
+      z-index: 2;
+    }
+    .crop-h.nw { left: -7px; top: -7px; cursor: nwse-resize; }
+    .crop-h.ne { right: -7px; top: -7px; cursor: nesw-resize; }
+    .crop-h.sw { left: -7px; bottom: -7px; cursor: nesw-resize; }
+    .crop-h.se { right: -7px; bottom: -7px; cursor: nwse-resize; }
+    .crop-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      padding: 12px 16px;
+      border-top: 1px solid rgba(255,255,255,0.08);
+    }
+    .crop-btn {
+      padding: 7px 16px;
+      font-size: 13px;
+      font-family: var(--font-ui);
+      border-radius: 6px;
+      cursor: pointer;
+      border: 1px solid rgba(255,255,255,0.16);
+      background: rgba(255,255,255,0.06);
+      color: #e2e8f0;
+      transition: all var(--transition-fast);
+    }
+    .crop-btn:hover { background: rgba(255,255,255,0.12); }
+    .crop-btn.confirm {
+      background: #2563EB;
+      border-color: #2563EB;
+      color: #fff;
+      font-weight: 600;
+    }
+    .crop-btn.confirm:hover { background: #1d4ed8; }
+
     .annotation-photo-placeholder {
       text-align: center;
       color: rgba(15,23,42,0.25);
@@ -4484,6 +4582,8 @@
                 <button class="photo-action-btn icon img-edit-btn" data-pos="${position}" data-edit="zoom-in" title="放大">＋</button>
                 <button class="photo-action-btn icon img-edit-btn" data-pos="${position}" data-edit="zoom-out" title="縮小">－</button>
                 <button class="photo-action-btn icon img-edit-btn" data-pos="${position}" data-edit="reset" title="重設縮放/位置">⟲</button>
+                <button class="photo-action-btn icon img-edit-btn" data-pos="${position}" data-edit="crop" title="裁切">✂</button>
+                ${imgCropOriginals.has(imgData) ? `<button class="photo-action-btn icon img-edit-btn" data-pos="${position}" data-edit="uncrop" title="還原裁切">⤺</button>` : ''}
                 <button class="photo-action-btn img-replace-btn" data-pos="${position}">替換</button>
                 <button class="photo-action-btn danger img-delete-btn" data-pos="${position}">刪除</button>
               </div>
@@ -4586,6 +4686,30 @@
             const im = page.data.images[pos];
             if (!im) return;
             const edit = btn.dataset.edit;
+            if (edit === 'crop') {
+              openImageCropper(im.url_or_base64, { rotate: im.rotate, flipH: im.flip_h, flipV: im.flip_v }, (url) => {
+                if (!imgCropOriginals.has(im)) {
+                  imgCropOriginals.set(im, { url: im.url_or_base64, rotate: im.rotate || 0, flip_h: !!im.flip_h, flip_v: !!im.flip_v, zoom: im.zoom || 1, off_x: im.off_x || 0, off_y: im.off_y || 0 });
+                }
+                im.url_or_base64 = url;
+                im.rotate = 0; im.flip_h = false; im.flip_v = false; im.zoom = 1; im.off_x = 0; im.off_y = 0;
+                renderImagePage(page);
+                scheduleSave(state.activePage);
+              });
+              return;
+            }
+            if (edit === 'uncrop') {
+              const o = imgCropOriginals.get(im);
+              if (o) {
+                im.url_or_base64 = o.url;
+                im.rotate = o.rotate; im.flip_h = o.flip_h; im.flip_v = o.flip_v;
+                im.zoom = o.zoom; im.off_x = o.off_x; im.off_y = o.off_y;
+                imgCropOriginals.delete(im);
+                renderImagePage(page);
+                scheduleSave(state.activePage);
+              }
+              return;
+            }
             if (edit === 'rotate-left')  im.rotate = (((im.rotate || 0) - 90) % 360 + 360) % 360;
             else if (edit === 'rotate-right') im.rotate = ((im.rotate || 0) + 90) % 360;
             else if (edit === 'flip-h') im.flip_h = !im.flip_h;
@@ -4647,6 +4771,7 @@
 
       // If position exists, replace; otherwise add
       if (page.data.images[position]) {
+        imgCropOriginals.delete(page.data.images[position]); // new bitmap → drop stale crop original
         page.data.images[position].url_or_base64 = imageData;
       } else {
         // Fill up to position
@@ -4704,6 +4829,138 @@
       return cssImgTransform(im.rotate, im.flip_h, im.flip_v, im.zoom, im.off_x, im.off_y);
     }
 
+    // Pre-crop originals, kept in memory only (keyed by the image/data object) so
+    // they never bloat the serialized state or the undo snapshots. Lets the user
+    // restore ("還原裁切") within the session; a reload commits the crop.
+    const imgCropOriginals = new WeakMap();  // image-page: key = image object
+    const annoCropOriginals = new WeakMap();  // annotation-page: key = page.data
+
+    // Shared interactive image cropper. Loads `src`, bakes the given rotate/flip
+    // so the user crops exactly what they see, lets them drag/resize a selection
+    // rectangle, then returns a NEW cropped data URL via onConfirm(url). Crop is
+    // destructive by design: the editor and the exported PDF then share one
+    // identical bitmap, so they can never diverge.
+    function openImageCropper(src, opts, onConfirm) {
+      opts = opts || {};
+      const rotate = (((opts.rotate || 0) % 360) + 360) % 360;
+      const flipH = !!opts.flipH, flipV = !!opts.flipV;
+
+      const baseImg = new Image();
+      baseImg.onload = () => {
+        // 1) Bake rotate/flip into an "oriented" canvas.
+        const nw = baseImg.naturalWidth || baseImg.width;
+        const nh = baseImg.naturalHeight || baseImg.height;
+        const swap = (rotate === 90 || rotate === 270);
+        const ow = swap ? nh : nw, oh = swap ? nw : nh;
+        const oc = document.createElement('canvas');
+        oc.width = ow; oc.height = oh;
+        const octx = oc.getContext('2d');
+        octx.translate(ow / 2, oh / 2);
+        octx.rotate(rotate * Math.PI / 180);
+        octx.scale(flipH ? -1 : 1, flipV ? -1 : 1);
+        octx.drawImage(baseImg, -nw / 2, -nh / 2);
+        const orientedURL = oc.toDataURL('image/png');
+
+        // 2) Modal.
+        const overlay = document.createElement('div');
+        overlay.className = 'sim-modal-overlay crop-modal-overlay';
+        overlay.innerHTML = `
+          <div class="crop-modal">
+            <div class="sim-modal-header">裁切圖片　·　拖曳選取框調整範圍</div>
+            <div class="crop-stage">
+              <div class="crop-frame">
+                <img class="crop-base" src="${orientedURL}" draggable="false">
+                <div class="crop-sel">
+                  <div class="crop-h nw"></div><div class="crop-h ne"></div>
+                  <div class="crop-h sw"></div><div class="crop-h se"></div>
+                </div>
+              </div>
+            </div>
+            <div class="crop-actions">
+              <button class="crop-btn cancel">取消</button>
+              <button class="crop-btn confirm">確認裁切</button>
+            </div>
+          </div>`;
+        document.body.appendChild(overlay);
+
+        const frame = overlay.querySelector('.crop-frame');
+        const sel = overlay.querySelector('.crop-sel');
+        const stage = overlay.querySelector('.crop-stage');
+
+        // Fit the oriented image within the stage.
+        const scale = Math.min(stage.clientWidth / ow, stage.clientHeight / oh);
+        const dw = Math.max(1, Math.round(ow * scale));
+        const dh = Math.max(1, Math.round(oh * scale));
+        frame.style.width = dw + 'px';
+        frame.style.height = dh + 'px';
+
+        // Selection rectangle in fractions (0..1) of the frame.
+        let r = { x: 0, y: 0, w: 1, h: 1 };
+        const applySel = () => {
+          sel.style.left = (r.x * dw) + 'px';
+          sel.style.top = (r.y * dh) + 'px';
+          sel.style.width = (r.w * dw) + 'px';
+          sel.style.height = (r.h * dh) + 'px';
+        };
+        applySel();
+
+        const startDrag = (e, mode) => {
+          e.preventDefault(); e.stopPropagation();
+          const sx = e.clientX, sy = e.clientY;
+          const r0 = { ...r };
+          const minS = 0.05;
+          const onMove = (ev) => {
+            const dx = (ev.clientX - sx) / dw;
+            const dy = (ev.clientY - sy) / dh;
+            let { x, y, w, h } = r0;
+            if (mode === 'move') {
+              x = Math.min(Math.max(0, r0.x + dx), 1 - r0.w);
+              y = Math.min(Math.max(0, r0.y + dy), 1 - r0.h);
+            } else {
+              if (mode.includes('w')) { const nx = Math.min(Math.max(0, r0.x + dx), r0.x + r0.w - minS); w = r0.w + (r0.x - nx); x = nx; }
+              if (mode.includes('e')) { w = Math.min(Math.max(minS, r0.w + dx), 1 - r0.x); }
+              if (mode.includes('n')) { const ny = Math.min(Math.max(0, r0.y + dy), r0.y + r0.h - minS); h = r0.h + (r0.y - ny); y = ny; }
+              if (mode.includes('s')) { h = Math.min(Math.max(minS, r0.h + dy), 1 - r0.y); }
+            }
+            r = { x, y, w, h };
+            applySel();
+          };
+          const onUp = () => {
+            document.removeEventListener('mousemove', onMove);
+            document.removeEventListener('mouseup', onUp);
+          };
+          document.addEventListener('mousemove', onMove);
+          document.addEventListener('mouseup', onUp);
+        };
+
+        sel.addEventListener('mousedown', (e) => {
+          if (e.target.classList.contains('crop-h')) return;
+          startDrag(e, 'move');
+        });
+        sel.querySelectorAll('.crop-h').forEach(h => {
+          h.addEventListener('mousedown', (e) => startDrag(e, h.classList[1])); // nw/ne/sw/se
+        });
+
+        const cleanup = () => overlay.remove();
+        overlay.querySelector('.cancel').addEventListener('click', cleanup);
+        overlay.addEventListener('mousedown', (e) => { if (e.target === overlay) cleanup(); });
+        overlay.querySelector('.confirm').addEventListener('click', () => {
+          const out = document.createElement('canvas');
+          out.width = Math.max(1, Math.round(r.w * ow));
+          out.height = Math.max(1, Math.round(r.h * oh));
+          const ctx = out.getContext('2d');
+          ctx.fillStyle = '#ffffff';           // avoid black where a source alpha existed
+          ctx.fillRect(0, 0, out.width, out.height);
+          ctx.drawImage(oc, r.x * ow, r.y * oh, r.w * ow, r.h * oh, 0, 0, out.width, out.height);
+          const url = out.toDataURL('image/jpeg', 0.9);
+          cleanup();
+          onConfirm(url);
+        });
+      };
+      baseImg.onerror = () => { /* ignore — leave image unchanged */ };
+      baseImg.src = src;
+    }
+
     function addAnnotationPage() {
       const page = {
         id: 'page_' + Date.now(),
@@ -4751,6 +5008,8 @@
         <button class="anno-tool-btn" data-tool="rotate-right" title="右轉 90°">↻&nbsp;右轉</button>
         <button class="anno-tool-btn" data-tool="flip-h" title="水平翻轉">⇋&nbsp;水平翻轉</button>
         <button class="anno-tool-btn" data-tool="flip-v" title="垂直翻轉">⇅&nbsp;垂直翻轉</button>
+        <button class="anno-tool-btn" data-tool="crop" title="裁切圖片">✂&nbsp;裁切</button>
+        ${annoCropOriginals.has(d) ? `<button class="anno-tool-btn" data-tool="uncrop" title="還原裁切">⤺&nbsp;還原裁切</button>` : ''}
         <button class="anno-tool-btn" data-tool="move" id="anno-move-btn" title="移動圖片（啟用時暫停標註）">✥&nbsp;移動</button>
         <button class="anno-tool-btn danger" data-tool="delete" title="刪除圖片">🗑&nbsp;刪除圖片</button>
       ` : `<div class="anno-tools-hint">加入圖片後<br>可在此編輯</div>`;
@@ -4850,6 +5109,27 @@
           else if (tool === 'rotate-right') { d.anno_rotate = ((d.anno_rotate || 0) + 90) % 360; applyTransform(); scheduleSave(state.activePage); }
           else if (tool === 'flip-h') { d.anno_flip_h = !d.anno_flip_h; applyTransform(); scheduleSave(state.activePage); }
           else if (tool === 'flip-v') { d.anno_flip_v = !d.anno_flip_v; applyTransform(); scheduleSave(state.activePage); }
+          else if (tool === 'crop') {
+            openImageCropper(d.photo_url_or_base64, { rotate: d.anno_rotate, flipH: d.anno_flip_h, flipV: d.anno_flip_v }, (url) => {
+              if (!annoCropOriginals.has(d)) {
+                annoCropOriginals.set(d, { url: d.photo_url_or_base64, rotate: d.anno_rotate || 0, flip_h: !!d.anno_flip_h, flip_v: !!d.anno_flip_v });
+              }
+              d.photo_url_or_base64 = url;
+              d.anno_rotate = 0; d.anno_flip_h = false; d.anno_flip_v = false;
+              scheduleSave(state.activePage);
+              renderAnnotationPage(page);
+            });
+          }
+          else if (tool === 'uncrop') {
+            const o = annoCropOriginals.get(d);
+            if (o) {
+              d.photo_url_or_base64 = o.url;
+              d.anno_rotate = o.rotate; d.anno_flip_h = o.flip_h; d.anno_flip_v = o.flip_v;
+              annoCropOriginals.delete(d);
+              scheduleSave(state.activePage);
+              renderAnnotationPage(page);
+            }
+          }
           else if (tool === 'move') {
             annoEditMode = !annoEditMode;
             btn.classList.toggle('active', annoEditMode);
@@ -4858,6 +5138,7 @@
           else if (tool === 'delete') {
             if (!confirm('確定要刪除此圖片？（標註也會一併移除）')) return;
             annoEditMode = false;
+            annoCropOriginals.delete(d);
             d.photo_url_or_base64 = '';
             d.markers = [];
             delete d.anno_photo_x; delete d.anno_photo_y;
@@ -5065,6 +5346,7 @@
 
     async function handleAnnotationPhoto(page, file) {
       const imageData = await processImage(file);
+      annoCropOriginals.delete(page.data); // new bitmap → drop stale crop original
       page.data.photo_url_or_base64 = imageData;
       renderAnnotationPage(page);
       scheduleSave(state.activePage);

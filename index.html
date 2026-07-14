@@ -1545,6 +1545,31 @@
       border-top: 2px solid rgba(15,23,42,0.12);
     }
 
+    /* Spec Type header: hint that it carries an explanatory tooltip */
+    .data-table th.dt-th-help {
+      cursor: help;
+      text-decoration: underline dotted rgba(15,23,42,0.4);
+      text-underline-offset: 2px;
+    }
+
+    /* Excel-style drag-to-fill handle (shown on the focused fillable cell) */
+    .dt-fill-handle {
+      position: absolute;
+      right: -1px;
+      bottom: -1px;
+      width: 8px;
+      height: 8px;
+      background: #2357A7;
+      border: 1px solid #ffffff;
+      box-shadow: 0 0 0 1px rgba(35,87,167,0.4);
+      cursor: crosshair;
+      z-index: 9;
+    }
+    .data-table td.dt-fill-target {
+      box-shadow: inset 0 0 0 1px #2357A7;
+      background: rgba(35,87,167,0.08) !important;
+    }
+
     /* Category color strip */
     .dt-cat-strip {
       width: 3px;
@@ -5953,6 +5978,92 @@
       scheduleSave(state.pages.length - 1);
     }
 
+    // Excel-style drag-to-fill for the data page. A small square handle appears
+    // on the focused text/number cell; pressing it and dragging up/down over the
+    // same column fills that column's cells with the source cell's value. It
+    // reuses each input's existing 'input' handler (via a dispatched event), so
+    // the data model, computed cells and autosave all update as if typed.
+    // Re-created on every renderDataPage; listeners live on the fresh .data-page
+    // container so nothing leaks across renders.
+    function setupDataFillHandle() {
+      const container = $canvas.querySelector('.data-page');
+      if (!container) return;
+
+      const handle = document.createElement('div');
+      handle.className = 'dt-fill-handle';
+      handle.style.display = 'none';
+      container.appendChild(handle);
+      let sourceInput = null;
+
+      const attach = (input) => {
+        sourceInput = input;
+        const td = input.closest('td');
+        if (!td) { handle.style.display = 'none'; return; }
+        td.style.position = 'relative';
+        td.appendChild(handle);
+        handle.style.display = 'block';
+      };
+      const detach = () => { handle.style.display = 'none'; sourceInput = null; };
+
+      container.addEventListener('focusin', (e) => {
+        const inp = e.target.closest ? e.target.closest('input[data-fill-col]') : null;
+        if (inp) attach(inp); else detach();
+      });
+
+      handle.addEventListener('mousedown', (e) => {
+        if (!sourceInput) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const col = sourceInput.dataset.fillCol;
+        const val = sourceInput.value;
+        const group = Array.from(container.querySelectorAll('input[data-fill-col]'))
+          .filter(i => i.dataset.fillCol === col);
+        const srcIdx = group.indexOf(sourceInput);
+        if (srcIdx < 0) return;
+        let curIdx = srcIdx;
+        handle.style.pointerEvents = 'none';
+
+        const clearHi = () => group.forEach(i => {
+          const td = i.closest('td'); if (td) td.classList.remove('dt-fill-target');
+        });
+        const paint = () => {
+          clearHi();
+          const a = Math.min(srcIdx, curIdx), b = Math.max(srcIdx, curIdx);
+          for (let i = a; i <= b; i++) {
+            const td = group[i].closest('td'); if (td) td.classList.add('dt-fill-target');
+          }
+        };
+        paint();
+
+        const onMove = (me) => {
+          const el = document.elementFromPoint(me.clientX, me.clientY);
+          const inp = el && el.closest ? el.closest('input[data-fill-col]') : null;
+          if (inp && inp.dataset.fillCol === col) {
+            const idx = group.indexOf(inp);
+            if (idx >= 0) curIdx = idx;
+          }
+          paint();
+        };
+        const onUp = () => {
+          document.removeEventListener('mousemove', onMove);
+          document.removeEventListener('mouseup', onUp);
+          handle.style.pointerEvents = '';
+          const a = Math.min(srcIdx, curIdx), b = Math.max(srcIdx, curIdx);
+          for (let i = a; i <= b; i++) {
+            if (i === srcIdx) continue;
+            const tgt = group[i];
+            if (tgt.value !== val) {
+              tgt.value = val;
+              tgt.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+          }
+          clearHi();
+        };
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+      });
+    }
+
     function renderDataPage(page) {
       const d = page.data;
       if (!d.header) d.header = {};
@@ -6020,7 +6131,7 @@
           const isFirst = ti === 0;
           return `<td class="dt-ta-col${isFirst ? ' dt-ta-col-first' : ''}">
                     <input type="number" step="any" class="dt-tc-input" value="${measured !== undefined && measured !== '' ? escapeAttr(String(measured)) : ''}"
-                           placeholder="—" data-comp="${ri}" data-ta-key="${key}">
+                           placeholder="—" data-comp="${ri}" data-ta-key="${key}" data-fill-col="c:reading:${key}">
                   </td>
                   <td class="dt-ta-col ${marginClass}">${marginStr}</td>`;
         }).join('');
@@ -6034,11 +6145,11 @@
               `<option value="${c}" ${cat === c ? 'selected' : ''}>${c}</option>`).join('')}
             </select></td>
           <td class="dt-readonly">${autoNum}</td>
-          <td class="dt-name-col"><input type="text" placeholder="元件名稱" value="${escapeAttr(comp.name || '')}" data-comp="${ri}" data-comp-field="name"></td>
+          <td class="dt-name-col"><input type="text" placeholder="元件名稱" value="${escapeAttr(comp.name || '')}" data-comp="${ri}" data-comp-field="name" data-fill-col="c:name"></td>
           <td><select data-comp="${ri}" data-comp-field="spec_type">${specTypeOptions.map(s =>
               `<option value="${s}" ${comp.spec_type === s ? 'selected' : ''}>${s}</option>`).join('')}
             </select></td>
-          <td><input type="number" step="any" style="width:50px;text-align:center;" placeholder="—" value="${comp.tc_spec !== undefined && comp.tc_spec !== '' ? escapeAttr(String(comp.tc_spec)) : ''}" data-comp="${ri}" data-comp-field="tc_spec"></td>
+          <td><input type="number" step="any" style="width:50px;text-align:center;" placeholder="—" value="${comp.tc_spec !== undefined && comp.tc_spec !== '' ? escapeAttr(String(comp.tc_spec)) : ''}" data-comp="${ri}" data-comp-field="tc_spec" data-fill-col="c:tc_spec"></td>
           <td><select data-comp="${ri}" data-comp-field="derating">${deratingOptions.map(v =>
               `<option value="${v}" ${comp.derating === v ? 'selected' : ''}>${v}</option>`).join('')}
             </select></td>
@@ -6049,7 +6160,7 @@
             </select></td>
           ${taCells}
           <td class="${pfClass}">${pfText}</td>
-          <td><input type="text" placeholder="備註" value="${escapeAttr(comp.note || '')}" data-comp="${ri}" data-comp-field="note"></td>
+          <td><input type="text" placeholder="備註" value="${escapeAttr(comp.note || '')}" data-comp="${ri}" data-comp-field="note" data-fill-col="c:note"></td>
           <td class="dt-del-cell"><button class="dt-del-btn" data-del-row="${ri}" title="刪除此列">✕</button></td>
         </tr>`;
       });
@@ -6072,15 +6183,15 @@
         if (!validSensorTypes.includes(s.type)) s.type = 'Local';
         const taSensorCells = d.ta_conditions.map(ta => {
           const key = 'ta_' + ta;
-          return `<td><input type="text" placeholder="—" value="${escapeAttr(s.readings[key] || '')}" data-sensor="${si}" data-sensor-ta="${key}"></td>`;
+          return `<td><input type="text" placeholder="—" value="${escapeAttr(s.readings[key] || '')}" data-sensor="${si}" data-sensor-ta="${key}" data-fill-col="s:reading:${key}"></td>`;
         }).join('');
         return `<tr>
-          <td><input type="text" placeholder="Sensor 名稱" value="${escapeAttr(s.name || '')}" data-sensor="${si}" data-sensor-field="name"></td>
+          <td><input type="text" placeholder="Sensor 名稱" value="${escapeAttr(s.name || '')}" data-sensor="${si}" data-sensor-field="name" data-fill-col="s:name"></td>
           <td><select data-sensor="${si}" data-sensor-field="type">${sensorTypeOptions.map(t =>
               `<option value="${t}" ${s.type === t ? 'selected' : ''}>${t}</option>`).join('')}
             </select></td>
           ${taSensorCells}
-          <td><input type="text" placeholder="備註" value="${escapeAttr(s.note || '')}" data-sensor="${si}" data-sensor-field="note"></td>
+          <td><input type="text" placeholder="備註" value="${escapeAttr(s.note || '')}" data-sensor="${si}" data-sensor-field="note" data-fill-col="s:note"></td>
         </tr>`;
       }).join('');
 
@@ -6196,7 +6307,7 @@
                   <th rowspan="2">類別</th>
                   <th rowspan="2">#</th>
                   <th rowspan="2" class="dt-name-col">元件名稱</th>
-                  <th rowspan="2">Spec Type</th>
+                  <th rowspan="2" class="dt-th-help" title="Spec Type 規格類型&#10;Rec. (Recommended)：廠商建議的操作溫度上限；Derating 通常取 1.0&#10;Abs. (Absolute Maximum)：絕對最大額定溫度（不可超過）；Derating 通常取 0.9 以保留餘裕">Spec Type</th>
                   <th rowspan="2">Tc Spec</th>
                   <th rowspan="2">Derating</th>
                   <th rowspan="2">Derated Tc</th>
@@ -6407,9 +6518,16 @@
           const ri = parseInt(el.dataset.comp);
           const field = el.dataset.compField;
           d.components[ri][field] = el.value;
+          // Spec Type drives the default Derating: Rec.→1.00, Abs.→0.90
+          if (field === 'spec_type') {
+            const autoDer = el.value === 'Rec.' ? '1.00' : '0.90';
+            d.components[ri].derating = autoDer;
+            const derSel = el.closest('tr')?.querySelector('select[data-comp-field="derating"]');
+            if (derSel) derSel.value = autoDer;
+          }
           scheduleSave(state.activePage);
           // Update computed cells in-place without re-render
-          if (['category', 'tc_spec', 'derating'].includes(field)) {
+          if (['category', 'tc_spec', 'derating', 'spec_type'].includes(field)) {
             updateRowComputed(ri);
           }
         });
@@ -6597,6 +6715,9 @@
           scheduleSave(state.activePage);
         });
       });
+
+      // ── Excel-style drag-to-fill handle ──
+      setupDataFillHandle();
 
       // ── Add sensor row ──
       const sensorAddBtn = document.getElementById('sensor-add-row');

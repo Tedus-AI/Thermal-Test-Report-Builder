@@ -413,6 +413,58 @@
       opacity: 0.4;
     }
 
+    /* Page-list label: auto base name + optional user note */
+    .page-label {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      align-items: baseline;
+      gap: 0;
+      overflow: hidden;
+      white-space: nowrap;
+    }
+    .page-label .page-note {
+      color: var(--d-300);
+      text-overflow: ellipsis;
+      overflow: hidden;
+    }
+    .page-item.active .page-label .page-note {
+      color: rgba(255,255,255,0.82);
+    }
+    /* Pencil to add/edit the note — appears on hover */
+    .page-note-edit {
+      flex-shrink: 0;
+      margin-left: auto;
+      width: 18px;
+      height: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: none;
+      background: transparent;
+      color: var(--d-300);
+      font-size: 11px;
+      border-radius: 4px;
+      cursor: pointer;
+      opacity: 0;
+      transition: opacity var(--transition-fast), background var(--transition-fast);
+    }
+    .page-item:hover .page-note-edit { opacity: 0.7; }
+    .page-note-edit:hover { opacity: 1; background: rgba(91,163,230,0.18); }
+    .page-note-input {
+      flex: 1;
+      min-width: 0;
+      font-family: var(--font-ui);
+      font-size: 11px;
+      color: #fff;
+      background: rgba(2,27,58,0.85);
+      border: 1px solid var(--d-300);
+      border-radius: 4px;
+      padding: 1px 5px;
+      outline: none;
+    }
+    .page-note-input::placeholder { color: rgba(255,255,255,0.35); }
+
     .sidebar-footer {
       padding: 8px 12px;
       border-top: 1px solid rgba(91,163,230,0.1);
@@ -3866,6 +3918,71 @@
       scheduleSave(state.pages.length - 1);
     }
 
+    // Auto-generated base name for a page (some types carry a running count).
+    function pageBaseLabel(idx) {
+      const page = state.pages[idx];
+      if (!page) return '';
+      const t = page.type;
+      if (t === 'cover') return '封面頁';
+      if (t === 'annotation') return '標註頁';
+      if (t === 'sim_vs_meas') return '比對頁';
+      if (t === 'conclusion') return '結論頁';
+      if (t === 'image' || t === 'data') {
+        let n = 0;
+        for (let j = 0; j <= idx; j++) if (state.pages[j].type === t) n++;
+        return (t === 'image' ? '圖片頁 ' : '數據頁 ') + n;
+      }
+      return '未知頁面';
+    }
+
+    // Inline-edit the user note appended after a page's base label.
+    function startPageNoteEdit(idx) {
+      const page = state.pages[idx];
+      if (!page) return;
+      const item = $pageList.querySelector(`.page-item[data-index="${idx}"]`);
+      const labelEl = item && item.querySelector('.page-label');
+      if (!labelEl) return;
+      const editBtn = item.querySelector('.page-note-edit');
+      if (editBtn) editBtn.style.display = 'none';
+
+      labelEl.innerHTML = '';
+      const baseSpan = document.createElement('span');
+      baseSpan.className = 'page-base';
+      baseSpan.style.flexShrink = '0';
+      baseSpan.textContent = pageBaseLabel(idx);
+      labelEl.appendChild(baseSpan);
+
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.className = 'page-note-input';
+      input.value = page.data.list_note || '';
+      input.placeholder = '加註，例：-RF';
+      input.maxLength = 40;
+      labelEl.appendChild(input);
+      input.focus();
+      input.select();
+
+      let done = false;
+      const finish = (save) => {
+        if (done) return;
+        done = true;
+        if (save) {
+          page.data.list_note = input.value.trim();
+          scheduleSave(idx);
+        }
+        renderPageList();
+      };
+      input.addEventListener('keydown', (e) => {
+        e.stopPropagation();
+        if (e.key === 'Enter') { e.preventDefault(); finish(true); }
+        else if (e.key === 'Escape') { e.preventDefault(); finish(false); }
+      });
+      input.addEventListener('blur', () => finish(true));
+      // Don't let clicks/drags on the input bubble to select/reorder handlers
+      ['click', 'mousedown', 'dblclick'].forEach(ev =>
+        input.addEventListener(ev, (e) => e.stopPropagation()));
+    }
+
     function renderPageList() {
       $pageList.innerHTML = '';
       state.pages.forEach((page, idx) => {
@@ -3873,38 +3990,36 @@
         el.className = 'page-item' + (idx === state.activePage ? ' active' : '');
         el.dataset.index = idx;
 
-        let icon = '📄';
-        let label = '未知頁面';
-        if (page.type === 'cover') { icon = '🏠'; label = '封面頁'; }
-        if (page.type === 'image') {
-          icon = '🖼';
-          let imgCount = 0;
-          for (let j = 0; j <= idx; j++) {
-            if (state.pages[j].type === 'image') imgCount++;
-          }
-          label = '圖片頁 ' + imgCount;
-        }
-        if (page.type === 'annotation') { icon = '📍'; label = '標註頁'; }
-        if (page.type === 'data') {
-          icon = '📊';
-          let dataCount = 0;
-          for (let j = 0; j <= idx; j++) {
-            if (state.pages[j].type === 'data') dataCount++;
-          }
-          label = '數據頁 ' + dataCount;
-        }
-        if (page.type === 'sim_vs_meas') { icon = '📉'; label = '比對頁'; }
-        if (page.type === 'conclusion') { icon = '📝'; label = '結論頁'; }
-
         const idxSpan = document.createElement('span');
         idxSpan.style.cssText = 'font-family:var(--font-mono);font-size:9px;color:var(--d-400);width:16px;text-align:right;flex-shrink:0;';
         idxSpan.textContent = String(idx + 1).padStart(2, '0');
         el.appendChild(idxSpan);
+
+        // Label = auto base name + optional user note (page.data.list_note)
         const labelSpan = document.createElement('span');
-        labelSpan.textContent = label;
+        labelSpan.className = 'page-label';
+        const baseSpan = document.createElement('span');
+        baseSpan.className = 'page-base';
+        baseSpan.style.flexShrink = '0';
+        baseSpan.textContent = pageBaseLabel(idx);
+        labelSpan.appendChild(baseSpan);
+        const noteSpan = document.createElement('span');
+        noteSpan.className = 'page-note';
+        noteSpan.textContent = page.data.list_note || '';
+        labelSpan.appendChild(noteSpan);
         el.appendChild(labelSpan);
 
+        // Hover pencil to add/edit the note
+        const editBtn = document.createElement('button');
+        editBtn.className = 'page-note-edit';
+        editBtn.title = '編輯標籤文字';
+        editBtn.textContent = '✎';
+        editBtn.addEventListener('click', (e) => { e.stopPropagation(); startPageNoteEdit(idx); });
+        el.appendChild(editBtn);
+
         el.addEventListener('click', () => selectPage(idx));
+        // Double-click the label to edit the note inline
+        labelSpan.addEventListener('dblclick', (e) => { e.stopPropagation(); startPageNoteEdit(idx); });
         el.addEventListener('contextmenu', (e) => {
           e.preventDefault();
           showContextMenu(e, idx);

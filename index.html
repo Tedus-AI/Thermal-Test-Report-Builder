@@ -2638,8 +2638,8 @@
 
     /* ── Shared image cropper modal ── */
     .crop-modal {
-      width: min(88vw, 900px);
-      max-width: 900px;
+      width: min(92vw, 1100px);
+      max-width: 1100px;
       background: rgba(15,23,42,0.94);
       backdrop-filter: blur(16px);
       border: 1px solid rgba(255,255,255,0.10);
@@ -2651,9 +2651,10 @@
       overflow: hidden;
     }
     .crop-stage {
-      flex: 1;
-      min-height: 0;
-      height: min(64vh, 560px);
+      /* Explicit height only — do NOT use flex:1 here: inside this auto-height
+         column modal a flex-basis of 0 would collapse the stage and shrink the
+         crop preview to a few pixels. */
+      height: min(74vh, 720px);
       display: flex;
       align-items: center;
       justify-content: center;

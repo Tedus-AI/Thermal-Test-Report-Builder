@@ -2331,8 +2331,14 @@
     }
 
     .image-drop-zone img {
-      width: 100%;
-      height: 100%;
+      /* Auto-size (not 100%×100%) so the element box already has the image's
+         aspect ratio. html2canvas (PDF export) ignores object-fit and would
+         otherwise stretch a 100%×100% img to fill the cell — matching the PDF
+         builder keeps editor and export identical. */
+      max-width: 100%;
+      max-height: 100%;
+      width: auto;
+      height: auto;
       object-fit: contain;
     }
     .image-drop-zone.has-image img {
@@ -4901,7 +4907,9 @@
         });
 
         // Pan (drag) — move the image within its cell. Offsets are stored as a
-        // percentage of the cell so the editor and the PDF stay in sync.
+        // percentage of the IMAGE element's own box (translate() is relative to
+        // that box), so the exact same value reproduces in the PDF where the img
+        // is the same shape — keeping editor and export in sync.
         const panImg = zone.querySelector('img');
         if (panImg) {
           panImg.addEventListener('mousedown', (e) => {
@@ -4910,13 +4918,17 @@
             if (!im) return;
             e.preventDefault();
             e.stopPropagation();
-            const rect = zone.getBoundingClientRect();
+            // Calibrate against the image's own rendered size so a drag tracks
+            // the cursor 1:1 (offsetWidth/Height are layout sizes, unaffected by
+            // the current rotate/scale transform).
+            const iw = panImg.offsetWidth || zone.getBoundingClientRect().width || 1;
+            const ih = panImg.offsetHeight || zone.getBoundingClientRect().height || 1;
             const startX = e.clientX, startY = e.clientY;
             const baseX = im.off_x || 0, baseY = im.off_y || 0;
             zone.classList.add('panning');
             const onMove = (me) => {
-              im.off_x = baseX + (me.clientX - startX) / rect.width * 100;
-              im.off_y = baseY + (me.clientY - startY) / rect.height * 100;
+              im.off_x = baseX + (me.clientX - startX) / iw * 100;
+              im.off_y = baseY + (me.clientY - startY) / ih * 100;
               panImg.style.transform = imgPageTransform(im);
             };
             const onUp = () => {
@@ -7766,7 +7778,7 @@
         const src = img && img.url_or_base64;
         cells += `<div style="display:flex;flex-direction:column;min-height:0;min-width:0;">
           <div style="flex:1;border:${src ? '1px solid rgba(15,23,42,0.08)' : '2px dashed rgba(15,23,42,0.15)'};border-radius:6px;display:flex;align-items:center;justify-content:center;overflow:hidden;min-height:0;">
-            ${src ? `<img src="${escapeAttr(src)}" style="width:100%;height:100%;object-fit:contain;transform:${imgPageTransform(img)};">` : ''}
+            ${src ? `<img src="${escapeAttr(src)}" style="max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;transform:${imgPageTransform(img)};">` : ''}
           </div>
           ${src && img.caption ? `<div style="font-size:12px;color:rgba(15,23,42,0.55);padding:4px 6px;margin-top:4px;border-bottom:1px dashed rgba(15,23,42,0.12);">${escHtml(img.caption)}</div>` : ''}
         </div>`;

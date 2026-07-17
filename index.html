@@ -2159,6 +2159,52 @@
     .sim-modal-item-cat.cat-pwr { background: rgba(234,88,12,0.2); color: #fb923c; }
     .sim-modal-item-cat.cat-other { background: rgba(147,51,234,0.2); color: #c084fc; }
 
+    /* Annotation import — expandable page → components tree */
+    .anno-imp-page-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 16px;
+      cursor: pointer;
+      transition: background var(--transition-fast);
+    }
+    .anno-imp-page-row:hover { background: rgba(255,255,255,0.05); }
+    .anno-imp-toggle {
+      background: none;
+      border: none;
+      color: rgba(255,255,255,0.55);
+      cursor: pointer;
+      font-size: 10px;
+      width: 14px;
+      padding: 0;
+      flex-shrink: 0;
+      transition: color var(--transition-fast), transform var(--transition-fast);
+    }
+    .anno-imp-toggle:hover { color: #38bdf8; }
+    .anno-imp-page-cb,
+    .anno-imp-marker-cb {
+      accent-color: #38bdf8;
+      width: 16px;
+      height: 16px;
+      flex-shrink: 0;
+    }
+    .anno-imp-count {
+      margin-left: auto;
+      font-size: 11px;
+      color: rgba(255,255,255,0.5);
+      white-space: nowrap;
+    }
+    .anno-imp-children { background: rgba(0,0,0,0.15); }
+    .anno-imp-child {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 6px 16px 6px 44px;
+      cursor: pointer;
+      transition: background var(--transition-fast);
+    }
+    .anno-imp-child:hover { background: rgba(255,255,255,0.05); }
+
     .sim-modal-footer {
       padding: 10px 16px;
       border-top: 1px solid rgba(255,255,255,0.08);
@@ -6804,25 +6850,20 @@
       const importBtn = document.getElementById('dt-import-anno');
       if (importBtn) {
         importBtn.addEventListener('click', () => {
-          showAnnotationImportModal((selectedPages) => {
-            let added = 0;
-            selectedPages.forEach(ap => {
-              const cat = ap.data.tc_category || 'RF';
-              (ap.data.markers || []).forEach((m, i) => {
-                d.components.push({
-                  category: cat,
-                  name: m.label || ('TC' + (i + 1)),
-                  spec_type: 'Rec.',
-                  tc_spec: '',
-                  derating: '0.90',
-                  tim_type: '',
-                  readings: {},
-                  note: '',
-                });
-                added++;
+          showAnnotationImportModal((selectedComps) => {
+            selectedComps.forEach(c => {
+              d.components.push({
+                category: c.category,
+                name: c.name,
+                spec_type: 'Rec.',
+                tc_spec: '',
+                derating: '0.90',
+                tim_type: '',
+                readings: {},
+                note: '',
               });
             });
-            if (added > 0) {
+            if (selectedComps.length > 0) {
               scheduleSave(state.activePage);
               renderDataPage(page);
             }
@@ -7113,6 +7154,10 @@
     // getDataPageComponents() entries so each caller can map them as needed.
     // Pick which annotation page(s) to import components (markers) from.
     // onConfirm receives the selected annotation page objects.
+    // Import modal: a two-level tree. Each annotation page has a parent checkbox
+    // (import the whole page) and an expand toggle revealing its components
+    // (markers) as child checkboxes, so individual components can be picked.
+    // onConfirm receives a flat array of { category, name } to import.
     function showAnnotationImportModal(onConfirm) {
       const annoPages = state.pages.filter(p => p.type === 'annotation');
       if (annoPages.length === 0) {
@@ -7120,22 +7165,37 @@
         return;
       }
 
+      const markerName = (m, mi) => (m && m.label) || ('TC' + (mi + 1));
+
       const overlay = document.createElement('div');
       overlay.className = 'sim-modal-overlay';
-      const itemsHTML = annoPages.map((p, i) => {
-        const title = p.data.title || ((p.data.tc_category || 'RF') + ' Thermocouple Location');
-        const count = (p.data.markers || []).length;
-        return `<label class="sim-modal-item">
-          <input type="checkbox" value="${i}" ${count > 0 ? 'checked' : ''}>
-          <span class="sim-modal-item-label">${escapeAttr(title)}</span>
-          <span style="margin-left:auto;font-size:11px;color:rgba(255,255,255,0.5);white-space:nowrap;">${count} 個元件</span>
-        </label>`;
+      const pagesHTML = annoPages.map((p, pi) => {
+        const cat = p.data.tc_category || 'RF';
+        const catClass = catClassOf(cat);
+        const title = p.data.title || (cat + ' Thermocouple Location');
+        const markers = p.data.markers || [];
+        const count = markers.length;
+        const childrenHTML = markers.map((m, mi) =>
+          `<label class="anno-imp-child">
+            <input type="checkbox" class="anno-imp-marker-cb" data-page="${pi}" data-marker="${mi}" checked>
+            <span class="sim-modal-item-cat ${catClass}">${cat}</span>
+            <span class="sim-modal-item-label">${escapeAttr(markerName(m, mi))}</span>
+          </label>`).join('');
+        return `<div class="anno-imp-page" data-page="${pi}">
+          <div class="anno-imp-page-row" data-page="${pi}">
+            <button type="button" class="anno-imp-toggle" data-page="${pi}"${count === 0 ? ' style="visibility:hidden;"' : ''}>▸</button>
+            <input type="checkbox" class="anno-imp-page-cb" data-page="${pi}"${count > 0 ? ' checked' : ''}${count === 0 ? ' disabled' : ''}>
+            <span class="sim-modal-item-label" style="font-weight:600;">${escapeAttr(title)}</span>
+            <span class="anno-imp-count">${count} 個元件</span>
+          </div>
+          <div class="anno-imp-children" data-page="${pi}" style="display:none;">${childrenHTML}</div>
+        </div>`;
       }).join('');
 
       overlay.innerHTML = `
         <div class="sim-modal">
           <div class="sim-modal-header">帶入標註頁元件</div>
-          <div class="sim-modal-body">${itemsHTML}</div>
+          <div class="sim-modal-body">${pagesHTML}</div>
           <div class="sim-modal-footer">
             <button class="sim-modal-btn" id="anno-import-cancel">取消</button>
             <button class="sim-modal-btn primary" id="anno-import-confirm">帶入</button>
@@ -7143,11 +7203,58 @@
         </div>`;
       document.body.appendChild(overlay);
       const close = () => document.body.removeChild(overlay);
+
+      const setExpanded = (pi, open) => {
+        const kids = overlay.querySelector(`.anno-imp-children[data-page="${pi}"]`);
+        const btn = overlay.querySelector(`.anno-imp-toggle[data-page="${pi}"]`);
+        if (!kids || !btn) return;
+        kids.style.display = open ? 'block' : 'none';
+        btn.textContent = open ? '▾' : '▸';
+      };
+
+      // Click the page row (but not the checkbox) to expand/collapse
+      overlay.querySelectorAll('.anno-imp-page-row').forEach(row => {
+        row.addEventListener('click', (e) => {
+          if (e.target.classList.contains('anno-imp-page-cb')) return;
+          const pi = row.dataset.page;
+          const kids = overlay.querySelector(`.anno-imp-children[data-page="${pi}"]`);
+          if (!kids || !kids.querySelector('.anno-imp-marker-cb')) return;
+          setExpanded(pi, kids.style.display === 'none');
+        });
+      });
+
+      // Parent checkbox toggles all its children
+      overlay.querySelectorAll('.anno-imp-page-cb').forEach(cb => {
+        cb.addEventListener('change', () => {
+          overlay.querySelectorAll(`.anno-imp-marker-cb[data-page="${cb.dataset.page}"]`)
+            .forEach(k => { k.checked = cb.checked; });
+          cb.indeterminate = false;
+        });
+      });
+
+      // Child checkbox updates the parent (checked / indeterminate / unchecked)
+      const syncParent = (pi) => {
+        const pageCb = overlay.querySelector(`.anno-imp-page-cb[data-page="${pi}"]`);
+        const kids = Array.from(overlay.querySelectorAll(`.anno-imp-marker-cb[data-page="${pi}"]`));
+        if (!pageCb || kids.length === 0) return;
+        const n = kids.filter(k => k.checked).length;
+        pageCb.checked = n === kids.length;
+        pageCb.indeterminate = n > 0 && n < kids.length;
+      };
+      overlay.querySelectorAll('.anno-imp-marker-cb').forEach(cb => {
+        cb.addEventListener('change', () => syncParent(cb.dataset.page));
+      });
+
       overlay.querySelector('#anno-import-cancel').addEventListener('click', close);
       overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
       overlay.querySelector('#anno-import-confirm').addEventListener('click', () => {
-        const checked = overlay.querySelectorAll('input[type="checkbox"]:checked');
-        const selected = Array.from(checked).map(cb => annoPages[parseInt(cb.value)]);
+        const selected = [];
+        overlay.querySelectorAll('.anno-imp-marker-cb:checked').forEach(cb => {
+          const p = annoPages[parseInt(cb.dataset.page)];
+          const mi = parseInt(cb.dataset.marker);
+          const m = (p.data.markers || [])[mi];
+          selected.push({ category: p.data.tc_category || 'RF', name: markerName(m, mi) });
+        });
         close();
         onConfirm(selected);
       });

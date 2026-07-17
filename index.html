@@ -5080,11 +5080,30 @@
       });
     }
 
+    // Point on a circle's boundary (in the 0-100 viewBox space) in the direction
+    // of its label, so the leader line starts on the circumference rather than the
+    // centre. rx/ry are the ellipse semi-axes in the same (non-uniform) % space as
+    // the SVG viewBox, so the point lands exactly on the drawn edge.
+    function circleEdgePoint(c) {
+      const cx = (c.x || 0) + (c.w || 0) / 2;
+      const cy = (c.y || 0) + (c.h || 0) / 2;
+      const rx = ((c.w || 0) / 2) || 0.001;
+      const ry = ((c.h || 0) / 2) || 0.001;
+      const tx = (c.label_x != null) ? c.label_x : cx;
+      const ty = (c.label_y != null) ? c.label_y : cy;
+      const dx = tx - cx, dy = ty - cy;
+      const denom = Math.sqrt((dx / rx) ** 2 + (dy / ry) ** 2);
+      if (!denom || !isFinite(denom)) return { x: cx, y: cy };
+      const t = 1 / denom;
+      return { x: cx + dx * t, y: cy + dy * t };
+    }
+
     // Shared label box (input + drag + resize + delete + copy) for image-page
     // markers and circles. `line` is the SVG leader line whose label end (x2/y2)
-    // tracks the label. onDelete/onCopy act on the owning array.
+    // tracks the label. onLabelMove (optional) fires while dragging so a circle
+    // can recompute its edge anchor. onDelete/onCopy act on the owning array.
     function buildMarkerLabel(m, opts) {
-      const { zone, line, placeholder, onDelete, onCopy } = opts;
+      const { zone, line, placeholder, onDelete, onCopy, onLabelMove } = opts;
       const wrap = document.createElement('div');
       wrap.className = 'marker-label-wrap';
       wrap.style.left = m.label_x + '%';
@@ -5135,6 +5154,7 @@
           m.label_x = Math.round(lx * 100) / 100; m.label_y = Math.round(ly * 100) / 100;
           wrap.style.left = m.label_x + '%'; wrap.style.top = m.label_y + '%';
           if (line) { line.setAttribute('x2', m.label_x); line.setAttribute('y2', m.label_y); }
+          if (onLabelMove) onLabelMove(); // circle: re-anchor line start to the edge
         };
         const onUp = () => {
           document.removeEventListener('mousemove', onMove);
@@ -5247,9 +5267,14 @@
 
       // ── Resizable circles ──
       circles.forEach((c, idx) => {
-        const line = addLine((c.x || 0) + (c.w || 0) / 2, (c.y || 0) + (c.h || 0) / 2, c.label_x, c.label_y);
+        const e0 = circleEdgePoint(c);
+        const line = addLine(e0.x, e0.y, c.label_x, c.label_y);
+        // Anchor the line start on the circle's edge (toward the label), not its
+        // centre. Recomputed whenever the circle or the label moves/resizes.
         const updateLineStart = () => {
-          if (line) { line.setAttribute('x1', c.x + c.w / 2); line.setAttribute('y1', c.y + c.h / 2); }
+          if (!line) return;
+          const e = circleEdgePoint(c);
+          line.setAttribute('x1', e.x); line.setAttribute('y1', e.y);
         };
 
         const circle = document.createElement('div');
@@ -5319,6 +5344,7 @@
 
         zone.appendChild(buildMarkerLabel(c, {
           zone, line, placeholder: `圈選${idx + 1}`,
+          onLabelMove: updateLineStart, // moving the label changes the edge anchor direction
           onDelete: () => {
             imgData.circles = imgData.circles.filter(x => x.id !== c.id);
             renderImageMarkers(page, pos, zone); scheduleSave(state.activePage);
@@ -8267,7 +8293,8 @@
         cc.forEach((c, ci) => {
           mkDots += `<div style="position:absolute;left:${c.x}%;top:${c.y}%;width:${c.w}%;height:${c.h}%;border:2px solid #dc2626;border-radius:50%;box-sizing:border-box;z-index:16;"></div>`;
           mkDots += labelBox(c, '圈選' + (ci + 1));
-          mkLines += `<line x1="${c.x + c.w / 2}" y1="${c.y + c.h / 2}" x2="${c.label_x}" y2="${c.label_y}" stroke="#dc2626" stroke-width="0.4"/>`;
+          const ep = circleEdgePoint(c); // start the line on the circle edge, not the centre
+          mkLines += `<line x1="${ep.x}" y1="${ep.y}" x2="${c.label_x}" y2="${c.label_y}" stroke="#dc2626" stroke-width="0.4"/>`;
         });
         const mkSvg = mkLines ? `<svg viewBox="0 0 100 100" preserveAspectRatio="none" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:10;">${mkLines}</svg>` : '';
         cells += `<div style="display:flex;flex-direction:column;min-height:0;min-width:0;">

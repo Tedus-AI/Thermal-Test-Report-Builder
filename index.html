@@ -2406,6 +2406,30 @@
       stroke: #dc2626;
       stroke-width: 1.5;
     }
+
+    /* Resizable red circle annotation (outline) for circling a region */
+    .img-circle {
+      position: absolute;
+      border: 2px solid #dc2626;
+      border-radius: 50%;
+      background: transparent;
+      box-sizing: border-box;
+      cursor: move;
+      z-index: 16;
+    }
+    .img-circle-resize {
+      position: absolute;
+      right: -6px;
+      bottom: -6px;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #dc2626;
+      border: 1.5px solid #fff;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+      cursor: nwse-resize;
+      z-index: 17;
+    }
     .image-drop-zone.has-image.panning img {
       cursor: grabbing;
     }
@@ -4830,6 +4854,7 @@
                 <button class="photo-action-btn icon img-edit-btn" data-pos="${position}" data-edit="crop" title="裁切">✂</button>
                 ${imgCropOriginals.has(imgData) ? `<button class="photo-action-btn icon img-edit-btn" data-pos="${position}" data-edit="uncrop" title="還原裁切">⤺</button>` : ''}
                 <button class="photo-action-btn icon img-marker-add-btn" data-pos="${position}" title="新增標註點">📍</button>
+                <button class="photo-action-btn icon img-circle-add-btn" data-pos="${position}" title="新增圈選">⭕</button>
                 <button class="photo-action-btn img-replace-btn" data-pos="${position}">替換</button>
                 <button class="photo-action-btn danger img-delete-btn" data-pos="${position}">刪除</button>
               </div>
@@ -5032,37 +5057,141 @@
             scheduleSave(state.activePage);
           });
         }
+
+        // ── Circles: button adds a resizable red circle + leader line + label ──
+        const addCircleBtn = zone.querySelector('.img-circle-add-btn');
+        if (addCircleBtn) {
+          addCircleBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const im = page.data.images[pos];
+            if (!im) return;
+            if (!im.circles) im.circles = [];
+            im.circles.push({
+              id: 'ic_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+              x: 36, y: 33, w: 26, h: 34, label: '', label_x: 70, label_y: 12, label_w: 90,
+            });
+            renderImageMarkers(page, pos, zone);
+            scheduleSave(state.activePage);
+          });
+        }
         if (zone.classList.contains('has-image')) {
           renderImageMarkers(page, pos, zone);
         }
       });
     }
 
-    // Render/re-render the markers (dot + leader line + label) for one image cell.
-    // Everything is positioned as a percentage of the cell, so the editor and the
-    // exported PDF (buildImagePageHTML) place markers identically.
+    // Shared label box (input + drag + resize + delete + copy) for image-page
+    // markers and circles. `line` is the SVG leader line whose label end (x2/y2)
+    // tracks the label. onDelete/onCopy act on the owning array.
+    function buildMarkerLabel(m, opts) {
+      const { zone, line, placeholder, onDelete, onCopy } = opts;
+      const wrap = document.createElement('div');
+      wrap.className = 'marker-label-wrap';
+      wrap.style.left = m.label_x + '%';
+      wrap.style.top = m.label_y + '%';
+      wrap.dataset.id = m.id;
+
+      const label = document.createElement('input');
+      label.type = 'text';
+      label.className = 'marker-label';
+      label.placeholder = placeholder;
+      label.value = m.label || '';
+      label.style.width = (m.label_w || 90) + 'px';
+      label.addEventListener('input', () => { m.label = label.value; scheduleSave(state.activePage); });
+
+      const resize = document.createElement('div');
+      resize.className = 'marker-resize-handle';
+
+      const del = document.createElement('button');
+      del.type = 'button'; del.className = 'marker-delete-btn'; del.textContent = '×'; del.title = '刪除';
+      del.addEventListener('mousedown', (e) => { e.preventDefault(); e.stopPropagation(); });
+      del.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); onDelete(); });
+
+      const copy = document.createElement('button');
+      copy.type = 'button'; copy.className = 'marker-copy-btn'; copy.textContent = '⧉'; copy.title = '複製';
+      copy.addEventListener('mousedown', (e) => { e.preventDefault(); e.stopPropagation(); });
+      copy.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); onCopy(); });
+
+      wrap.appendChild(label); wrap.appendChild(resize); wrap.appendChild(del); wrap.appendChild(copy);
+
+      // Drag the label (5px threshold so a plain click still focuses the input)
+      label.addEventListener('mousedown', (e) => {
+        if (e.target !== label || e.button !== 0) return;
+        const wr = wrap.getBoundingClientRect();
+        const pending = { sx: e.clientX, sy: e.clientY, offX: e.clientX - wr.left, offY: e.clientY - wr.top };
+        let dragging = false;
+        const onMove = (ev) => {
+          if (!dragging) {
+            if (Math.hypot(ev.clientX - pending.sx, ev.clientY - pending.sy) > 5) { dragging = true; label.blur(); }
+            else return;
+          }
+          const r = zone.getBoundingClientRect();
+          const lwPct = (wrap.offsetWidth / r.width) * 100;
+          const lhPct = (wrap.offsetHeight / r.height) * 100;
+          let lx = ((ev.clientX - pending.offX - r.left) / r.width) * 100;
+          let ly = ((ev.clientY - pending.offY - r.top) / r.height) * 100;
+          lx = Math.max(0, Math.min(Math.max(0, 100 - lwPct), lx));
+          ly = Math.max(0, Math.min(Math.max(0, 100 - lhPct), ly));
+          m.label_x = Math.round(lx * 100) / 100; m.label_y = Math.round(ly * 100) / 100;
+          wrap.style.left = m.label_x + '%'; wrap.style.top = m.label_y + '%';
+          if (line) { line.setAttribute('x2', m.label_x); line.setAttribute('y2', m.label_y); }
+        };
+        const onUp = () => {
+          document.removeEventListener('mousemove', onMove);
+          document.removeEventListener('mouseup', onUp);
+          if (dragging) scheduleSave(state.activePage);
+        };
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+      });
+
+      // Resize the label width
+      resize.addEventListener('mousedown', (e) => {
+        if (e.button !== 0) return;
+        e.preventDefault(); e.stopPropagation();
+        const startX = e.clientX, startW = label.offsetWidth;
+        const onMove = (ev) => { label.style.width = Math.max(40, startW + (ev.clientX - startX)) + 'px'; };
+        const onUp = () => {
+          document.removeEventListener('mousemove', onMove);
+          document.removeEventListener('mouseup', onUp);
+          m.label_w = label.offsetWidth;
+          scheduleSave(state.activePage);
+        };
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+      });
+
+      label.addEventListener('dblclick', (e) => { e.stopPropagation(); label.focus(); label.select(); });
+      return wrap;
+    }
+
+    // Render/re-render the annotations (dot markers + resizable circles, each with
+    // a leader line and label) for one image cell. Everything is positioned as a
+    // percentage of the cell, so the editor and the exported PDF match.
     function renderImageMarkers(page, pos, zone) {
       const imgData = page.data.images[pos];
       if (!imgData) return;
       zone = zone || $canvas.querySelector(`.image-drop-zone.has-image[data-pos="${pos}"]`);
       if (!zone) return;
       const svg = zone.querySelector('.img-marker-svg');
-      zone.querySelectorAll('.marker-dot, .marker-label-wrap').forEach(el => el.remove());
+      zone.querySelectorAll('.marker-dot, .marker-label-wrap, .img-circle').forEach(el => el.remove());
       if (svg) svg.innerHTML = '';
       const markers = imgData.markers || (imgData.markers = []);
+      const circles = imgData.circles || (imgData.circles = []);
 
+      const addLine = (x1, y1, x2, y2) => {
+        if (!svg) return null;
+        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        line.setAttribute('x1', x1); line.setAttribute('y1', y1);
+        line.setAttribute('x2', x2); line.setAttribute('y2', y2);
+        line.setAttribute('vector-effect', 'non-scaling-stroke');
+        svg.appendChild(line);
+        return line;
+      };
+
+      // ── Dot markers ──
       markers.forEach((m, idx) => {
-        // Leader line (percent coordinates in the 0-100 viewBox)
-        let line = null;
-        if (svg) {
-          line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-          line.setAttribute('x1', m.x); line.setAttribute('y1', m.y);
-          line.setAttribute('x2', m.label_x); line.setAttribute('y2', m.label_y);
-          line.setAttribute('vector-effect', 'non-scaling-stroke');
-          svg.appendChild(line);
-        }
-
-        // Red dot (draggable, right-click to delete)
+        const line = addLine(m.x, m.y, m.label_x, m.label_y);
         const dot = document.createElement('div');
         dot.className = 'marker-dot';
         dot.style.left = m.x + '%';
@@ -5073,8 +5202,8 @@
           e.preventDefault(); e.stopPropagation();
           const onMove = (ev) => {
             const r = zone.getBoundingClientRect();
-            let px = Math.max(0, Math.min(100, ((ev.clientX - r.left) / r.width) * 100));
-            let py = Math.max(0, Math.min(100, ((ev.clientY - r.top) / r.height) * 100));
+            const px = Math.max(0, Math.min(100, ((ev.clientX - r.left) / r.width) * 100));
+            const py = Math.max(0, Math.min(100, ((ev.clientY - r.top) / r.height) * 100));
             m.x = Math.round(px * 100) / 100; m.y = Math.round(py * 100) / 100;
             dot.style.left = m.x + '%'; dot.style.top = m.y + '%';
             if (line) { line.setAttribute('x1', m.x); line.setAttribute('y1', m.y); }
@@ -5097,102 +5226,115 @@
         });
         zone.appendChild(dot);
 
-        // Label box (editable / draggable / resizable / delete / copy)
-        const wrap = document.createElement('div');
-        wrap.className = 'marker-label-wrap';
-        wrap.style.left = m.label_x + '%';
-        wrap.style.top = m.label_y + '%';
-        wrap.dataset.id = m.id;
+        zone.appendChild(buildMarkerLabel(m, {
+          zone, line, placeholder: `標註${idx + 1}`,
+          onDelete: () => {
+            imgData.markers = imgData.markers.filter(x => x.id !== m.id);
+            renderImageMarkers(page, pos, zone); scheduleSave(state.activePage);
+          },
+          onCopy: () => {
+            imgData.markers.push({
+              id: 'im_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+              x: Math.min(98, (m.x || 0) + 4), y: Math.min(98, (m.y || 0) + 4),
+              label: m.label || '',
+              label_x: Math.min(92, (m.label_x || 0) + 3), label_y: Math.min(92, (m.label_y || 0) + 3),
+              label_w: m.label_w,
+            });
+            renderImageMarkers(page, pos, zone); scheduleSave(state.activePage);
+          },
+        }));
+      });
 
-        const label = document.createElement('input');
-        label.type = 'text';
-        label.className = 'marker-label';
-        label.placeholder = `標註${idx + 1}`;
-        label.value = m.label || '';
-        label.style.width = (m.label_w || 90) + 'px';
-        label.addEventListener('input', () => { m.label = label.value; scheduleSave(state.activePage); });
+      // ── Resizable circles ──
+      circles.forEach((c, idx) => {
+        const line = addLine((c.x || 0) + (c.w || 0) / 2, (c.y || 0) + (c.h || 0) / 2, c.label_x, c.label_y);
+        const updateLineStart = () => {
+          if (line) { line.setAttribute('x1', c.x + c.w / 2); line.setAttribute('y1', c.y + c.h / 2); }
+        };
 
-        const resize = document.createElement('div');
-        resize.className = 'marker-resize-handle';
+        const circle = document.createElement('div');
+        circle.className = 'img-circle';
+        circle.style.left = c.x + '%'; circle.style.top = c.y + '%';
+        circle.style.width = c.w + '%'; circle.style.height = c.h + '%';
+        circle.dataset.id = c.id;
 
-        const del = document.createElement('button');
-        del.type = 'button'; del.className = 'marker-delete-btn'; del.textContent = '×'; del.title = '刪除標註';
-        del.addEventListener('mousedown', (e) => { e.preventDefault(); e.stopPropagation(); });
-        del.addEventListener('click', (e) => {
+        // Move the circle
+        circle.addEventListener('mousedown', (e) => {
+          if (e.button !== 0 || e.target.classList.contains('img-circle-resize')) return;
           e.preventDefault(); e.stopPropagation();
-          imgData.markers = imgData.markers.filter(x => x.id !== m.id);
-          renderImageMarkers(page, pos, zone);
-          scheduleSave(state.activePage);
-        });
-
-        const copy = document.createElement('button');
-        copy.type = 'button'; copy.className = 'marker-copy-btn'; copy.textContent = '⧉'; copy.title = '複製標註';
-        copy.addEventListener('mousedown', (e) => { e.preventDefault(); e.stopPropagation(); });
-        copy.addEventListener('click', (e) => {
-          e.preventDefault(); e.stopPropagation();
-          imgData.markers.push({
-            id: 'im_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
-            x: Math.min(98, (m.x || 0) + 4), y: Math.min(98, (m.y || 0) + 4),
-            label: m.label || '',
-            label_x: Math.min(92, (m.label_x || 0) + 3), label_y: Math.min(92, (m.label_y || 0) + 3),
-            label_w: m.label_w,
-          });
-          renderImageMarkers(page, pos, zone);
-          scheduleSave(state.activePage);
-        });
-
-        wrap.appendChild(label); wrap.appendChild(resize); wrap.appendChild(del); wrap.appendChild(copy);
-
-        // Drag the label (5px threshold so a plain click still focuses the input)
-        label.addEventListener('mousedown', (e) => {
-          if (e.target !== label || e.button !== 0) return;
-          const wr = wrap.getBoundingClientRect();
-          const pending = { sx: e.clientX, sy: e.clientY, offX: e.clientX - wr.left, offY: e.clientY - wr.top };
-          let dragging = false;
+          const r = zone.getBoundingClientRect();
+          const startX = e.clientX, startY = e.clientY, bx = c.x, by = c.y;
           const onMove = (ev) => {
-            if (!dragging) {
-              if (Math.hypot(ev.clientX - pending.sx, ev.clientY - pending.sy) > 5) { dragging = true; label.blur(); }
-              else return;
-            }
-            const r = zone.getBoundingClientRect();
-            const lwPct = (wrap.offsetWidth / r.width) * 100;
-            const lhPct = (wrap.offsetHeight / r.height) * 100;
-            let lx = ((ev.clientX - pending.offX - r.left) / r.width) * 100;
-            let ly = ((ev.clientY - pending.offY - r.top) / r.height) * 100;
-            lx = Math.max(0, Math.min(Math.max(0, 100 - lwPct), lx));
-            ly = Math.max(0, Math.min(Math.max(0, 100 - lhPct), ly));
-            m.label_x = Math.round(lx * 100) / 100; m.label_y = Math.round(ly * 100) / 100;
-            wrap.style.left = m.label_x + '%'; wrap.style.top = m.label_y + '%';
-            if (line) { line.setAttribute('x2', m.label_x); line.setAttribute('y2', m.label_y); }
+            let nx = bx + ((ev.clientX - startX) / r.width) * 100;
+            let ny = by + ((ev.clientY - startY) / r.height) * 100;
+            nx = Math.max(0, Math.min(100 - c.w, nx));
+            ny = Math.max(0, Math.min(100 - c.h, ny));
+            c.x = Math.round(nx * 100) / 100; c.y = Math.round(ny * 100) / 100;
+            circle.style.left = c.x + '%'; circle.style.top = c.y + '%';
+            updateLineStart();
           };
           const onUp = () => {
             document.removeEventListener('mousemove', onMove);
             document.removeEventListener('mouseup', onUp);
-            if (dragging) scheduleSave(state.activePage);
-          };
-          document.addEventListener('mousemove', onMove);
-          document.addEventListener('mouseup', onUp);
-        });
-
-        // Resize the label width
-        resize.addEventListener('mousedown', (e) => {
-          if (e.button !== 0) return;
-          e.preventDefault(); e.stopPropagation();
-          const startX = e.clientX, startW = label.offsetWidth;
-          const onMove = (ev) => { label.style.width = Math.max(40, startW + (ev.clientX - startX)) + 'px'; };
-          const onUp = () => {
-            document.removeEventListener('mousemove', onMove);
-            document.removeEventListener('mouseup', onUp);
-            m.label_w = label.offsetWidth;
             scheduleSave(state.activePage);
           };
           document.addEventListener('mousemove', onMove);
           document.addEventListener('mouseup', onUp);
         });
+        circle.addEventListener('contextmenu', (e) => {
+          e.preventDefault(); e.stopPropagation();
+          if (confirm(`刪除圈選 #${idx + 1}？`)) {
+            imgData.circles = imgData.circles.filter(x => x.id !== c.id);
+            renderImageMarkers(page, pos, zone); scheduleSave(state.activePage);
+          }
+        });
 
-        label.addEventListener('dblclick', (e) => { e.stopPropagation(); label.focus(); label.select(); });
+        // Resize handle (bottom-right; free ellipse resize)
+        const rh = document.createElement('div');
+        rh.className = 'img-circle-resize';
+        rh.addEventListener('mousedown', (e) => {
+          if (e.button !== 0) return;
+          e.preventDefault(); e.stopPropagation();
+          const r = zone.getBoundingClientRect();
+          const startX = e.clientX, startY = e.clientY, bw = c.w, bh = c.h;
+          const onMove = (ev) => {
+            let nw = bw + ((ev.clientX - startX) / r.width) * 100;
+            let nh = bh + ((ev.clientY - startY) / r.height) * 100;
+            nw = Math.max(4, Math.min(100 - c.x, nw));
+            nh = Math.max(4, Math.min(100 - c.y, nh));
+            c.w = Math.round(nw * 100) / 100; c.h = Math.round(nh * 100) / 100;
+            circle.style.width = c.w + '%'; circle.style.height = c.h + '%';
+            updateLineStart();
+          };
+          const onUp = () => {
+            document.removeEventListener('mousemove', onMove);
+            document.removeEventListener('mouseup', onUp);
+            scheduleSave(state.activePage);
+          };
+          document.addEventListener('mousemove', onMove);
+          document.addEventListener('mouseup', onUp);
+        });
+        circle.appendChild(rh);
+        zone.appendChild(circle);
 
-        zone.appendChild(wrap);
+        zone.appendChild(buildMarkerLabel(c, {
+          zone, line, placeholder: `圈選${idx + 1}`,
+          onDelete: () => {
+            imgData.circles = imgData.circles.filter(x => x.id !== c.id);
+            renderImageMarkers(page, pos, zone); scheduleSave(state.activePage);
+          },
+          onCopy: () => {
+            imgData.circles.push({
+              id: 'ic_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+              x: Math.min(100 - (c.w || 10), (c.x || 0) + 4), y: Math.min(100 - (c.h || 10), (c.y || 0) + 4),
+              w: c.w, h: c.h,
+              label: c.label || '',
+              label_x: Math.min(92, (c.label_x || 0) + 3), label_y: Math.min(92, (c.label_y || 0) + 3),
+              label_w: c.label_w,
+            });
+            renderImageMarkers(page, pos, zone); scheduleSave(state.activePage);
+          },
+        }));
       });
     }
 
@@ -8108,15 +8250,24 @@
       for (let i = 0; i < count; i++) {
         const img = imgs[i];
         const src = img && img.url_or_base64;
-        // Markers: dot + leader line + label, positioned as % of the cell so they
-        // match the editor exactly.
+        // Annotations: dot markers + resizable circles, each with a leader line
+        // and label, positioned as % of the cell so they match the editor exactly.
         const mk = (src && img.markers) ? img.markers : [];
+        const cc = (src && img.circles) ? img.circles : [];
+        const labelBox = (m, fallback) => {
+          const lw = m.label_w || 90;
+          return `<div style="position:absolute;left:${m.label_x}%;top:${m.label_y}%;width:${lw}px;min-width:40px;padding:3px 6px;background:#fff;border:1.5px solid #2357A7;font-family:'JetBrains Mono',monospace;font-size:10px;color:rgba(15,23,42,0.90);z-index:20;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:0 1px 4px rgba(0,0,0,0.12);box-sizing:border-box;">${escHtml(m.label || fallback)}</div>`;
+        };
         let mkDots = '', mkLines = '';
         mk.forEach((m, mi) => {
-          const lw = m.label_w || 90;
           mkDots += `<div style="position:absolute;left:${m.x}%;top:${m.y}%;width:5px;height:5px;border-radius:50%;background:#dc2626;box-shadow:0 0 0 1px rgba(255,255,255,0.9);transform:translate(-50%,-50%);z-index:15;"></div>`;
-          mkDots += `<div style="position:absolute;left:${m.label_x}%;top:${m.label_y}%;width:${lw}px;min-width:40px;padding:3px 6px;background:#fff;border:1.5px solid #2357A7;font-family:'JetBrains Mono',monospace;font-size:10px;color:rgba(15,23,42,0.90);z-index:20;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:0 1px 4px rgba(0,0,0,0.12);box-sizing:border-box;">${escHtml(m.label || ('標註' + (mi + 1)))}</div>`;
+          mkDots += labelBox(m, '標註' + (mi + 1));
           mkLines += `<line x1="${m.x}" y1="${m.y}" x2="${m.label_x}" y2="${m.label_y}" stroke="#dc2626" stroke-width="0.4"/>`;
+        });
+        cc.forEach((c, ci) => {
+          mkDots += `<div style="position:absolute;left:${c.x}%;top:${c.y}%;width:${c.w}%;height:${c.h}%;border:2px solid #dc2626;border-radius:50%;box-sizing:border-box;z-index:16;"></div>`;
+          mkDots += labelBox(c, '圈選' + (ci + 1));
+          mkLines += `<line x1="${c.x + c.w / 2}" y1="${c.y + c.h / 2}" x2="${c.label_x}" y2="${c.label_y}" stroke="#dc2626" stroke-width="0.4"/>`;
         });
         const mkSvg = mkLines ? `<svg viewBox="0 0 100 100" preserveAspectRatio="none" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:10;">${mkLines}</svg>` : '';
         cells += `<div style="display:flex;flex-direction:column;min-height:0;min-width:0;">

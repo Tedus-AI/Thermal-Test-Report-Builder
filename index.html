@@ -6271,6 +6271,33 @@
       });
     }
 
+    // Rebuild the component "TIM Type" dropdown options in place from the current
+    // TIM library, preserving each row's current selection. Used when a TIM entry
+    // is edited so the dropdowns update immediately without a full re-render
+    // (which would steal focus from the TIM name field being typed).
+    function refreshTimTypeOptions(page) {
+      const d = page.data;
+      const timLib = state.timLibrary || { grease: [], pad: [], putty: [] };
+      const allTimNames = [
+        ...(timLib.grease || []).map(t => t.name),
+        ...(timLib.pad || []).map(t => t.name),
+        ...(timLib.putty || []).map(t => t.name),
+      ].filter(Boolean);
+      $canvas.querySelectorAll('select[data-comp-field="tim_type"]').forEach(sel => {
+        const ri = parseInt(sel.dataset.comp);
+        const comp = d.components[ri];
+        const cur = comp ? (comp.tim_type || '') : sel.value;
+        let html = '<option value="">N/A</option>';
+        html += allTimNames.map(n =>
+          `<option value="${escapeAttr(n)}" ${cur === n ? 'selected' : ''}>${escHtml(n)}</option>`).join('');
+        if (cur && !allTimNames.includes(cur)) {
+          html += `<option value="${escapeAttr(cur)}" selected>${escHtml(cur)}</option>`;
+        }
+        sel.innerHTML = html;
+        sel.value = cur;
+      });
+    }
+
     function renderDataPage(page) {
       const d = page.data;
       if (!d.header) d.header = {};
@@ -6980,6 +7007,9 @@
             if (state.timLibrary[cat] && state.timLibrary[cat][idx]) {
               state.timLibrary[cat][idx][field] = el.value;
               try { await dbAdapter.setTimLibrary(state.timLibrary); } catch (e) {}
+              // Reflect the new/edited TIM name in the component TIM Type dropdowns
+              // right away (in place, so the field keeps focus while typing).
+              if (field === 'name') refreshTimTypeOptions(page);
             }
           });
         });

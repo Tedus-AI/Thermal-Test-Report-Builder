@@ -1515,6 +1515,59 @@
       color: rgba(15,23,42,0.25);
     }
 
+    /* ━━━ Machine Power (per Ta: voltage / current / auto watt) ━━━ */
+    .mp-section { margin-bottom: 10px; }
+    .mp-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: #0B3D7A;
+      margin-bottom: 4px;
+    }
+    .mp-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11px;
+    }
+    .mp-table th {
+      background: #0B3D7A;
+      color: #fff;
+      font-weight: 500;
+      font-size: 10px;
+      padding: 4px 8px;
+      border: 1px solid rgba(255,255,255,0.3);
+      text-align: center;
+      white-space: nowrap;
+    }
+    .mp-table td {
+      border: 1px solid rgba(15,23,42,0.08);
+      padding: 3px 6px;
+      text-align: center;
+    }
+    .mp-table td.mp-ta {
+      font-family: var(--font-mono);
+      color: #2357A7;
+      white-space: nowrap;
+    }
+    .mp-table input {
+      width: 90px;
+      border: none;
+      outline: none;
+      background: transparent;
+      text-align: center;
+      font-size: 11px;
+      font-family: var(--font-ui);
+      color: var(--text-on-white);
+    }
+    .mp-table input::placeholder { color: rgba(15,23,42,0.25); }
+    .mp-table input:focus { background: rgba(56,189,248,0.06); border-radius: 3px; }
+    /* W is computed → plain read-only text (not a greyed disabled input) */
+    .mp-table td.mp-w {
+      font-weight: 600;
+      color: #0B3D7A;
+      background: rgba(11,61,122,0.04);
+      white-space: nowrap;
+    }
+
     /* ━━━ Data Table ━━━ */
     .data-table-wrap {
       flex: 1;
@@ -6513,6 +6566,14 @@
       });
     }
 
+    // Machine total power = voltage × current, formatted with unit. Shared by the
+    // editor and the PDF so the two always agree.
+    function machineWatt(v, i) {
+      const vn = parseFloat(v), inn = parseFloat(i);
+      if (isNaN(vn) || isNaN(inn)) return '—';
+      return (vn * inn).toFixed(1) + ' W';
+    }
+
     // Rebuild the component "TIM Type" dropdown options in place from the current
     // TIM library, preserving each row's current selection. Used when a TIM entry
     // is edited so the dropdowns update immediately without a full re-render
@@ -6779,6 +6840,33 @@
             </div>
           </div>
 
+          <!-- Machine Power (per Ta) -->
+          <div class="mp-section">
+            <div class="mp-title">機台功耗（Machine Power）</div>
+            <table class="mp-table">
+              <thead>
+                <tr>
+                  <th>環溫 Ta</th>
+                  <th>電壓 (V)</th>
+                  <th>電流 (A)</th>
+                  <th>整機功耗 (W)</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${d.ta_conditions.map(ta => {
+                  const key = 'ta_' + ta;
+                  const mp = (d.machine_power && d.machine_power[key]) || {};
+                  return `<tr>
+                    <td class="mp-ta">Ta = ${ta}°C</td>
+                    <td><input type="number" step="any" class="mp-v" data-mp-ta="${escapeAttr(key)}" placeholder="—" value="${escapeAttr(mp.v !== undefined ? mp.v : '')}"></td>
+                    <td><input type="number" step="any" class="mp-i" data-mp-ta="${escapeAttr(key)}" placeholder="—" value="${escapeAttr(mp.i !== undefined ? mp.i : '')}"></td>
+                    <td class="mp-w" data-mp-w="${escapeAttr(key)}">${machineWatt(mp.v, mp.i)}</td>
+                  </tr>`;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+
           <!-- Data Table -->
           <div class="data-table-wrap">
             <table class="data-table">
@@ -6871,6 +6959,20 @@
           scheduleSave(state.activePage);
         });
       }
+
+      // Machine power: V/I inputs update the Watt cell in place (no re-render, so
+      // the field being typed keeps focus). W = V × I.
+      $canvas.querySelectorAll('.mp-v, .mp-i').forEach(el => {
+        el.addEventListener('input', () => {
+          const key = el.dataset.mpTa;
+          if (!d.machine_power) d.machine_power = {};
+          if (!d.machine_power[key]) d.machine_power[key] = {};
+          d.machine_power[key][el.classList.contains('mp-v') ? 'v' : 'i'] = el.value;
+          const wCell = el.closest('tr').querySelector('.mp-w');
+          if (wCell) wCell.textContent = machineWatt(d.machine_power[key].v, d.machine_power[key].i);
+          scheduleSave(state.activePage);
+        });
+      });
 
       // Mounting custom
       const mountSelect = document.getElementById('data-mounting-select');
@@ -8598,6 +8700,13 @@
           <div><span style="font-family:'JetBrains Mono',monospace;font-size:8px;font-weight:500;color:#2357A7;letter-spacing:0.06em;">WAVEFORM VER.</span><div>${escHtml(h.waveform_ver)}</div></div>
           <div><span style="font-family:'JetBrains Mono',monospace;font-size:8px;font-weight:500;color:#2357A7;letter-spacing:0.06em;">LOCATION</span><div>${escHtml(h.location)}</div></div>
         </div>
+        ${(tas.some(ta => { const mp = (d.machine_power || {})['ta_' + ta]; return mp && (mp.v !== undefined && mp.v !== '' || mp.i !== undefined && mp.i !== ''); })) ? `<div style="margin-bottom:10px;">
+          <div style="font-family:'Space Grotesk',sans-serif;font-size:11px;font-weight:600;color:#0B3D7A;margin-bottom:4px;">機台功耗（Machine Power）</div>
+          <table style="width:100%;border-collapse:collapse;font-size:10px;">
+            <thead><tr><th style="${thStyle}">環溫 Ta</th><th style="${thStyle}">電壓 (V)</th><th style="${thStyle}">電流 (A)</th><th style="${thStyle}">整機功耗 (W)</th></tr></thead>
+            <tbody>${tas.map(ta => { const mp = (d.machine_power || {})['ta_' + ta] || {}; const vTxt = (mp.v !== undefined && mp.v !== '') ? escHtml(String(mp.v)) : '—'; const iTxt = (mp.i !== undefined && mp.i !== '') ? escHtml(String(mp.i)) : '—'; return `<tr><td style="${tdStyle}font-family:&apos;JetBrains Mono&apos;,monospace;color:#2357A7;">Ta = ${ta}°C</td><td style="${tdStyle}">${vTxt}</td><td style="${tdStyle}">${iTxt}</td><td style="${tdStyle}font-weight:700;color:#0B3D7A;">${machineWatt(mp.v, mp.i)}</td></tr>`; }).join('')}</tbody>
+          </table>
+        </div>` : ''}
         <div style="border:1px solid #C2DFF8;">
           <table style="width:100%;border-collapse:collapse;font-size:10px;">
             <thead><tr><th rowspan="2" style="${thStyle}">類別</th><th rowspan="2" style="${thStyle}">#</th><th rowspan="2" style="${thStyle}">元件名稱</th><th rowspan="2" style="${thStyle}">Spec Type</th><th rowspan="2" style="${thStyle}">Tc Spec</th><th rowspan="2" style="${thStyle}">Derating</th><th rowspan="2" style="${thStyle}">Derated Tc</th><th rowspan="2" style="${thStyle}">TIM Type</th>${taHeaders1}<th rowspan="2" style="${thStyle}">P/F</th><th rowspan="2" style="${thStyle}">備註</th></tr><tr>${taHeaders2}</tr></thead>
@@ -8684,6 +8793,23 @@
       </div>`;
       const taTagsHtml = '';
 
+      // Machine power table (per Ta). Shown only if any voltage/current was entered.
+      const mpHasData = tas.some(ta => { const mp = (d.machine_power || {})['ta_' + ta]; return mp && (mp.v !== undefined && mp.v !== '' || mp.i !== undefined && mp.i !== ''); });
+      const powerHtml = mpHasData ? `<div style="margin-bottom:10px;">
+        <div style="font-family:'Space Grotesk',sans-serif;font-size:11px;font-weight:600;color:#0B3D7A;margin-bottom:4px;">機台功耗（Machine Power）</div>
+        <table style="width:100%;border-collapse:collapse;font-size:10px;">
+          <thead><tr>
+            <th style="${thStyle}">環溫 Ta</th><th style="${thStyle}">電壓 (V)</th><th style="${thStyle}">電流 (A)</th><th style="${thStyle}">整機功耗 (W)</th>
+          </tr></thead>
+          <tbody>${tas.map(ta => {
+            const mp = (d.machine_power || {})['ta_' + ta] || {};
+            const vTxt = (mp.v !== undefined && mp.v !== '') ? escHtml(String(mp.v)) : '—';
+            const iTxt = (mp.i !== undefined && mp.i !== '') ? escHtml(String(mp.i)) : '—';
+            return `<tr><td style="${tdStyle}font-family:&apos;JetBrains Mono&apos;,monospace;color:#2357A7;">Ta = ${ta}°C</td><td style="${tdStyle}">${vTxt}</td><td style="${tdStyle}">${iTxt}</td><td style="${tdStyle}font-weight:700;color:#0B3D7A;">${machineWatt(mp.v, mp.i)}</td></tr>`;
+          }).join('')}</tbody>
+        </table>
+      </div>` : '';
+
       const sensors = d.sensors || [];
       const sensorsWithData = sensors.filter(s => s.name || Object.values(s.readings || {}).some(v => v));
       let sensorHtml = '';
@@ -8731,7 +8857,7 @@
         </div>`;
 
       if (rowsHtml.length === 0) {
-        return [wrapPageHTML(makeInner(titleHtml, infoGridHtml + taTagsHtml, '', sensorHtml))];
+        return [wrapPageHTML(makeInner(titleHtml, infoGridHtml + taTagsHtml + powerHtml, '', sensorHtml))];
       }
 
       const PAGE_H = 595;
@@ -8753,7 +8879,7 @@
 
       // ── Pass 1: measure component row positions on page 1 layout ──
       measurer.innerHTML = `<div style="width:100%;padding:28px 32px 28px;letter-spacing:0;word-spacing:0;">
-        ${titleHtml}${infoGridHtml}${taTagsHtml}
+        ${titleHtml}${infoGridHtml}${taTagsHtml}${powerHtml}
         <div style="border:1px solid #C2DFF8;">
           <table style="width:100%;border-collapse:collapse;font-size:10px;">
             ${theadHtml}
@@ -8798,7 +8924,7 @@
       // ── Check single-page: all rows + sensor fit? ──
       const lastRowBottom = rowBottoms[rowBottoms.length - 1];
       if (lastRowBottom + sensorH <= MAX_CONTENT_Y) {
-        return [wrapPageHTML(makeInner(titleHtml, infoGridHtml + taTagsHtml, rowsHtml.join(''), sensorHtml))];
+        return [wrapPageHTML(makeInner(titleHtml, infoGridHtml + taTagsHtml + powerHtml, rowsHtml.join(''), sensorHtml))];
       }
 
       const sumRows = (a, b) => { let s = 0; for (let i = a; i < b; i++) s += rowHeights[i]; return s; };
@@ -8847,7 +8973,7 @@
         const rows = rowsHtml.slice(rp.start, rp.end).join('');
         const sensor = i === sensorPageIndex ? sensorHtml : '';
         if (i === 0) {
-          return wrapPageHTML(makeInner(titleHtml, infoGridHtml + taTagsHtml, rows, sensor));
+          return wrapPageHTML(makeInner(titleHtml, infoGridHtml + taTagsHtml + powerHtml, rows, sensor));
         }
         return wrapPageHTML(makeInner(titleHtml, '', rows, sensor));
       });

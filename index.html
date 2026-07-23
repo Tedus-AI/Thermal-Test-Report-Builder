@@ -1316,6 +1316,34 @@
       margin-bottom: 10px;
       padding-bottom: 6px;
       border-bottom: 2px solid #C2DFF8;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .data-page-title-text { white-space: nowrap; flex-shrink: 0; }
+    .data-top-note {
+      margin-left: auto;
+      flex: 1;
+      max-width: 62%;
+      min-width: 120px;
+      font-family: var(--font-ui);
+      font-size: 12px;
+      font-weight: 400;
+      text-transform: none;
+      letter-spacing: normal;
+      color: var(--text-on-white);
+      background: transparent;
+      border: none;
+      border-bottom: 1px solid rgba(15,23,42,0.15);
+      outline: none;
+      padding: 2px 4px;
+      text-align: right;
+    }
+    .data-top-note::placeholder { color: rgba(15,23,42,0.28); }
+    .data-top-note:hover { border-bottom-color: rgba(15,23,42,0.3); }
+    .data-top-note:focus {
+      border-bottom-color: var(--color-primary);
+      background: rgba(56,189,248,0.05);
     }
 
     .data-header-grid {
@@ -6686,7 +6714,11 @@
 
       $canvas.innerHTML = editorPageWrapHTML(`
         <div class="data-page">
-          <div class="data-page-title">Thermal Test Data</div>
+          <div class="data-page-title">
+            <span class="data-page-title-text">Thermal Test Data</span>
+            <input class="data-top-note" type="text" placeholder="註記（可手動輸入）"
+                   value="${escapeAttr(d.top_note || '')}" data-field="top_note">
+          </div>
 
           <div class="data-header-grid">
             <div class="data-field">
@@ -6830,6 +6862,15 @@
           scheduleSave(state.activePage);
         });
       });
+
+      // Top note (free text on the title row)
+      const topNoteInput = $canvas.querySelector('.data-top-note');
+      if (topNoteInput) {
+        topNoteInput.addEventListener('input', () => {
+          d.top_note = topNoteInput.value;
+          scheduleSave(state.activePage);
+        });
+      }
 
       // Mounting custom
       const mountSelect = document.getElementById('data-mounting-select');
@@ -8547,7 +8588,7 @@
       }
 
       const inner = `<div style="width:100%;height:100%;padding:28px 32px 28px;color:rgba(15,23,42,0.90);overflow:hidden;letter-spacing:0px;word-spacing:0px;">
-        <div style="font-family:'Space Grotesk',sans-serif;font-size:14px;font-weight:600;letter-spacing:0.02em;word-spacing:0px;color:#0B3D7A;margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid #C2DFF8;">THERMAL TEST DATA</div>
+        <div style="font-family:'Space Grotesk',sans-serif;font-size:14px;font-weight:600;letter-spacing:0.02em;word-spacing:0px;color:#0B3D7A;margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid #C2DFF8;display:flex;align-items:baseline;gap:12px;"><span style="flex-shrink:0;">THERMAL TEST DATA</span>${d.top_note ? `<span style="margin-left:auto;font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:400;letter-spacing:0px;color:rgba(15,23,42,0.7);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escHtml(d.top_note)}</span>` : ''}</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 20px;margin-bottom:10px;font-size:11px;background:#EDF2F8;padding:8px 10px;">
           <div><span style="font-family:'JetBrains Mono',monospace;font-size:8px;font-weight:500;color:#2357A7;letter-spacing:0.06em;">TEST DATE</span><div>${escHtml(h.test_date)}</div></div>
           <div><span style="font-family:'JetBrains Mono',monospace;font-size:8px;font-weight:500;color:#2357A7;letter-spacing:0.06em;">EQUILIBRIUM TIME</span><div>${escHtml(h.eq_time_min)} min</div></div>
@@ -8628,7 +8669,8 @@
       const taTags = tas.map(t => `<span style="display:inline-block;padding:3px 8px;font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:500;color:#2357A7;background:rgba(35,87,167,0.08);border:1px solid rgba(35,87,167,0.15);clip-path:polygon(4px 0,100% 0,calc(100% - 4px) 100%,0 100%);margin-right:4px;">Ta = ${t}°C</span>`).join('');
 
       const titleStyle = "font-family:'Space Grotesk',sans-serif;font-size:14px;font-weight:600;letter-spacing:0.02em;word-spacing:0px;color:#0B3D7A;margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid #C2DFF8;";
-      const titleHtml = `<div style="${titleStyle}">THERMAL TEST DATA</div>`;
+      const topNoteSpan = d.top_note ? `<span style="margin-left:auto;font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:400;letter-spacing:0px;color:rgba(15,23,42,0.7);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escHtml(d.top_note)}</span>` : '';
+      const titleHtml = `<div style="${titleStyle}display:flex;align-items:baseline;gap:12px;"><span style="flex-shrink:0;">THERMAL TEST DATA</span>${topNoteSpan}</div>`;
 
       const lblStyle = "font-family:'JetBrains Mono',monospace;font-size:8px;font-weight:500;color:#2357A7;letter-spacing:0.06em;";
       const infoGridHtml = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 20px;margin-bottom:10px;font-size:11px;background:#EDF2F8;padding:8px 10px;">

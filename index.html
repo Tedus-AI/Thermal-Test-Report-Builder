@@ -7134,6 +7134,18 @@
           // Update margin cell in-place
           updateRowComputed(ri);
         });
+        // Excel-style vertical navigation: ↓/↑ move the caret to the same Ta
+        // column of the next/previous component (instead of the number input's
+        // default value spinner). Enter also moves down.
+        el.addEventListener('keydown', (e) => {
+          if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp' && e.key !== 'Enter') return;
+          e.preventDefault(); // suppress the number-input increment/decrement
+          const ri = parseInt(el.dataset.comp);
+          const key = el.dataset.taKey;
+          const nextRi = e.key === 'ArrowUp' ? ri - 1 : ri + 1;
+          const target = $canvas.querySelector(`input[data-ta-key="${key}"][data-comp="${nextRi}"]`);
+          if (target) { target.focus(); target.select(); }
+        });
       });
 
       // ── Add row ──

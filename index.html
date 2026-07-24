@@ -7160,14 +7160,8 @@
               </select>
             </div>
             <div class="data-field">
-              <span class="data-field-label">All SW Version</span>
-              <div class="sw-upload-row">
-                <button type="button" class="sw-upload-btn" id="sw-upload-btn"${(h.sw_images || []).length >= 2 ? ' disabled' : ''}>＋ 上傳截圖</button>
-                <input type="file" id="sw-file-input" accept="image/png,image/jpeg,image/bmp,.png,.jpg,.jpeg,.bmp" multiple style="display:none;">
-                <div class="sw-file-list">
-                  ${(h.sw_images || []).map((im, ix) => `<span class="sw-file-chip"><span class="sw-file-name" data-sw-preview="${ix}" title="點擊預覽">${escHtml(im.name)}</span><button type="button" class="sw-file-del" data-sw-del="${ix}" title="刪除此圖">✕</button></span>`).join('')}
-                </div>
-              </div>
+              <span class="data-field-label">UDC setting (H+V)</span>
+              <input type="text" placeholder="輸入設定值" value="${escapeAttr(h.udc_setting || '')}" data-header="udc_setting">
             </div>
             <div class="data-field">
               <span class="data-field-label">Location</span>
@@ -7178,8 +7172,14 @@
               </select>
             </div>
             <div class="data-field">
-              <span class="data-field-label">UDC setting (H+V)</span>
-              <input type="text" placeholder="輸入設定值" value="${escapeAttr(h.udc_setting || '')}" data-header="udc_setting">
+              <span class="data-field-label">All SW Version</span>
+              <div class="sw-upload-row">
+                <button type="button" class="sw-upload-btn" id="sw-upload-btn"${(h.sw_images || []).length >= 2 ? ' disabled' : ''} title="上傳截圖（BMP/JPG/PNG，最多 2 張）"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4"/><path d="M7 9l5-5 5 5"/><path d="M5 20h14"/></svg></button>
+                <input type="file" id="sw-file-input" accept="image/png,image/jpeg,image/bmp,.png,.jpg,.jpeg,.bmp" multiple style="display:none;">
+                <div class="sw-file-list">
+                  ${(h.sw_images || []).map((im, ix) => `<span class="sw-file-chip"><span class="sw-file-name" data-sw-preview="${ix}" title="點擊預覽">${escHtml(im.name)}</span><button type="button" class="sw-file-del" data-sw-del="${ix}" title="刪除此圖">✕</button></span>`).join('')}
+                </div>
+              </div>
             </div>
           </div>
 
@@ -8641,10 +8641,13 @@
           subPages.forEach(html => {
             list.push({ page, pageIdx, html, isLandscape: true });
           });
-          // Each uploaded "All SW Version" screenshot becomes its own landscape page.
-          ((page.data.header && page.data.header.sw_images) || []).forEach(img => {
-            list.push({ page, pageIdx, html: buildSwImagePageHTML(img), isLandscape: true });
-          });
+          // The uploaded "All SW Version" screenshots go on a single landscape
+          // page (side by side), placed right after the data page's own pages
+          // (which already end with the Embedded Sensor Readings section).
+          const swImgs = (page.data.header && page.data.header.sw_images) || [];
+          if (swImgs.length) {
+            list.push({ page, pageIdx, html: buildSwImagesPageHTML(swImgs), isLandscape: true });
+          }
         } else {
           let html = '';
           const isLandscape = page.type === 'image' || page.type === 'annotation' || page.type === 'sim_vs_meas' || page.type === 'conclusion';
@@ -8861,14 +8864,20 @@
       </div>`;
     }
 
-    // One landscape page per uploaded "All SW Version" screenshot, image fit to
-    // the page (same object-fit approach the image pages use). Filename as title.
-    function buildSwImagePageHTML(img) {
+    // A single landscape page holding the uploaded "All SW Version" screenshots
+    // side by side, each fit + centred in its half (same object-fit approach the
+    // image pages use), with the filename as a caption below each image.
+    function buildSwImagesPageHTML(images) {
+      const cells = images.map(img => `
+        <div style="flex:1;display:flex;flex-direction:column;min-width:0;min-height:0;">
+          <div style="flex:1;border:1px solid rgba(15,23,42,0.08);border-radius:6px;display:flex;align-items:center;justify-content:center;overflow:hidden;min-height:0;">
+            <img src="${escapeAttr(img.url || '')}" style="max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;">
+          </div>
+          <div style="font-size:11px;color:rgba(15,23,42,0.6);text-align:center;padding:4px 6px;margin-top:4px;font-family:'JetBrains Mono',monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escHtml(img.name || '')}</div>
+        </div>`).join('');
       const inner = `<div style="width:100%;height:100%;display:flex;flex-direction:column;padding:22px 28px 28px;overflow:hidden;color:rgba(15,23,42,0.90);letter-spacing:0px;word-spacing:0px;">
-        <div style="font-family:'Space Grotesk',sans-serif;font-size:16px;font-weight:600;letter-spacing:0.02em;padding:6px 8px;margin-bottom:10px;color:#0B3D7A;">ALL SW VERSION — ${escHtml(img.name || '')}</div>
-        <div style="flex:1;position:relative;border:1px solid rgba(15,23,42,0.08);border-radius:6px;display:flex;align-items:center;justify-content:center;overflow:hidden;min-height:0;">
-          <img src="${escapeAttr(img.url || '')}" style="max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;">
-        </div>
+        <div style="font-family:'Space Grotesk',sans-serif;font-size:16px;font-weight:600;letter-spacing:0.02em;padding:6px 8px;margin-bottom:10px;color:#0B3D7A;">ALL SW VERSION</div>
+        <div style="flex:1;display:flex;gap:16px;min-height:0;justify-content:center;align-items:stretch;">${cells}</div>
       </div>`;
       return wrapPageHTML(inner);
     }
@@ -9177,7 +9186,7 @@
           <div><span style="font-family:'JetBrains Mono',monospace;font-size:8px;font-weight:500;color:#2357A7;letter-spacing:0.06em;">EQUILIBRIUM TIME</span><div>${escHtml(h.eq_time_min)} min</div></div>
           <div><span style="font-family:'JetBrains Mono',monospace;font-size:8px;font-weight:500;color:#2357A7;letter-spacing:0.06em;">STAGE</span><div>${escHtml(h.stage)}</div></div>
           <div><span style="font-family:'JetBrains Mono',monospace;font-size:8px;font-weight:500;color:#2357A7;letter-spacing:0.06em;">MOUNTING</span><div>${escHtml(h.mounting)}</div></div>
-          <div><span style="font-family:'JetBrains Mono',monospace;font-size:8px;font-weight:500;color:#2357A7;letter-spacing:0.06em;">ALL SW VERSION</span><div>${(h.sw_images || []).map(im => escHtml(im.name)).join('<br>') || '—'}</div></div>
+          <div><span style="font-family:'JetBrains Mono',monospace;font-size:8px;font-weight:500;color:#2357A7;letter-spacing:0.06em;">ALL SW VERSION</span><div style="display:flex;gap:14px;flex-wrap:wrap;">${(h.sw_images || []).length ? h.sw_images.map(im => `<span>${escHtml(im.name)}</span>`).join('') : '—'}</div></div>
           <div><span style="font-family:'JetBrains Mono',monospace;font-size:8px;font-weight:500;color:#2357A7;letter-spacing:0.06em;">UDC SETTING (H+V)</span><div>${escHtml(h.udc_setting)}</div></div>
           <div><span style="font-family:'JetBrains Mono',monospace;font-size:8px;font-weight:500;color:#2357A7;letter-spacing:0.06em;">LOCATION</span><div>${escHtml(h.location)}</div></div>
         </div>
@@ -9274,7 +9283,7 @@
         <div><span style="${lblStyle}">EQUILIBRIUM TIME</span><div>${escHtml(h.eq_time_min)} min</div></div>
         <div><span style="${lblStyle}">STAGE</span><div>${escHtml(h.stage)}</div></div>
         <div><span style="${lblStyle}">MOUNTING</span><div>${escHtml(h.mounting)}</div></div>
-        <div><span style="${lblStyle}">ALL SW VERSION</span><div>${(h.sw_images || []).map(im => escHtml(im.name)).join('<br>') || '—'}</div></div>
+        <div><span style="${lblStyle}">ALL SW VERSION</span><div style="display:flex;gap:14px;flex-wrap:wrap;">${(h.sw_images || []).length ? h.sw_images.map(im => `<span>${escHtml(im.name)}</span>`).join('') : '—'}</div></div>
         <div><span style="${lblStyle}">UDC SETTING (H+V)</span><div>${escHtml(h.udc_setting)}</div></div>
         <div><span style="${lblStyle}">LOCATION</span><div>${escHtml(h.location)}</div></div>
       </div>`;

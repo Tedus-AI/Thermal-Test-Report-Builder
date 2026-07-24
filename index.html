@@ -1760,6 +1760,63 @@
     }
     .dt-del-btn:hover { background: rgba(231,76,60,0.12); color: #E74C3C; }
 
+    /* Trailing row-actions cell: highlight swatch + disable toggle + delete */
+    .dt-act-header { width: 78px; padding: 0 !important; }
+    .dt-act-cell { width: 78px; padding: 2px !important; text-align: center; white-space: nowrap; }
+    .dt-act-cell .dt-act-btn,
+    .dt-act-cell .dt-del-btn {
+      width: 20px; height: 20px; padding: 0; border: none; border-radius: 3px;
+      background: transparent; font-size: 12px; cursor: pointer; line-height: 1;
+      vertical-align: middle; transition: all 0.15s;
+    }
+    .dt-disable-btn { color: rgba(15,23,42,0.4); font-weight: 600; font-size: 11px; }
+    .dt-disable-btn:hover { background: rgba(15,23,42,0.10); color: rgba(15,23,42,0.75); }
+    .dt-disable-btn.is-on { color: #B45309; background: rgba(245,158,11,0.14); }
+    .dt-hl-btn { position: relative; }
+    .dt-hl-dot {
+      display: inline-block; width: 12px; height: 12px; border-radius: 50%;
+      border: 1.5px solid rgba(15,23,42,0.35); box-sizing: border-box; vertical-align: middle;
+    }
+    .dt-hl-btn:hover .dt-hl-dot { border-color: rgba(15,23,42,0.6); }
+
+    /* Disabled (temporarily closed) row — greyed, name struck, note in red.
+       Applies to both the component and sensor tables. */
+    .data-table tr.dt-row-disabled td,
+    .sensor-table tr.dt-row-disabled td { background: rgba(15,23,42,0.05) !important; }
+    .data-table tr.dt-row-disabled input,
+    .data-table tr.dt-row-disabled select,
+    .sensor-table tr.dt-row-disabled input,
+    .sensor-table tr.dt-row-disabled select { color: rgba(15,23,42,0.42); }
+    .data-table tr.dt-row-disabled .dt-name-input,
+    .sensor-table tr.dt-row-disabled .dt-name-input { text-decoration: line-through; }
+    .data-table tr.dt-row-disabled .dt-note-input,
+    .sensor-table tr.dt-row-disabled .dt-note-input { color: #dc2626; font-weight: 600; }
+    .dt-passfail-disabled { color: rgba(15,23,42,0.5); font-weight: 600; text-align: center; }
+
+    /* Highlight-colour picker popover (opened from the swatch button) */
+    .dt-hl-pop {
+      position: fixed; z-index: 1000; display: flex; gap: 6px;
+      padding: 6px; background: #fff; border: 1px solid rgba(15,23,42,0.14);
+      border-radius: 8px; box-shadow: 0 8px 28px rgba(15,23,42,0.18);
+    }
+    .dt-hl-opt {
+      width: 22px; height: 22px; border-radius: 50%; cursor: pointer;
+      border: 1.5px solid rgba(15,23,42,0.20); padding: 0; line-height: 1;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; color: rgba(15,23,42,0.5); background: transparent;
+      transition: transform 0.1s;
+    }
+    .dt-hl-opt:hover { transform: scale(1.12); }
+    .dt-hl-opt.is-active { box-shadow: 0 0 0 2px rgba(15,23,42,0.55); }
+
+    /* Highlighted row — tint every cell (via the --hl inline var) but keep the
+       margin cells' pass/warn/fail colours so the P/F signal is never hidden. */
+    .data-table tr.dt-row-hl td,
+    .sensor-table tr.dt-row-hl td { background: var(--hl) !important; }
+    .data-table tr.dt-row-hl td.dt-margin-pass { background: #dcfce7 !important; }
+    .data-table tr.dt-row-hl td.dt-margin-warn { background: #fef9c3 !important; }
+    .data-table tr.dt-row-hl td.dt-margin-fail { background: #fee2e2 !important; }
+
     .editor-area.has-tim-panel { padding-top: 52px; }
 
     /* TIM Library Panel — sits in .editor-area, top-left */
@@ -6842,8 +6899,9 @@
         const tcSpec = parseFloat(comp.tc_spec) || 0;
         const derating = parseFloat(comp.derating) || 0.9;
         const derated = tcSpec * derating;
+        const disabled = !!comp.disabled;
 
-        // Check pass/fail across all Ta
+        // Check pass/fail across all Ta (a disabled row never contributes a Fail)
         let rowFail = false;
         const taCells = d.ta_conditions.map((ta, ti) => {
           const key = 'ta_' + ta;
@@ -6852,7 +6910,7 @@
           let marginStr = '—';
           let marginClass = 'dt-readonly';
 
-          if (!isNaN(measuredNum) && derated > 0) {
+          if (!disabled && !isNaN(measuredNum) && derated > 0) {
             const margin = ((derated - measuredNum) / derated) * 100;
             marginStr = margin.toFixed(1) + '%';
             if (margin >= 10) marginClass = 'dt-margin-pass';
@@ -6868,16 +6926,20 @@
                   <td class="dt-ta-col ${marginClass}">${marginStr}</td>`;
         }).join('');
 
-        const pfText = rowFail ? '❌ Fail' : (d.components.length > 0 && tcSpec > 0 ? '✔ Pass' : '—');
-        const pfClass = rowFail ? 'dt-passfail-fail' : 'dt-passfail-pass';
+        const pfText = disabled ? '斷線 N/A' : (rowFail ? '❌ Fail' : (d.components.length > 0 && tcSpec > 0 ? '✔ Pass' : '—'));
+        const pfClass = disabled ? 'dt-passfail-disabled' : (rowFail ? 'dt-passfail-fail' : 'dt-passfail-pass');
 
-        return `<tr class="${rowFail ? 'row-fail' : ''}" data-row-idx="${ri}">
+        const rowHl = disabled ? '' : hlRowBg(comp.highlight || '');
+        const trClass = [disabled ? 'dt-row-disabled' : '', (!disabled && rowFail) ? 'row-fail' : '', rowHl ? 'dt-row-hl' : ''].filter(Boolean).join(' ');
+        const trStyleAttr = rowHl ? ` style="--hl:${rowHl};"` : '';
+
+        return `<tr class="${trClass}" data-row-idx="${ri}"${trStyleAttr}>
           <td><span class="dt-cat-strip ${catClass}"></span>
             <select data-comp="${ri}" data-comp-field="category">${categoryOptions.map(c =>
               `<option value="${c}" ${cat === c ? 'selected' : ''}>${c}</option>`).join('')}
             </select></td>
           <td class="dt-readonly">${autoNum}</td>
-          <td class="dt-name-col"><input type="text" placeholder="元件名稱" value="${escapeAttr(comp.name || '')}" data-comp="${ri}" data-comp-field="name" data-fill-col="c:name"></td>
+          <td class="dt-name-col"><input type="text" class="dt-name-input" placeholder="元件名稱" value="${escapeAttr(comp.name || '')}" data-comp="${ri}" data-comp-field="name" data-fill-col="c:name"></td>
           <td><select data-comp="${ri}" data-comp-field="spec_type">${specTypeOptions.map(s =>
               `<option value="${s}" ${comp.spec_type === s ? 'selected' : ''}>${s}</option>`).join('')}
             </select></td>
@@ -6892,8 +6954,12 @@
             </select></td>
           ${taCells}
           <td class="${pfClass}">${pfText}</td>
-          <td><input type="text" placeholder="備註" value="${escapeAttr(comp.note || '')}" data-comp="${ri}" data-comp-field="note" data-fill-col="c:note"></td>
-          <td class="dt-del-cell"><button class="dt-del-btn" data-del-row="${ri}" title="刪除此列">✕</button></td>
+          <td><input type="text" class="dt-note-input" placeholder="備註" value="${escapeAttr(comp.note || '')}" data-comp="${ri}" data-comp-field="note" data-fill-col="c:note"></td>
+          <td class="dt-act-cell">
+            <button type="button" class="dt-act-btn dt-hl-btn" data-hl-comp="${ri}" title="標記顏色"><span class="dt-hl-dot"${comp.highlight ? ` style="background:${hlSwatchColor(comp.highlight)};border-color:${hlSwatchColor(comp.highlight)};"` : ''}></span></button>
+            <button type="button" class="dt-act-btn dt-disable-btn${disabled ? ' is-on' : ''}" data-disable-comp="${ri}" title="${disabled ? '啟用此列' : '停用此列（斷線）'}">${disabled ? '啟' : '停'}</button>
+            <button type="button" class="dt-del-btn" data-del-row="${ri}" title="刪除此列">✕</button>
+          </td>
         </tr>`;
       });
 
@@ -6917,14 +6983,22 @@
           const key = 'ta_' + ta;
           return `<td><input type="text" placeholder="—" value="${escapeAttr(s.readings[key] || '')}" data-sensor="${si}" data-sensor-ta="${key}" data-fill-col="s:reading:${key}"></td>`;
         }).join('');
-        return `<tr data-sensor-row-idx="${si}">
-          <td><input type="text" placeholder="Sensor 名稱" value="${escapeAttr(s.name || '')}" data-sensor="${si}" data-sensor-field="name" data-fill-col="s:name"></td>
+        const sDisabled = !!s.disabled;
+        const sHl = sDisabled ? '' : hlRowBg(s.highlight || '');
+        const sTrClass = [sDisabled ? 'dt-row-disabled' : '', sHl ? 'dt-row-hl' : ''].filter(Boolean).join(' ');
+        const sTrStyleAttr = sHl ? ` style="--hl:${sHl};"` : '';
+        return `<tr data-sensor-row-idx="${si}" class="${sTrClass}"${sTrStyleAttr}>
+          <td><input type="text" class="dt-name-input" placeholder="Sensor 名稱" value="${escapeAttr(s.name || '')}" data-sensor="${si}" data-sensor-field="name" data-fill-col="s:name"></td>
           <td><select data-sensor="${si}" data-sensor-field="type">${sensorTypeOptions.map(t =>
               `<option value="${t}" ${s.type === t ? 'selected' : ''}>${t}</option>`).join('')}
             </select></td>
           ${taSensorCells}
-          <td><input type="text" placeholder="備註" value="${escapeAttr(s.note || '')}" data-sensor="${si}" data-sensor-field="note" data-fill-col="s:note"></td>
-          <td class="dt-del-cell"><button class="dt-del-btn" data-sensor-del-row="${si}" title="刪除此列">✕</button></td>
+          <td><input type="text" class="dt-note-input" placeholder="備註" value="${escapeAttr(s.note || '')}" data-sensor="${si}" data-sensor-field="note" data-fill-col="s:note"></td>
+          <td class="dt-act-cell">
+            <button type="button" class="dt-act-btn dt-hl-btn" data-hl-sensor="${si}" title="標記顏色"><span class="dt-hl-dot"${s.highlight ? ` style="background:${hlSwatchColor(s.highlight)};border-color:${hlSwatchColor(s.highlight)};"` : ''}></span></button>
+            <button type="button" class="dt-act-btn dt-disable-btn${sDisabled ? ' is-on' : ''}" data-disable-sensor="${si}" title="${sDisabled ? '啟用此列' : '停用此列（斷線）'}">${sDisabled ? '啟' : '停'}</button>
+            <button type="button" class="dt-del-btn" data-sensor-del-row="${si}" title="刪除此列">✕</button>
+          </td>
         </tr>`;
       }).join('');
 
@@ -7079,7 +7153,7 @@
                   ${taHeaders1}
                   <th rowspan="2">P/F</th>
                   <th rowspan="2">備註</th>
-                  <th rowspan="2" class="dt-del-header"></th>
+                  <th rowspan="2" class="dt-act-header"></th>
                 </tr>
                 <tr>${taHeaders2}</tr>
               </thead>
@@ -7104,7 +7178,7 @@
                     <th>類型</th>
                     ${sensorTaHeaders}
                     <th>備註</th>
-                    <th class="dt-del-header"></th>
+                    <th class="dt-act-header"></th>
                   </tr>
                 </thead>
                 <tbody id="sensor-tbody">${sensorRows}</tbody>
@@ -7202,6 +7276,7 @@
         const tcSpec = parseFloat(comp.tc_spec) || 0;
         const derating = parseFloat(comp.derating) || 0.9;
         const derated = tcSpec * derating;
+        const disabled = !!comp.disabled;
 
         // Update Derated cell (7th td, index 6)
         const tds = tr.querySelectorAll('td');
@@ -7209,7 +7284,7 @@
         const deratedCell = tds[6]; // 0:cat,1:#,2:name,3:specType,4:tcSpec,5:derating,6:derated
         if (deratedCell) deratedCell.textContent = derated > 0 ? derated.toFixed(1) : '—';
 
-        // Update margin cells and P/F
+        // Update margin cells and P/F (a disabled row never contributes a Fail)
         let rowFail = false;
         d.ta_conditions.forEach((ta, ti) => {
           const key = 'ta_' + ta;
@@ -7218,7 +7293,7 @@
           let marginStr = '—';
           let marginClass = 'dt-readonly';
 
-          if (!isNaN(measuredNum) && derated > 0) {
+          if (!disabled && !isNaN(measuredNum) && derated > 0) {
             const margin = ((derated - measuredNum) / derated) * 100;
             marginStr = margin.toFixed(1) + '%';
             if (margin >= 10) marginClass = 'dt-margin-pass';
@@ -7239,13 +7314,12 @@
         const pfIdx = 8 + d.ta_conditions.length * 2;
         const pfCell = tds[pfIdx];
         if (pfCell) {
-          const pfText = rowFail ? '❌ Fail' : (tcSpec > 0 ? '✔ Pass' : '—');
-          pfCell.textContent = pfText;
-          pfCell.className = rowFail ? 'dt-passfail-fail' : 'dt-passfail-pass';
+          pfCell.textContent = disabled ? '斷線 N/A' : (rowFail ? '❌ Fail' : (tcSpec > 0 ? '✔ Pass' : '—'));
+          pfCell.className = disabled ? 'dt-passfail-disabled' : (rowFail ? 'dt-passfail-fail' : 'dt-passfail-pass');
         }
 
-        // Row fail class
-        tr.classList.toggle('row-fail', rowFail);
+        // Row fail class (never on a disabled row)
+        tr.classList.toggle('row-fail', !disabled && rowFail);
 
         // Update auto-number and category boundary (only for category change)
         updateAutoNumbers();
@@ -7357,9 +7431,29 @@
         });
       }
 
-      // ── Row delete (button + context menu) ──
+      // ── Row actions: disable toggle, highlight swatch, delete (button + ctx menu) ──
       if (tbody) {
         tbody.addEventListener('click', (e) => {
+          const disBtn = e.target.closest('.dt-disable-btn');
+          if (disBtn) {
+            const ri = parseInt(disBtn.dataset.disableComp);
+            if (isNaN(ri) || !d.components[ri]) return;
+            d.components[ri].disabled = !d.components[ri].disabled;
+            scheduleSave(state.activePage);
+            renderDataPage(page);
+            return;
+          }
+          const hlBtn = e.target.closest('.dt-hl-btn');
+          if (hlBtn) {
+            const ri = parseInt(hlBtn.dataset.hlComp);
+            if (isNaN(ri) || !d.components[ri]) return;
+            openHighlightPalette(hlBtn, d.components[ri].highlight || '', (key) => {
+              d.components[ri].highlight = key;
+              scheduleSave(state.activePage);
+              renderDataPage(page);
+            });
+            return;
+          }
           const btn = e.target.closest('.dt-del-btn');
           if (!btn) return;
           const ri = parseInt(btn.dataset.delRow);
@@ -7381,10 +7475,30 @@
         });
       }
 
-      // ── Sensor row delete (button + context menu) ──
+      // ── Sensor row actions: disable toggle, highlight swatch, delete ──
       const sensorTbody = document.getElementById('sensor-tbody');
       if (sensorTbody) {
         sensorTbody.addEventListener('click', (e) => {
+          const disBtn = e.target.closest('.dt-disable-btn');
+          if (disBtn) {
+            const si = parseInt(disBtn.dataset.disableSensor);
+            if (isNaN(si) || !d.sensors[si]) return;
+            d.sensors[si].disabled = !d.sensors[si].disabled;
+            scheduleSave(state.activePage);
+            renderDataPage(page);
+            return;
+          }
+          const hlBtn = e.target.closest('.dt-hl-btn');
+          if (hlBtn) {
+            const si = parseInt(hlBtn.dataset.hlSensor);
+            if (isNaN(si) || !d.sensors[si]) return;
+            openHighlightPalette(hlBtn, d.sensors[si].highlight || '', (key) => {
+              d.sensors[si].highlight = key;
+              scheduleSave(state.activePage);
+              renderDataPage(page);
+            });
+            return;
+          }
           const btn = e.target.closest('.dt-del-btn');
           if (!btn) return;
           const si = parseInt(btn.dataset.sensorDelRow);
@@ -7571,6 +7685,48 @@
     function catColorOf(cat) {
       return cat === 'RF' ? '#2563EB' : cat === 'Digital' ? '#16A34A'
         : cat === 'PWR' ? '#EA580C' : '#9333EA';
+    }
+    // Row highlight palette (deliberately avoids red — red is reserved for Fail).
+    // hlRowBg = the light row-background tint; hlSwatchColor = the solid dot shown
+    // on the swatch button. Empty key ('') means no highlight.
+    function hlRowBg(key) {
+      return { yellow: '#FEF3C7', blue: '#DBEAFE', green: '#DCFCE7' }[key] || '';
+    }
+    function hlSwatchColor(key) {
+      return { yellow: '#F5B400', blue: '#3B82F6', green: '#22C55E' }[key] || '';
+    }
+    // Small colour picker opened from a row's highlight swatch. onPick receives
+    // the chosen key ('' = clear). Closes on outside click.
+    function openHighlightPalette(anchorBtn, currentKey, onPick) {
+      document.querySelectorAll('.dt-hl-pop').forEach(el => el.remove());
+      const pop = document.createElement('div');
+      pop.className = 'dt-hl-pop';
+      const opts = [['', '清除'], ['yellow', '黃'], ['blue', '藍'], ['green', '綠']];
+      opts.forEach(([key, label]) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'dt-hl-opt' + (key === (currentKey || '') ? ' is-active' : '');
+        b.title = label;
+        if (key) { b.style.background = hlSwatchColor(key); b.style.borderColor = hlSwatchColor(key); }
+        else { b.textContent = '✕'; }
+        b.addEventListener('click', (ev) => { ev.stopPropagation(); pop.remove(); onPick(key); });
+        pop.appendChild(b);
+      });
+      document.body.appendChild(pop);
+      const r = anchorBtn.getBoundingClientRect();
+      const pw = pop.offsetWidth, ph = pop.offsetHeight;
+      let left = r.left;
+      if (left + pw > window.innerWidth - 8) left = window.innerWidth - pw - 8;
+      let top = r.bottom + 4;
+      if (top + ph > window.innerHeight - 8) top = r.top - ph - 4;
+      pop.style.left = Math.max(8, left) + 'px';
+      pop.style.top = Math.max(8, top) + 'px';
+      setTimeout(() => {
+        const close = (ev) => {
+          if (!pop.contains(ev.target)) { pop.remove(); document.removeEventListener('mousedown', close); }
+        };
+        document.addEventListener('mousedown', close);
+      }, 0);
     }
 
     function getDataPageComponents() {
@@ -8772,6 +8928,7 @@
         const tcSpec = parseFloat(comp.tc_spec) || 0;
         const derating = parseFloat(comp.derating) || 0.9;
         const derated = tcSpec * derating;
+        const disabled = !!comp.disabled;
 
         let rowFail = false;
         const taCells = tas.map(ta => {
@@ -8779,7 +8936,7 @@
           const measured = comp.readings ? comp.readings[key] : '';
           const mNum = parseFloat(measured);
           let marginStr = '—', marginBg = '';
-          if (!isNaN(mNum) && derated > 0) {
+          if (!disabled && !isNaN(mNum) && derated > 0) {
             const margin = ((derated - mNum) / derated) * 100;
             marginStr = margin.toFixed(1) + '%';
             if (margin >= 10) marginBg = 'background:rgba(39,174,96,0.10);color:#27AE60;';
@@ -8790,21 +8947,26 @@
         }).join('');
 
         const catColor = catColorOf(cat);
-        const rowBg = rowFail ? 'background:rgba(231,76,60,0.06);' : '';
-        const pf = rowFail ? '❌' : (tcSpec > 0 ? '✔' : '—');
+        const hlBg = disabled ? '' : hlRowBg(comp.highlight || '');
+        const rowBg = disabled ? 'background:rgba(15,23,42,0.05);color:rgba(15,23,42,0.5);'
+          : (hlBg ? `background:${hlBg};` : (rowFail ? 'background:rgba(231,76,60,0.06);' : ''));
+        const pf = disabled ? '斷線 N/A' : (rowFail ? '❌' : (tcSpec > 0 ? '✔' : '—'));
+        const nameStyle = disabled ? 'text-decoration:line-through;' : '';
+        const pfColor = disabled ? 'color:rgba(15,23,42,0.5);' : (rowFail ? 'color:#b91c1c;' : 'color:#15803d;');
+        const noteStyle = disabled ? 'color:#dc2626;font-weight:600;' : '';
 
         return `<tr style="${rowBg}">
           <td style="${tdStyle}text-align:left;"><div style="display:inline-flex;align-items:center;gap:3px;"><span style="width:3px;height:14px;border-radius:2px;background:${catColor};flex-shrink:0;"></span>${escHtml(cat)}</div></td>
           <td style="${tdStyle}text-align:center;color:rgba(15,23,42,0.55);font-weight:600;">${autoNum}</td>
-          <td style="${tdStyle}text-align:center;">${escHtml(comp.name)}</td>
+          <td style="${tdStyle}text-align:center;${nameStyle}">${escHtml(comp.name)}</td>
           <td style="${tdStyle}text-align:center;">${escHtml(specMap[comp.spec_type] || comp.spec_type)}</td>
           <td style="${tdStyle}text-align:center;">${tcSpec || '—'}</td>
           <td style="${tdStyle}text-align:center;">${comp.derating || '0.90'}</td>
           <td style="${tdStyle}text-align:center;background:rgba(15,23,42,0.03);font-weight:600;">${derated > 0 ? derated.toFixed(1) : '—'}</td>
           <td style="${tdStyle}text-align:center;">${escHtml(comp.tim_type || 'N/A')}</td>
           ${taCells}
-          <td style="${tdStyle}text-align:center;font-weight:700;${rowFail ? 'color:#b91c1c;' : 'color:#15803d;'}">${pf}</td>
-          <td style="${tdStyle}text-align:center;">${escHtml(comp.note)}</td>
+          <td style="${tdStyle}text-align:center;font-weight:700;${pfColor}">${pf}</td>
+          <td style="${tdStyle}text-align:center;${noteStyle}">${escHtml(comp.note)}</td>
         </tr>`;
       }).join('');
 
@@ -8822,15 +8984,21 @@
         const sTdStyle = 'padding:3px 5px;border:1px solid rgba(15,23,42,0.08);font-size:10px;white-space:nowrap;letter-spacing:0px;word-spacing:0px;text-align:center;';
         const sensorTaHeaders = tas.map(ta => `<th style="${sThStyle}">Ta = ${ta}°C</th>`).join('');
         const sensorRows = sensorsWithData.map(s => {
+          const sDisabled = !!s.disabled;
+          const sHlBg = sDisabled ? '' : hlRowBg(s.highlight || '');
+          const sRowBg = sDisabled ? 'background:rgba(15,23,42,0.05);color:rgba(15,23,42,0.5);'
+            : (sHlBg ? `background:${sHlBg};` : '');
+          const sNameStyle = sDisabled ? 'text-decoration:line-through;' : '';
+          const sNoteStyle = sDisabled ? 'color:#dc2626;font-weight:600;' : '';
           const taCells = tas.map(ta => {
             const val = s.readings ? s.readings['ta_' + ta] : '';
             return `<td style="${sTdStyle}">${escHtml(val) || '—'}</td>`;
           }).join('');
-          return `<tr>
-            <td style="${sTdStyle}">${escHtml(s.name)}</td>
+          return `<tr style="${sRowBg}">
+            <td style="${sTdStyle}${sNameStyle}">${escHtml(s.name)}</td>
             <td style="${sTdStyle}">${escHtml(['Local','Remote'].includes(s.type) ? s.type : 'Local')}</td>
             ${taCells}
-            <td style="${sTdStyle}">${escHtml(s.note)}</td>
+            <td style="${sTdStyle}${sNoteStyle}">${escHtml(s.note)}</td>
           </tr>`;
         }).join('');
         sensorSection = `
@@ -8895,6 +9063,7 @@
         const tcSpec = parseFloat(comp.tc_spec) || 0;
         const derating = parseFloat(comp.derating) || 0.9;
         const derated = tcSpec * derating;
+        const disabled = !!comp.disabled;
 
         let rowFail = false;
         const taCells = tas.map(ta => {
@@ -8902,7 +9071,7 @@
           const measured = comp.readings ? comp.readings[key] : '';
           const mNum = parseFloat(measured);
           let marginStr = '—', marginBg = '';
-          if (!isNaN(mNum) && derated > 0) {
+          if (!disabled && !isNaN(mNum) && derated > 0) {
             const margin = ((derated - mNum) / derated) * 100;
             marginStr = margin.toFixed(1) + '%';
             if (margin >= 10) marginBg = 'background:rgba(39,174,96,0.10);color:#27AE60;';
@@ -8913,21 +9082,26 @@
         }).join('');
 
         const catColor = catColorOf(cat);
-        const rowBg = rowFail ? 'background:rgba(231,76,60,0.06);' : '';
-        const pf = rowFail ? '❌' : (tcSpec > 0 ? '✔' : '—');
+        const hlBg = disabled ? '' : hlRowBg(comp.highlight || '');
+        const rowBg = disabled ? 'background:rgba(15,23,42,0.05);color:rgba(15,23,42,0.5);'
+          : (hlBg ? `background:${hlBg};` : (rowFail ? 'background:rgba(231,76,60,0.06);' : ''));
+        const pf = disabled ? '斷線 N/A' : (rowFail ? '❌' : (tcSpec > 0 ? '✔' : '—'));
+        const nameStyle = disabled ? 'text-decoration:line-through;' : '';
+        const pfColor = disabled ? 'color:rgba(15,23,42,0.5);' : (rowFail ? 'color:#b91c1c;' : 'color:#15803d;');
+        const noteStyle = disabled ? 'color:#dc2626;font-weight:600;' : '';
 
         return `<tr style="${rowBg}">
           <td style="${tdStyle}text-align:left;"><div style="display:inline-flex;align-items:center;gap:3px;"><span style="width:3px;height:14px;border-radius:2px;background:${catColor};flex-shrink:0;"></span>${escHtml(cat)}</div></td>
           <td style="${tdStyle}text-align:center;color:rgba(15,23,42,0.55);font-weight:600;">${autoNum}</td>
-          <td style="${tdStyle}text-align:center;">${escHtml(comp.name)}</td>
+          <td style="${tdStyle}text-align:center;${nameStyle}">${escHtml(comp.name)}</td>
           <td style="${tdStyle}text-align:center;">${escHtml(specMap[comp.spec_type] || comp.spec_type)}</td>
           <td style="${tdStyle}text-align:center;">${tcSpec || '—'}</td>
           <td style="${tdStyle}text-align:center;">${comp.derating || '0.90'}</td>
           <td style="${tdStyle}text-align:center;background:rgba(15,23,42,0.03);font-weight:600;">${derated > 0 ? derated.toFixed(1) : '—'}</td>
           <td style="${tdStyle}text-align:center;">${escHtml(comp.tim_type || 'N/A')}</td>
           ${taCells}
-          <td style="${tdStyle}text-align:center;font-weight:700;${rowFail ? 'color:#b91c1c;' : 'color:#15803d;'}">${pf}</td>
-          <td style="${tdStyle}text-align:center;">${escHtml(comp.note)}</td>
+          <td style="${tdStyle}text-align:center;font-weight:700;${pfColor}">${pf}</td>
+          <td style="${tdStyle}text-align:center;${noteStyle}">${escHtml(comp.note)}</td>
         </tr>`;
       });
 
@@ -8984,15 +9158,21 @@
         const sTdStyle = 'padding:3px 5px;border:1px solid rgba(15,23,42,0.08);font-size:10px;white-space:nowrap;letter-spacing:0px;word-spacing:0px;text-align:center;';
         const sensorTaHeaders = tas.map(ta => `<th style="${sThStyle}">Ta = ${ta}°C</th>`).join('');
         sensorRowArr = sensorsWithData.map(s => {
+          const sDisabled = !!s.disabled;
+          const sHlBg = sDisabled ? '' : hlRowBg(s.highlight || '');
+          const sRowBg = sDisabled ? 'background:rgba(15,23,42,0.05);color:rgba(15,23,42,0.5);'
+            : (sHlBg ? `background:${sHlBg};` : '');
+          const sNameStyle = sDisabled ? 'text-decoration:line-through;' : '';
+          const sNoteStyle = sDisabled ? 'color:#dc2626;font-weight:600;' : '';
           const taCells = tas.map(ta => {
             const val = s.readings ? s.readings['ta_' + ta] : '';
             return `<td style="${sTdStyle}">${escHtml(val) || '—'}</td>`;
           }).join('');
-          return `<tr>
-            <td style="${sTdStyle}">${escHtml(s.name)}</td>
+          return `<tr style="${sRowBg}">
+            <td style="${sTdStyle}${sNameStyle}">${escHtml(s.name)}</td>
             <td style="${sTdStyle}">${escHtml(['Local','Remote'].includes(s.type) ? s.type : 'Local')}</td>
             ${taCells}
-            <td style="${sTdStyle}">${escHtml(s.note)}</td>
+            <td style="${sTdStyle}${sNoteStyle}">${escHtml(s.note)}</td>
           </tr>`;
         });
         // Builds the bordered sensor block for an arbitrary subset of rows so the

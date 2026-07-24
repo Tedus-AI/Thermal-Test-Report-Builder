@@ -6917,13 +6917,14 @@
           const key = 'ta_' + ta;
           return `<td><input type="text" placeholder="—" value="${escapeAttr(s.readings[key] || '')}" data-sensor="${si}" data-sensor-ta="${key}" data-fill-col="s:reading:${key}"></td>`;
         }).join('');
-        return `<tr>
+        return `<tr data-sensor-row-idx="${si}">
           <td><input type="text" placeholder="Sensor 名稱" value="${escapeAttr(s.name || '')}" data-sensor="${si}" data-sensor-field="name" data-fill-col="s:name"></td>
           <td><select data-sensor="${si}" data-sensor-field="type">${sensorTypeOptions.map(t =>
               `<option value="${t}" ${s.type === t ? 'selected' : ''}>${t}</option>`).join('')}
             </select></td>
           ${taSensorCells}
           <td><input type="text" placeholder="備註" value="${escapeAttr(s.note || '')}" data-sensor="${si}" data-sensor-field="note" data-fill-col="s:note"></td>
+          <td class="dt-del-cell"><button class="dt-del-btn" data-sensor-del-row="${si}" title="刪除此列">✕</button></td>
         </tr>`;
       }).join('');
 
@@ -7103,6 +7104,7 @@
                     <th>類型</th>
                     ${sensorTaHeaders}
                     <th>備註</th>
+                    <th class="dt-del-header"></th>
                   </tr>
                 </thead>
                 <tbody id="sensor-tbody">${sensorRows}</tbody>
@@ -7373,6 +7375,31 @@
           const ri = parseInt(tr.dataset.rowIdx);
           if (confirm('確定要刪除此元件列？')) {
             d.components.splice(ri, 1);
+            scheduleSave(state.activePage);
+            renderDataPage(page);
+          }
+        });
+      }
+
+      // ── Sensor row delete (button + context menu) ──
+      const sensorTbody = document.getElementById('sensor-tbody');
+      if (sensorTbody) {
+        sensorTbody.addEventListener('click', (e) => {
+          const btn = e.target.closest('.dt-del-btn');
+          if (!btn) return;
+          const si = parseInt(btn.dataset.sensorDelRow);
+          if (isNaN(si)) return;
+          d.sensors.splice(si, 1);
+          scheduleSave(state.activePage);
+          renderDataPage(page);
+        });
+        sensorTbody.addEventListener('contextmenu', (e) => {
+          const tr = e.target.closest('tr[data-sensor-row-idx]');
+          if (!tr) return;
+          e.preventDefault();
+          const si = parseInt(tr.dataset.sensorRowIdx);
+          if (confirm('確定要刪除此 Sensor 列？')) {
+            d.sensors.splice(si, 1);
             scheduleSave(state.activePage);
             renderDataPage(page);
           }

@@ -1651,13 +1651,15 @@
       background: rgba(35,87,167,0.08) !important;
     }
 
-    /* Rectangular range selection (drag to select, Ctrl+C to copy) */
-    .data-table td.dt-range-sel {
+    /* Rectangular range selection (drag to select, Ctrl+C copy, Del clears) */
+    .data-table td.dt-range-sel,
+    .sensor-table td.dt-range-sel {
       background: rgba(56,189,248,0.18) !important;
       box-shadow: inset 0 0 0 1px rgba(35,87,167,0.55);
     }
     /* Suppress text selection while dragging a range */
-    #dt-tbody.dt-selecting, #dt-tbody.dt-selecting * {
+    #dt-tbody.dt-selecting, #dt-tbody.dt-selecting *,
+    #sensor-tbody.dt-selecting, #sensor-tbody.dt-selecting * {
       user-select: none !important;
       -webkit-user-select: none !important;
       cursor: cell;
@@ -6578,22 +6580,22 @@
       });
     }
 
-    // Excel-style rectangular range selection + copy for the component table.
-    // Selection state is module-level so a single (bound-once) document 'copy'
-    // listener can serialise it — after a drag-select no input has focus, so the
-    // copy event fires on <body>, not the table.
+    // Excel-style grid behaviours (rectangular range select + copy + delete +
+    // ↑/↓/Enter navigation) for a table body. Works for both the component table
+    // and the embedded-sensor table. Selection state is module-level so a single
+    // (bound-once) document listener can serialise/clear it — after a drag-select
+    // no input has focus, so copy/Delete land on <body>, not the table.
     let dtSelectionRange = null;   // { rA, cA, rB, cB, cellAt } or null
-    let dtCopyBound = false;
+    let dtGridKeysBound = false;
 
-    function setupDataRangeSelect(page) {
-      const tbody = document.getElementById('dt-tbody');
+    function setupGridSelection(tbody) {
       if (!tbody) return;
       dtSelectionRange = null;
 
-      // 2D grid of editable cells (input/select) in DOM order (aligns with the
-      // paste field map), one array per component row.
-      const rowEls = Array.from(tbody.querySelectorAll('tr[data-row-idx]'));
-      const grid = rowEls.map(tr => Array.from(tr.querySelectorAll('input, select')));
+      // 2D grid of editable cells (input/select) in DOM order.
+      const grid = Array.from(tbody.querySelectorAll('tr'))
+        .map(tr => Array.from(tr.querySelectorAll('input, select')))
+        .filter(cells => cells.length > 0);
       if (grid.length === 0) return;
       const cellAt = (r, c) => (grid[r] && grid[r][c]) || null;
       const coordOf = (el) => {
@@ -6604,7 +6606,9 @@
       let sel = null;      // { r1,c1,r2,c2 } (anchor r1c1 → focus r2c2)
       let anchor = null;   // last clicked coord (for shift-click extend)
 
-      const clearHi = () => tbody.querySelectorAll('td.dt-range-sel').forEach(td => td.classList.remove('dt-range-sel'));
+      // Clear highlight across the whole data page so selecting in one table
+      // drops any selection shown in the other.
+      const clearHi = () => $canvas.querySelectorAll('td.dt-range-sel').forEach(td => td.classList.remove('dt-range-sel'));
       const commitSel = () => {
         clearHi();
         if (!sel) { dtSelectionRange = null; return; }
@@ -6662,30 +6666,99 @@
         document.addEventListener('mouseup', onUp);
       });
 
-      // Esc clears the range.
-      tbody.addEventListener('keydown', (e) => { if (e.key === 'Escape') clearSel(); });
+      // Keyboard: Esc clears; ↑/↓/Enter move the caret between rows in the same
+      // column (input cells only — selects keep their native option cycling).
+      tbody.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') { clearSel(); return; }
+        if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp' && e.key !== 'Enter') return;
+        const cell = e.target.closest('input');
+        const co = cell && coordOf(cell);
+        if (!co) return;
+        e.preventDefault();
+        const target = cellAt(e.key === 'ArrowUp' ? co.r - 1 : co.r + 1, co.c);
+        if (target) { target.focus(); if (target.select) target.select(); }
+      });
 
-      // One global copy handler serialises the current range to TSV.
-      if (!dtCopyBound) {
-        dtCopyBound = true;
-        document.addEventListener('copy', (e) => {
+      // One global copy + delete handler acting on the current range.
+      if (!dtGridKeysBound) {
+        dtGridKeysBound = true;
+        const liveRange = () => {
           const s = dtSelectionRange;
+          if (!s) return null;
+          const a = s.cellAt(s.rA, s.cA);
+          if (!a || !a.isConnected) { dtSelectionRange = null; return null; } // stale (re-rendered / page switched)
+          return s;
+        };
+        document.addEventListener('copy', (e) => {
+          const s = liveRange();
           if (!s) return;
-          const anchorEl = s.cellAt(s.rA, s.cA);
-          if (!anchorEl || !anchorEl.isConnected) { dtSelectionRange = null; return; } // stale (page switched / re-rendered)
-          // Don't hijack when the user is copying selected text inside one cell.
           const ae = document.activeElement;
-          if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA') && ae.selectionStart !== ae.selectionEnd) return;
+          if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA') && ae.selectionStart !== ae.selectionEnd) return; // copying text in a cell
           const lines = [];
           for (let r = s.rA; r <= s.rB; r++) {
             const vals = [];
             for (let c = s.cA; c <= s.cB; c++) { const el = s.cellAt(r, c); vals.push(el ? el.value : ''); }
             lines.push(vals.join('\t'));
           }
-          const tsv = lines.join('\n');
-          if (e.clipboardData) { e.clipboardData.setData('text/plain', tsv); e.preventDefault(); }
+          if (e.clipboardData) { e.clipboardData.setData('text/plain', lines.join('\n')); e.preventDefault(); }
+        });
+        document.addEventListener('keydown', (e) => {
+          if (e.key !== 'Delete' && e.key !== 'Backspace') return;
+          const ae = document.activeElement;
+          if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.tagName === 'SELECT')) return; // editing a cell → normal
+          const s = liveRange();
+          if (!s) return;
+          e.preventDefault();
+          for (let r = s.rA; r <= s.rB; r++) {
+            for (let c = s.cA; c <= s.cB; c++) {
+              const el = s.cellAt(r, c);
+              if (el && el.tagName === 'INPUT' && el.value !== '') {
+                el.value = '';
+                el.dispatchEvent(new Event('input', { bubbles: true }));
+              }
+            }
+          }
         });
       }
+    }
+
+    // Excel-style block paste for a table body: a TSV pasted into a cell fills
+    // rightwards/downwards from it, growing the underlying row list as needed.
+    function setupGridPaste(page, tbody, fieldMap, rowIndexAttr, getRows, makeRow) {
+      if (!tbody) return;
+      tbody.addEventListener('paste', (e) => {
+        const target = e.target;
+        if (target.tagName !== 'INPUT' && target.tagName !== 'SELECT') return;
+        const clipText = (e.clipboardData || window.clipboardData).getData('text');
+        if (!clipText) return;
+        if (!(clipText.includes('\t') || clipText.trim().includes('\n'))) return; // single value → native paste
+        e.preventDefault();
+        const tr = target.closest('tr');
+        if (!tr) return;
+        const startRowIdx = parseInt(target.dataset[rowIndexAttr]);
+        if (isNaN(startRowIdx)) return;
+        const startColIdx = Array.from(tr.querySelectorAll('input, select')).indexOf(target);
+        if (startColIdx < 0) return;
+
+        const clipGrid = clipText.replace(/\r\n?/g, '\n').trimEnd().split('\n').map(row => row.split('\t'));
+        const rows = getRows();
+        for (let r = 0; r < clipGrid.length; r++) {
+          const rowIdx = startRowIdx + r;
+          while (rowIdx >= rows.length) rows.push(makeRow());
+          const rowObj = rows[rowIdx];
+          if (!rowObj.readings) rowObj.readings = {};
+          for (let c = 0; c < clipGrid[r].length; c++) {
+            const colIdx = startColIdx + c;
+            if (colIdx >= fieldMap.length) break;
+            const val = clipGrid[r][c].trim();
+            const fld = fieldMap[colIdx];
+            if (fld.taKey) rowObj.readings[fld.taKey] = val;
+            else rowObj[fld.field] = val;
+          }
+        }
+        scheduleSave(state.activePage);
+        renderDataPage(page);
+      });
     }
 
     // Machine total power = voltage × current, formatted with unit. Shared by the
@@ -7247,6 +7320,7 @@
       });
 
       // ── Tc measured input bindings ──
+      // (↑/↓/Enter row navigation is handled generically by setupGridSelection.)
       $canvas.querySelectorAll('[data-ta-key]').forEach(el => {
         el.addEventListener('input', () => {
           const ri = parseInt(el.dataset.comp);
@@ -7255,18 +7329,6 @@
           scheduleSave(state.activePage);
           // Update margin cell in-place
           updateRowComputed(ri);
-        });
-        // Excel-style vertical navigation: ↓/↑ move the caret to the same Ta
-        // column of the next/previous component (instead of the number input's
-        // default value spinner). Enter also moves down.
-        el.addEventListener('keydown', (e) => {
-          if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp' && e.key !== 'Enter') return;
-          e.preventDefault(); // suppress the number-input increment/decrement
-          const ri = parseInt(el.dataset.comp);
-          const key = el.dataset.taKey;
-          const nextRi = e.key === 'ArrowUp' ? ri - 1 : ri + 1;
-          const target = $canvas.querySelector(`input[data-ta-key="${key}"][data-comp="${nextRi}"]`);
-          if (target) { target.focus(); target.select(); }
         });
       });
 
@@ -7340,66 +7402,21 @@
         });
       }
 
-      // ── Excel-style multi-cell paste ──
-      if (tbody) {
-        const pasteFieldMap = [
-          { field: 'category' },
-          { field: 'name' },
-          { field: 'spec_type' },
-          { field: 'tc_spec' },
-          { field: 'derating' },
-          { field: 'tim_type' },
-        ];
-        d.ta_conditions.forEach(ta => pasteFieldMap.push({ taKey: 'ta_' + ta }));
-        pasteFieldMap.push({ field: 'note' });
+      // ── Excel-style block paste (component table + embedded-sensor table) ──
+      const compFieldMap = [
+        { field: 'category' }, { field: 'name' }, { field: 'spec_type' },
+        { field: 'tc_spec' }, { field: 'derating' }, { field: 'tim_type' },
+      ];
+      d.ta_conditions.forEach(ta => compFieldMap.push({ taKey: 'ta_' + ta }));
+      compFieldMap.push({ field: 'note' });
+      setupGridPaste(page, document.getElementById('dt-tbody'), compFieldMap, 'comp',
+        () => d.components, () => ({ category: 'RF', derating: '0.90', readings: {} }));
 
-        tbody.addEventListener('paste', (e) => {
-          const target = e.target;
-          if (target.tagName !== 'INPUT' && target.tagName !== 'SELECT') return;
-
-          const clipText = (e.clipboardData || window.clipboardData).getData('text');
-          if (!clipText) return;
-          const isMultiCell = clipText.includes('\t') || clipText.trim().includes('\n');
-          if (!isMultiCell) return;
-          e.preventDefault();
-
-          const tr = target.closest('tr[data-row-idx]');
-          if (!tr) return;
-          const startRowIdx = parseInt(tr.dataset.rowIdx);
-          if (isNaN(startRowIdx)) return;
-
-          const editableCells = Array.from(tr.querySelectorAll('input, select'));
-          const startColIdx = editableCells.indexOf(target);
-          if (startColIdx < 0) return;
-
-          const clipRows = clipText.replace(/\r\n?/g, '\n').trimEnd().split('\n');
-          const clipGrid = clipRows.map(row => row.split('\t'));
-
-          for (let r = 0; r < clipGrid.length; r++) {
-            const rowIdx = startRowIdx + r;
-            while (rowIdx >= d.components.length) {
-              d.components.push({ category: 'RF', derating: '0.90', readings: {} });
-            }
-            const comp = d.components[rowIdx];
-            if (!comp.readings) comp.readings = {};
-
-            for (let c = 0; c < clipGrid[r].length; c++) {
-              const colIdx = startColIdx + c;
-              if (colIdx >= pasteFieldMap.length) break;
-              const val = clipGrid[r][c].trim();
-              const fld = pasteFieldMap[colIdx];
-              if (fld.taKey) {
-                comp.readings[fld.taKey] = val;
-              } else {
-                comp[fld.field] = val;
-              }
-            }
-          }
-
-          scheduleSave(state.activePage);
-          renderDataPage(page);
-        });
-      }
+      const sensorFieldMap = [{ field: 'name' }, { field: 'type' }];
+      d.ta_conditions.forEach(ta => sensorFieldMap.push({ taKey: 'ta_' + ta }));
+      sensorFieldMap.push({ field: 'note' });
+      setupGridPaste(page, document.getElementById('sensor-tbody'), sensorFieldMap, 'sensor',
+        () => d.sensors, () => ({ name: '', type: 'Local', readings: {}, note: '' }));
 
       // ── Sensor toggle ──
       const sensorToggle = document.getElementById('sensor-toggle');
@@ -7439,8 +7456,9 @@
       // ── Excel-style drag-to-fill handle ──
       setupDataFillHandle();
 
-      // ── Excel-style range select + copy (paste is handled above) ──
-      setupDataRangeSelect(page);
+      // ── Excel-style range select + copy + delete + nav (both tables) ──
+      setupGridSelection(document.getElementById('dt-tbody'));
+      setupGridSelection(document.getElementById('sensor-tbody'));
 
       // ── Add sensor row ──
       const sensorAddBtn = document.getElementById('sensor-add-row');

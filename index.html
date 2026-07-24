@@ -1651,6 +1651,18 @@
       background: rgba(35,87,167,0.08) !important;
     }
 
+    /* Rectangular range selection (drag to select, Ctrl+C to copy) */
+    .data-table td.dt-range-sel {
+      background: rgba(56,189,248,0.18) !important;
+      box-shadow: inset 0 0 0 1px rgba(35,87,167,0.55);
+    }
+    /* Suppress text selection while dragging a range */
+    #dt-tbody.dt-selecting, #dt-tbody.dt-selecting * {
+      user-select: none !important;
+      -webkit-user-select: none !important;
+      cursor: cell;
+    }
+
     /* Category color strip */
     .dt-cat-strip {
       width: 3px;
@@ -6566,6 +6578,116 @@
       });
     }
 
+    // Excel-style rectangular range selection + copy for the component table.
+    // Selection state is module-level so a single (bound-once) document 'copy'
+    // listener can serialise it — after a drag-select no input has focus, so the
+    // copy event fires on <body>, not the table.
+    let dtSelectionRange = null;   // { rA, cA, rB, cB, cellAt } or null
+    let dtCopyBound = false;
+
+    function setupDataRangeSelect(page) {
+      const tbody = document.getElementById('dt-tbody');
+      if (!tbody) return;
+      dtSelectionRange = null;
+
+      // 2D grid of editable cells (input/select) in DOM order (aligns with the
+      // paste field map), one array per component row.
+      const rowEls = Array.from(tbody.querySelectorAll('tr[data-row-idx]'));
+      const grid = rowEls.map(tr => Array.from(tr.querySelectorAll('input, select')));
+      if (grid.length === 0) return;
+      const cellAt = (r, c) => (grid[r] && grid[r][c]) || null;
+      const coordOf = (el) => {
+        for (let r = 0; r < grid.length; r++) { const c = grid[r].indexOf(el); if (c >= 0) return { r, c }; }
+        return null;
+      };
+
+      let sel = null;      // { r1,c1,r2,c2 } (anchor r1c1 → focus r2c2)
+      let anchor = null;   // last clicked coord (for shift-click extend)
+
+      const clearHi = () => tbody.querySelectorAll('td.dt-range-sel').forEach(td => td.classList.remove('dt-range-sel'));
+      const commitSel = () => {
+        clearHi();
+        if (!sel) { dtSelectionRange = null; return; }
+        const rA = Math.min(sel.r1, sel.r2), rB = Math.max(sel.r1, sel.r2);
+        const cA = Math.min(sel.c1, sel.c2), cB = Math.max(sel.c1, sel.c2);
+        for (let r = rA; r <= rB; r++) for (let c = cA; c <= cB; c++) {
+          const td = cellAt(r, c) && cellAt(r, c).closest('td');
+          if (td) td.classList.add('dt-range-sel');
+        }
+        dtSelectionRange = { rA, cA, rB, cB, cellAt };
+      };
+      const clearSel = () => { sel = null; commitSel(); };
+
+      tbody.addEventListener('mousedown', (e) => {
+        if (e.button !== 0) return;
+        if (e.target.closest('.dt-fill-handle') || e.target.closest('button')) return;
+
+        // Shift-click extends the current selection from the anchor.
+        if (e.shiftKey && anchor) {
+          const over = e.target.closest('input, select');
+          const co = over && coordOf(over);
+          if (co) { sel = { r1: anchor.r, c1: anchor.c, r2: co.r, c2: co.c }; commitSel(); e.preventDefault(); }
+          return;
+        }
+
+        // A drag starts on an input cell; a plain click just edits normally.
+        const startCell = e.target.closest('input');
+        const co = startCell && coordOf(startCell);
+        if (!co) { clearSel(); return; }
+        anchor = co;
+        clearSel(); // reset any prior range; a drag re-extends it
+
+        const startX = e.clientX, startY = e.clientY;
+        let started = false;
+        const onMove = (me) => {
+          if (!started) {
+            if (Math.hypot(me.clientX - startX, me.clientY - startY) < 4) return;
+            started = true;
+            if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+            tbody.classList.add('dt-selecting');
+          }
+          me.preventDefault();
+          const el = document.elementFromPoint(me.clientX, me.clientY);
+          const cur = el && el.closest ? el.closest('input, select') : null;
+          const cc = cur && coordOf(cur);
+          if (cc) { sel = { r1: anchor.r, c1: anchor.c, r2: cc.r, c2: cc.c }; commitSel(); }
+        };
+        const onUp = () => {
+          document.removeEventListener('mousemove', onMove);
+          document.removeEventListener('mouseup', onUp);
+          tbody.classList.remove('dt-selecting');
+          if (!started) clearSel(); // plain click → no range (normal edit)
+        };
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+      });
+
+      // Esc clears the range.
+      tbody.addEventListener('keydown', (e) => { if (e.key === 'Escape') clearSel(); });
+
+      // One global copy handler serialises the current range to TSV.
+      if (!dtCopyBound) {
+        dtCopyBound = true;
+        document.addEventListener('copy', (e) => {
+          const s = dtSelectionRange;
+          if (!s) return;
+          const anchorEl = s.cellAt(s.rA, s.cA);
+          if (!anchorEl || !anchorEl.isConnected) { dtSelectionRange = null; return; } // stale (page switched / re-rendered)
+          // Don't hijack when the user is copying selected text inside one cell.
+          const ae = document.activeElement;
+          if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA') && ae.selectionStart !== ae.selectionEnd) return;
+          const lines = [];
+          for (let r = s.rA; r <= s.rB; r++) {
+            const vals = [];
+            for (let c = s.cA; c <= s.cB; c++) { const el = s.cellAt(r, c); vals.push(el ? el.value : ''); }
+            lines.push(vals.join('\t'));
+          }
+          const tsv = lines.join('\n');
+          if (e.clipboardData) { e.clipboardData.setData('text/plain', tsv); e.preventDefault(); }
+        });
+      }
+    }
+
     // Machine total power = voltage × current, formatted with unit. Shared by the
     // editor and the PDF so the two always agree.
     function machineWatt(v, i) {
@@ -7316,6 +7438,9 @@
 
       // ── Excel-style drag-to-fill handle ──
       setupDataFillHandle();
+
+      // ── Excel-style range select + copy (paste is handled above) ──
+      setupDataRangeSelect(page);
 
       // ── Add sensor row ──
       const sensorAddBtn = document.getElementById('sensor-add-row');

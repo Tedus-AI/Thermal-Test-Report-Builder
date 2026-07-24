@@ -1423,6 +1423,86 @@
       white-space: nowrap;
     }
 
+    /* All SW Version — upload screenshots (BMP/JPG/PNG), max 2, filename chips */
+    .sw-upload-row {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .sw-upload-btn {
+      height: 28px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 0 10px;
+      font-size: 11px;
+      font-family: var(--font-ui);
+      color: rgba(56,189,248,0.9);
+      background: transparent;
+      border: 1px dashed rgba(56,189,248,0.35);
+      border-radius: 4px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background var(--transition-fast), border-color var(--transition-fast);
+    }
+    .sw-upload-btn:hover { background: rgba(56,189,248,0.06); border-color: rgba(56,189,248,0.55); }
+    .sw-upload-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .sw-file-list { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+    .sw-file-chip {
+      display: inline-flex;
+      align-items: center;
+      height: 28px;
+      max-width: 210px;
+      border: 1px solid rgba(15,23,42,0.12);
+      border-radius: 4px;
+      background: #fff;
+      overflow: hidden;
+    }
+    .sw-file-name {
+      padding: 0 8px;
+      font-size: 11px;
+      line-height: 28px;
+      color: #2357A7;
+      cursor: pointer;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 176px;
+    }
+    .sw-file-name:hover { color: #0B3D7A; background: rgba(56,189,248,0.06); }
+    .sw-file-del {
+      height: 28px; width: 24px; flex-shrink: 0;
+      border: none; border-left: 1px solid rgba(15,23,42,0.10);
+      background: transparent; color: rgba(15,23,42,0.30);
+      font-size: 11px; cursor: pointer; transition: all 0.15s;
+    }
+    .sw-file-del:hover { background: rgba(231,76,60,0.12); color: #E74C3C; }
+
+    /* Simple full-screen image preview (click a filename to open) */
+    .sw-lightbox {
+      position: fixed; inset: 0; z-index: 2000;
+      background: rgba(15,23,42,0.78);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      padding: 32px;
+    }
+    .sw-lightbox-name {
+      color: #fff; font-family: var(--font-mono); font-size: 12px;
+      margin-bottom: 10px; max-width: 90vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .sw-lightbox img {
+      max-width: 92vw; max-height: 82vh; object-fit: contain;
+      background: #fff; border-radius: 4px; box-shadow: 0 12px 48px rgba(0,0,0,0.5);
+    }
+    .sw-lightbox-close {
+      position: absolute; top: 18px; right: 22px;
+      width: 34px; height: 34px; border-radius: 50%; border: none;
+      background: rgba(255,255,255,0.14); color: #fff; font-size: 18px; cursor: pointer;
+    }
+    .sw-lightbox-close:hover { background: rgba(255,255,255,0.26); }
+
     /* Ta conditions */
     .ta-section {
       border-top: 1px solid rgba(15,23,42,0.08);
@@ -7080,8 +7160,14 @@
               </select>
             </div>
             <div class="data-field">
-              <span class="data-field-label">SW Version</span>
-              <input type="text" placeholder="e.g. v2.1.0" value="${escapeAttr(h.sw_version || '')}" data-header="sw_version">
+              <span class="data-field-label">All SW Version</span>
+              <div class="sw-upload-row">
+                <button type="button" class="sw-upload-btn" id="sw-upload-btn"${(h.sw_images || []).length >= 2 ? ' disabled' : ''}>＋ 上傳截圖</button>
+                <input type="file" id="sw-file-input" accept="image/png,image/jpeg,image/bmp,.png,.jpg,.jpeg,.bmp" multiple style="display:none;">
+                <div class="sw-file-list">
+                  ${(h.sw_images || []).map((im, ix) => `<span class="sw-file-chip"><span class="sw-file-name" data-sw-preview="${ix}" title="點擊預覽">${escHtml(im.name)}</span><button type="button" class="sw-file-del" data-sw-del="${ix}" title="刪除此圖">✕</button></span>`).join('')}
+                </div>
+              </div>
             </div>
             <div class="data-field">
               <span class="data-field-label">Location</span>
@@ -7090,10 +7176,6 @@
                   `<option value="${loc}" ${h.location === loc ? 'selected' : ''}>${loc}</option>`
                 ).join('')}
               </select>
-            </div>
-            <div class="data-field">
-              <span class="data-field-label">Waveform Ver.</span>
-              <input type="text" placeholder="e.g. WF3.2" value="${escapeAttr(h.waveform_ver || '')}" data-header="waveform_ver">
             </div>
             <div class="data-field">
               <span class="data-field-label">UDC setting (H+V)</span>
@@ -7230,6 +7312,44 @@
           scheduleSave(state.activePage);
         });
       }
+
+      // ── All SW Version: upload / preview / delete screenshots (max 2) ──
+      const swUploadBtn = document.getElementById('sw-upload-btn');
+      const swFileInput = document.getElementById('sw-file-input');
+      if (swUploadBtn && swFileInput) {
+        swUploadBtn.addEventListener('click', () => swFileInput.click());
+        swFileInput.addEventListener('change', async () => {
+          if (!d.header.sw_images) d.header.sw_images = [];
+          const okTypes = ['image/png', 'image/jpeg', 'image/bmp'];
+          const okExt = /\.(png|jpe?g|bmp)$/i;
+          const files = Array.from(swFileInput.files || []).filter(f => okTypes.includes(f.type) || okExt.test(f.name));
+          const slots = 2 - d.header.sw_images.length;
+          const picked = slots > 0 ? files.slice(0, slots) : [];
+          for (const f of picked) {
+            try {
+              const url = await fileToDataURL(f);
+              d.header.sw_images.push({ name: f.name, url });
+            } catch (e) {}
+          }
+          swFileInput.value = '';
+          if (picked.length) { scheduleSave(state.activePage); renderDataPage(page); }
+        });
+      }
+      $canvas.querySelectorAll('.sw-file-name[data-sw-preview]').forEach(el => {
+        el.addEventListener('click', () => {
+          const im = (d.header.sw_images || [])[parseInt(el.dataset.swPreview)];
+          if (im) openSwLightbox(im.url, im.name);
+        });
+      });
+      $canvas.querySelectorAll('.sw-file-del[data-sw-del]').forEach(el => {
+        el.addEventListener('click', () => {
+          const ix = parseInt(el.dataset.swDel);
+          if (!d.header.sw_images || isNaN(ix)) return;
+          d.header.sw_images.splice(ix, 1);
+          scheduleSave(state.activePage);
+          renderDataPage(page);
+        });
+      });
 
       // Machine power: V/I inputs update the Watt cell in place (no re-render, so
       // the field being typed keeps focus). W = V × I.
@@ -7727,6 +7847,24 @@
         };
         document.addEventListener('mousedown', close);
       }, 0);
+    }
+
+    // Full-screen preview for an uploaded SW Version screenshot. Closes on the
+    // backdrop, the ✕ button, or Escape.
+    function openSwLightbox(url, name) {
+      document.querySelectorAll('.sw-lightbox').forEach(el => el.remove());
+      const ov = document.createElement('div');
+      ov.className = 'sw-lightbox';
+      ov.innerHTML = `<button type="button" class="sw-lightbox-close" title="關閉">✕</button>`
+        + `<div class="sw-lightbox-name">${escHtml(name || '')}</div>`
+        + `<img src="${escapeAttr(url)}" alt="">`;
+      const close = () => { ov.remove(); document.removeEventListener('keydown', onKey); };
+      const onKey = (ev) => { if (ev.key === 'Escape') close(); };
+      ov.addEventListener('click', (e) => {
+        if (e.target === ov || e.target.classList.contains('sw-lightbox-close')) close();
+      });
+      document.addEventListener('keydown', onKey);
+      document.body.appendChild(ov);
     }
 
     function getDataPageComponents() {
@@ -8503,6 +8641,10 @@
           subPages.forEach(html => {
             list.push({ page, pageIdx, html, isLandscape: true });
           });
+          // Each uploaded "All SW Version" screenshot becomes its own landscape page.
+          ((page.data.header && page.data.header.sw_images) || []).forEach(img => {
+            list.push({ page, pageIdx, html: buildSwImagePageHTML(img), isLandscape: true });
+          });
         } else {
           let html = '';
           const isLandscape = page.type === 'image' || page.type === 'annotation' || page.type === 'sim_vs_meas' || page.type === 'conclusion';
@@ -8717,6 +8859,18 @@
           <span>CONFIDENTIAL</span>
         </div>
       </div>`;
+    }
+
+    // One landscape page per uploaded "All SW Version" screenshot, image fit to
+    // the page (same object-fit approach the image pages use). Filename as title.
+    function buildSwImagePageHTML(img) {
+      const inner = `<div style="width:100%;height:100%;display:flex;flex-direction:column;padding:22px 28px 28px;overflow:hidden;color:rgba(15,23,42,0.90);letter-spacing:0px;word-spacing:0px;">
+        <div style="font-family:'Space Grotesk',sans-serif;font-size:16px;font-weight:600;letter-spacing:0.02em;padding:6px 8px;margin-bottom:10px;color:#0B3D7A;">ALL SW VERSION — ${escHtml(img.name || '')}</div>
+        <div style="flex:1;position:relative;border:1px solid rgba(15,23,42,0.08);border-radius:6px;display:flex;align-items:center;justify-content:center;overflow:hidden;min-height:0;">
+          <img src="${escapeAttr(img.url || '')}" style="max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;">
+        </div>
+      </div>`;
+      return wrapPageHTML(inner);
     }
 
     function buildImagePageHTML(d) {
@@ -9023,8 +9177,7 @@
           <div><span style="font-family:'JetBrains Mono',monospace;font-size:8px;font-weight:500;color:#2357A7;letter-spacing:0.06em;">EQUILIBRIUM TIME</span><div>${escHtml(h.eq_time_min)} min</div></div>
           <div><span style="font-family:'JetBrains Mono',monospace;font-size:8px;font-weight:500;color:#2357A7;letter-spacing:0.06em;">STAGE</span><div>${escHtml(h.stage)}</div></div>
           <div><span style="font-family:'JetBrains Mono',monospace;font-size:8px;font-weight:500;color:#2357A7;letter-spacing:0.06em;">MOUNTING</span><div>${escHtml(h.mounting)}</div></div>
-          <div><span style="font-family:'JetBrains Mono',monospace;font-size:8px;font-weight:500;color:#2357A7;letter-spacing:0.06em;">SW VERSION</span><div>${escHtml(h.sw_version)}</div></div>
-          <div><span style="font-family:'JetBrains Mono',monospace;font-size:8px;font-weight:500;color:#2357A7;letter-spacing:0.06em;">WAVEFORM VER.</span><div>${escHtml(h.waveform_ver)}</div></div>
+          <div><span style="font-family:'JetBrains Mono',monospace;font-size:8px;font-weight:500;color:#2357A7;letter-spacing:0.06em;">ALL SW VERSION</span><div>${(h.sw_images || []).map(im => escHtml(im.name)).join('<br>') || '—'}</div></div>
           <div><span style="font-family:'JetBrains Mono',monospace;font-size:8px;font-weight:500;color:#2357A7;letter-spacing:0.06em;">UDC SETTING (H+V)</span><div>${escHtml(h.udc_setting)}</div></div>
           <div><span style="font-family:'JetBrains Mono',monospace;font-size:8px;font-weight:500;color:#2357A7;letter-spacing:0.06em;">LOCATION</span><div>${escHtml(h.location)}</div></div>
         </div>
@@ -9121,8 +9274,7 @@
         <div><span style="${lblStyle}">EQUILIBRIUM TIME</span><div>${escHtml(h.eq_time_min)} min</div></div>
         <div><span style="${lblStyle}">STAGE</span><div>${escHtml(h.stage)}</div></div>
         <div><span style="${lblStyle}">MOUNTING</span><div>${escHtml(h.mounting)}</div></div>
-        <div><span style="${lblStyle}">SW VERSION</span><div>${escHtml(h.sw_version)}</div></div>
-        <div><span style="${lblStyle}">WAVEFORM VER.</span><div>${escHtml(h.waveform_ver)}</div></div>
+        <div><span style="${lblStyle}">ALL SW VERSION</span><div>${(h.sw_images || []).map(im => escHtml(im.name)).join('<br>') || '—'}</div></div>
         <div><span style="${lblStyle}">UDC SETTING (H+V)</span><div>${escHtml(h.udc_setting)}</div></div>
         <div><span style="${lblStyle}">LOCATION</span><div>${escHtml(h.location)}</div></div>
       </div>`;

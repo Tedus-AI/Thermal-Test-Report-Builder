@@ -8973,12 +8973,17 @@
 
       const sensors = d.sensors || [];
       const sensorsWithData = sensors.filter(s => s.name || Object.values(s.readings || {}).some(v => v));
+      // Max sensor rows on a dedicated (own) sensor page — keeps the last row clear
+      // of the footer band (~y573). Calibrated with a comfortable margin.
+      const SENSORS_PER_PAGE = 21;
       let sensorHtml = '';
+      let sensorRowArr = [];
+      let buildSensorBlock = () => '';
       if (sensorsWithData.length > 0) {
         const sThStyle = 'text-align:center;font-size:8px;font-weight:500;color:#ffffff;padding:4px 5px;background:#0B3D7A;border:1px solid rgba(255,255,255,0.3);white-space:nowrap;letter-spacing:0.04em;word-spacing:0px;font-family:&apos;JetBrains Mono&apos;,monospace;';
         const sTdStyle = 'padding:3px 5px;border:1px solid rgba(15,23,42,0.08);font-size:10px;white-space:nowrap;letter-spacing:0px;word-spacing:0px;text-align:center;';
         const sensorTaHeaders = tas.map(ta => `<th style="${sThStyle}">Ta = ${ta}°C</th>`).join('');
-        const sensorRows = sensorsWithData.map(s => {
+        sensorRowArr = sensorsWithData.map(s => {
           const taCells = tas.map(ta => {
             const val = s.readings ? s.readings['ta_' + ta] : '';
             return `<td style="${sTdStyle}">${escHtml(val) || '—'}</td>`;
@@ -8989,8 +8994,10 @@
             ${taCells}
             <td style="${sTdStyle}">${escHtml(s.note)}</td>
           </tr>`;
-        }).join('');
-        sensorHtml = `
+        });
+        // Builds the bordered sensor block for an arbitrary subset of rows so the
+        // section can be split across pages (the table header repeats each page).
+        buildSensorBlock = (rowsArr) => `
           <div style="margin-top:10px;border:1px solid #C2DFF8;border-radius:4px;">
             <div style="padding:6px 10px;font-size:10px;font-weight:700;color:#0B3D7A;background:#ffffff;border-bottom:1px solid #C2DFF8;letter-spacing:0.04em;word-spacing:0px;font-family:'JetBrains Mono',monospace;">EMBEDDED SENSOR READINGS</div>
             <table style="width:100%;border-collapse:collapse;font-size:10px;">
@@ -9000,9 +9007,10 @@
                 ${sensorTaHeaders}
                 <th style="${sThStyle}">備註</th>
               </tr></thead>
-              <tbody>${sensorRows}</tbody>
+              <tbody>${rowsArr.join('')}</tbody>
             </table>
           </div>`;
+        sensorHtml = buildSensorBlock(sensorRowArr);
       }
 
       const makeInner = (title, headerBlock, rows, sensor) =>
@@ -9017,10 +9025,6 @@
           ${sensor}
         </div>`;
 
-      if (rowsHtml.length === 0) {
-        return [wrapPageHTML(makeInner(titleHtml, infoGridHtml + taTagsHtml + powerHtml, '', sensorHtml))];
-      }
-
       const PAGE_H = 595;
       // Bottom cut-off for content on a page. Calibrated from the real rendered
       // layout (Noto Sans TC loaded): component rows are ~24px tall, so on page 1
@@ -9029,6 +9033,41 @@
       // ~y572. A cut-off of 532 keeps 11 rows on the first page and pushes the
       // 12th onto the next page, with a comfortable gap above the footer.
       const MAX_CONTENT_Y = 532;
+
+      // The sensor section can be far taller than one page (dozens of sensors), so
+      // it is split into dedicated pages of at most SENSORS_PER_PAGE rows each. The
+      // table header repeats on every page and each page carries the report title.
+      const makeSensorPages = () =>
+        sensorRowArr.length === 0 ? [] :
+        Array.from({ length: Math.ceil(sensorRowArr.length / SENSORS_PER_PAGE) }, (_, i) =>
+          wrapPageHTML(
+            `<div style="width:100%;height:100%;padding:28px 32px 28px;color:rgba(15,23,42,0.90);overflow:hidden;letter-spacing:0px;word-spacing:0px;">
+              ${titleHtml}
+              ${buildSensorBlock(sensorRowArr.slice(i * SENSORS_PER_PAGE, (i + 1) * SENSORS_PER_PAGE))}
+            </div>`));
+
+      if (rowsHtml.length === 0) {
+        // No component rows. If the whole sensor block fits under the info grid,
+        // keep it on one page; otherwise put the info grid on page 1 and paginate
+        // the sensor rows onto their own pages.
+        if (sensorsWithData.length === 0) {
+          return [wrapPageHTML(makeInner(titleHtml, infoGridHtml + taTagsHtml + powerHtml, '', ''))];
+        }
+        const m = document.createElement('div');
+        m.style.cssText = `position:fixed;left:-9999px;top:0;width:842px;background:#fff;z-index:-1;font-family:${PDF_FONT};`;
+        m.innerHTML = `<div style="width:100%;padding:28px 32px 28px;letter-spacing:0;word-spacing:0;">${titleHtml}${infoGridHtml}${taTagsHtml}${powerHtml}${sensorHtml}</div>`;
+        document.body.appendChild(m);
+        void m.offsetHeight;
+        const fitsOnePage = m.firstElementChild.getBoundingClientRect().height <= MAX_CONTENT_Y;
+        document.body.removeChild(m);
+        if (fitsOnePage) {
+          return [wrapPageHTML(makeInner(titleHtml, infoGridHtml + taTagsHtml + powerHtml, '', sensorHtml))];
+        }
+        return [
+          wrapPageHTML(makeInner(titleHtml, infoGridHtml + taTagsHtml + powerHtml, '', '')),
+          ...makeSensorPages(),
+        ];
+      }
 
       // NOTE: the measurer is positioned off-screen but must stay *renderable*
       // (no visibility:hidden) — a hidden element can be measured with fallback
@@ -9140,12 +9179,9 @@
       });
 
       if (sensorOwnPage) {
-        out.push(wrapPageHTML(
-          `<div style="width:100%;height:100%;padding:28px 32px 28px;color:rgba(15,23,42,0.90);overflow:hidden;letter-spacing:0px;word-spacing:0px;">
-            ${titleHtml}
-            ${sensorHtml}
-          </div>`
-        ));
+        // Sensor section doesn't fit under the last component page — give it its
+        // own page(s), paginated so large sensor sets never overflow / clip.
+        out.push(...makeSensorPages());
       }
 
       return out;

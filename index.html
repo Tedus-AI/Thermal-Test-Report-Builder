@@ -1503,6 +1503,155 @@
     }
     .sw-lightbox-close:hover { background: rgba(255,255,255,0.26); }
 
+    /* ─── Notes page (備註頁) — editor-only scratchpad, never exported ─── */
+    .scrollable-edit .note-page { height: auto; min-height: 100%; }
+    .note-page {
+      width: 100%;
+      background: #fff;
+      border-radius: 8px;
+      padding: 20px 22px 28px;
+      box-sizing: border-box;
+      color: var(--text-on-white);
+    }
+    .note-page-head {
+      border-bottom: 1px dashed rgba(15,23,42,0.14);
+      padding-bottom: 12px;
+      margin-bottom: 16px;
+    }
+    .note-page-title-row { display: flex; align-items: center; gap: 10px; }
+    .note-page-kicker {
+      flex-shrink: 0;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      color: #2357A7;
+      background: rgba(35,87,167,0.08);
+      border: 1px solid rgba(35,87,167,0.15);
+      border-radius: 4px;
+      padding: 4px 8px;
+    }
+    .note-page-title {
+      flex: 1;
+      font-family: var(--font-ui);
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text-on-white);
+      border: none;
+      border-bottom: 1px solid transparent;
+      outline: none;
+      background: transparent;
+      padding: 4px 2px;
+    }
+    .note-page-title:focus { border-bottom-color: rgba(56,189,248,0.5); }
+    .note-page-title::placeholder { color: rgba(15,23,42,0.30); font-weight: 500; }
+    .note-page-hint {
+      margin-top: 8px;
+      font-size: 11px;
+      color: rgba(15,23,42,0.45);
+      font-family: var(--font-mono);
+    }
+
+    .note-blocks { display: flex; flex-direction: column; gap: 14px; }
+    .note-block {
+      border: 1px solid rgba(15,23,42,0.10);
+      border-radius: 8px;
+      background: rgba(15,23,42,0.015);
+      padding: 10px 12px 12px;
+    }
+    .note-block-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+    .note-block-time {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: rgba(15,23,42,0.42);
+      letter-spacing: 0.02em;
+    }
+    .note-block-tools { display: flex; align-items: center; gap: 4px; }
+    .note-tool-btn {
+      width: 24px; height: 24px; padding: 0;
+      display: inline-flex; align-items: center; justify-content: center;
+      border: none; border-radius: 4px; background: transparent;
+      color: rgba(15,23,42,0.40); cursor: pointer; line-height: 1;
+      transition: all 0.15s;
+    }
+    .note-img-add:hover { background: rgba(56,189,248,0.14); color: #2357A7; }
+    .note-block-del { font-size: 12px; }
+    .note-block-del:hover { background: rgba(231,76,60,0.12); color: #E74C3C; }
+    .note-block-text {
+      width: 100%;
+      box-sizing: border-box;
+      min-height: 70px;
+      resize: vertical;
+      font-family: var(--font-mono);
+      font-size: 12.5px;
+      line-height: 1.55;
+      color: var(--text-on-white);
+      border: 1px solid rgba(15,23,42,0.10);
+      border-radius: 6px;
+      outline: none;
+      background: #fff;
+      padding: 8px 10px;
+      white-space: pre;
+      overflow-x: auto;
+    }
+    .note-block-text:focus { border-color: rgba(56,189,248,0.45); background: rgba(56,189,248,0.02); }
+    .note-block-text::placeholder { color: rgba(15,23,42,0.28); white-space: pre-wrap; }
+
+    .note-img-strip { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+    .note-thumb {
+      position: relative;
+      width: 132px;
+      border: 1px solid rgba(15,23,42,0.12);
+      border-radius: 6px;
+      overflow: hidden;
+      cursor: pointer;
+      background: #fff;
+    }
+    .note-thumb img { display: block; width: 100%; height: 90px; object-fit: cover; }
+    .note-thumb:hover { border-color: rgba(56,189,248,0.55); box-shadow: 0 2px 10px rgba(15,23,42,0.12); }
+    .note-thumb-name {
+      display: block;
+      font-family: var(--font-mono);
+      font-size: 9px;
+      color: rgba(15,23,42,0.55);
+      padding: 3px 6px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      border-top: 1px solid rgba(15,23,42,0.08);
+    }
+    .note-thumb-del {
+      position: absolute; top: 4px; right: 4px;
+      width: 20px; height: 20px; border: none; border-radius: 50%;
+      background: rgba(15,23,42,0.55); color: #fff; font-size: 11px;
+      cursor: pointer; line-height: 1; display: flex; align-items: center; justify-content: center;
+      opacity: 0; transition: opacity 0.15s;
+    }
+    .note-thumb:hover .note-thumb-del { opacity: 1; }
+    .note-thumb-del:hover { background: #E74C3C; }
+
+    .note-add-block-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      margin-top: 14px;
+      padding: 7px 16px;
+      font-size: 12px;
+      font-family: var(--font-ui);
+      color: rgba(56,189,248,0.9);
+      background: transparent;
+      border: 1px dashed rgba(56,189,248,0.35);
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background var(--transition-fast), border-color var(--transition-fast);
+    }
+    .note-add-block-btn:hover { background: rgba(56,189,248,0.06); border-color: rgba(56,189,248,0.55); }
+
     /* Ta conditions */
     .ta-section {
       border-top: 1px solid rgba(15,23,42,0.08);
@@ -3869,6 +4018,7 @@
             <button class="dropdown-item" data-type="data">📊 數據頁</button>
             <button class="dropdown-item" data-type="sim_vs_meas">📉 比對頁</button>
             <button class="dropdown-item" data-type="conclusion">📝 結論頁</button>
+            <button class="dropdown-item" data-type="note">🗒 備註頁（不匯出）</button>
           </div>
         </div>
         <button class="glass-btn" id="btn-undo" title="復原 (Ctrl+Z)" disabled>↩ 復原</button>
@@ -3913,6 +4063,7 @@
               <button class="dropdown-item" data-type="data">📊 數據頁</button>
               <button class="dropdown-item" data-type="sim_vs_meas">📉 比對頁</button>
               <button class="dropdown-item" data-type="conclusion">📝 結論頁</button>
+              <button class="dropdown-item" data-type="note">🗒 備註頁（不匯出）</button>
             </div>
           </div>
         </div>
@@ -4265,6 +4416,7 @@
           else if (type === 'data') addDataPage();
           else if (type === 'sim_vs_meas') addSimVsMeasPage();
           else if (type === 'conclusion') addConclusionPage();
+          else if (type === 'note') addNotePage();
         });
       });
     }
@@ -4311,10 +4463,10 @@
       if (t === 'annotation') return '標註頁';
       if (t === 'sim_vs_meas') return '比對頁';
       if (t === 'conclusion') return '結論頁';
-      if (t === 'image' || t === 'data') {
+      if (t === 'image' || t === 'data' || t === 'note') {
         let n = 0;
         for (let j = 0; j <= idx; j++) if (state.pages[j].type === t) n++;
-        return (t === 'image' ? '圖片頁 ' : '數據頁 ') + n;
+        return (t === 'image' ? '圖片頁 ' : t === 'data' ? '數據頁 ' : '備註頁 ') + n;
       }
       return '未知頁面';
     }
@@ -4514,6 +4666,10 @@
       if (page.type === 'image' || page.type === 'annotation' || page.type === 'sim_vs_meas' || page.type === 'data' || page.type === 'conclusion') {
         $canvas.classList.add('landscape');
         if (canvasTag) canvasTag.textContent = 'A4 LANDSCAPE';
+      } else if (page.type === 'note') {
+        // Working scratchpad — not a paper page; grows/scrolls, never exported.
+        $canvas.classList.remove('landscape');
+        if (canvasTag) canvasTag.textContent = 'NOTES · 不匯出';
       } else {
         $canvas.classList.remove('landscape');
         if (canvasTag) canvasTag.textContent = 'A4 PORTRAIT';
@@ -4531,6 +4687,8 @@
         renderSimVsMeasPage(page);
       } else if (page.type === 'conclusion') {
         renderConclusionPage(page);
+      } else if (page.type === 'note') {
+        renderNotePage(page);
       }
     }
 
@@ -8360,6 +8518,154 @@
       scheduleSave(state.pages.length - 1);
     }
 
+    // ━━━ Notes Page Module (備註頁) ━━━
+    // Editor-only scratchpad for experiment jottings (commands, process notes)
+    // plus screenshots. Never rendered in preview / PDF (buildVirtualPages skips
+    // it). Data model: { title, blocks:[ { id, time, text, images:[{name,url}] } ] }.
+    function noteTimestamp() {
+      const dt = new Date();
+      const p = n => String(n).padStart(2, '0');
+      return `${dt.getFullYear()}-${p(dt.getMonth() + 1)}-${p(dt.getDate())} ${p(dt.getHours())}:${p(dt.getMinutes())}`;
+    }
+    function newNoteBlock() {
+      return { id: 'nb_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6), time: noteTimestamp(), text: '', images: [] };
+    }
+
+    function addNotePage() {
+      const page = {
+        id: 'page_' + Date.now(),
+        type: 'note',
+        order: state.pages.length,
+        data: { title: '', blocks: [newNoteBlock()] }
+      };
+      state.pages.push(page);
+      initPageSnapshot(page);
+      renderPageList();
+      selectPage(state.pages.length - 1);
+      scheduleSave(state.pages.length - 1);
+    }
+
+    function renderNotePage(page) {
+      $canvas.classList.add('scrollable-edit');
+      const d = page.data;
+      if (!Array.isArray(d.blocks)) d.blocks = [newNoteBlock()];
+      const pageIdx = state.activePage;
+
+      const blocksHtml = d.blocks.map((blk, bi) => {
+        if (!Array.isArray(blk.images)) blk.images = [];
+        const thumbs = blk.images.map((im, ii) => `
+          <div class="note-thumb" data-note-preview="${bi}:${ii}" title="點擊預覽">
+            <img src="${escapeAttr(im.url)}" alt="">
+            <button type="button" class="note-thumb-del" data-note-img-del="${bi}:${ii}" title="刪除此圖">✕</button>
+            <span class="note-thumb-name">${escHtml(im.name || '')}</span>
+          </div>`).join('');
+        return `
+          <div class="note-block" data-block="${bi}">
+            <div class="note-block-head">
+              <span class="note-block-time">🕒 ${escHtml(blk.time || '')}</span>
+              <div class="note-block-tools">
+                <button type="button" class="note-tool-btn note-img-add" data-note-img-add="${bi}" title="附加截圖（BMP/JPG/PNG）"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4"/><path d="M7 9l5-5 5 5"/><path d="M5 20h14"/></svg></button>
+                <button type="button" class="note-tool-btn note-block-del" data-note-block-del="${bi}" title="刪除此記錄">✕</button>
+              </div>
+            </div>
+            <textarea class="note-block-text" data-note-text="${bi}" placeholder="輸入指令 / 實驗流程小記…（例：$ ssh dut && ./run_test.sh -mode thermal）">${escHtml(blk.text || '')}</textarea>
+            <input type="file" class="note-file-input" data-note-file="${bi}" accept="image/png,image/jpeg,image/bmp,.png,.jpg,.jpeg,.bmp" multiple style="display:none;">
+            ${blk.images.length ? `<div class="note-img-strip">${thumbs}</div>` : ''}
+          </div>`;
+      }).join('');
+
+      $canvas.innerHTML = `
+        <div class="note-page">
+          <div class="note-page-head">
+            <div class="note-page-title-row">
+              <span class="note-page-kicker">🗒 備註頁</span>
+              <input class="note-page-title" type="text" placeholder="標題（例：DVT 熱測隨手記）" value="${escapeAttr(d.title || '')}">
+            </div>
+            <div class="note-page-hint">此頁僅供實驗隨手記錄（指令、流程小記、截圖…），不會納入預覽與 PDF 匯出。</div>
+          </div>
+          <div class="note-blocks">${blocksHtml}</div>
+          <button type="button" class="note-add-block-btn" id="note-add-block">＋ 新增記錄</button>
+        </div>`;
+
+      const titleEl = $canvas.querySelector('.note-page-title');
+      if (titleEl) titleEl.addEventListener('input', () => { d.title = titleEl.value; scheduleSave(pageIdx); });
+
+      // Text edits update state in place (no re-render → textarea keeps focus/caret)
+      $canvas.querySelectorAll('textarea[data-note-text]').forEach(ta => {
+        ta.addEventListener('input', () => {
+          const bi = parseInt(ta.dataset.noteText);
+          if (d.blocks[bi]) { d.blocks[bi].text = ta.value; scheduleSave(pageIdx); }
+        });
+      });
+
+      const addBtn = $canvas.querySelector('#note-add-block');
+      if (addBtn) addBtn.addEventListener('click', () => {
+        d.blocks.push(newNoteBlock());
+        scheduleSave(pageIdx);
+        renderNotePage(page);
+        const tas = $canvas.querySelectorAll('textarea[data-note-text]');
+        tas[tas.length - 1] && tas[tas.length - 1].focus();
+      });
+
+      $canvas.querySelectorAll('.note-block-del').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const bi = parseInt(btn.dataset.noteBlockDel);
+          if (isNaN(bi) || !d.blocks[bi]) return;
+          const blk = d.blocks[bi];
+          const isEmpty = !((blk.text || '').trim()) && (!blk.images || blk.images.length === 0);
+          if (!isEmpty && !confirm('確定要刪除此記錄？')) return;
+          d.blocks.splice(bi, 1);
+          if (d.blocks.length === 0) d.blocks.push(newNoteBlock());
+          scheduleSave(pageIdx);
+          renderNotePage(page);
+        });
+      });
+
+      // Attach screenshots — the icon button opens the block's hidden file input
+      $canvas.querySelectorAll('.note-img-add').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const bi = parseInt(btn.dataset.noteImgAdd);
+          const input = $canvas.querySelector(`input[data-note-file="${bi}"]`);
+          if (input) input.click();
+        });
+      });
+      $canvas.querySelectorAll('input[data-note-file]').forEach(input => {
+        input.addEventListener('change', async () => {
+          const bi = parseInt(input.dataset.noteFile);
+          if (!d.blocks[bi]) return;
+          const okTypes = ['image/png', 'image/jpeg', 'image/bmp'];
+          const okExt = /\.(png|jpe?g|bmp)$/i;
+          const files = Array.from(input.files || []).filter(f => okTypes.includes(f.type) || okExt.test(f.name));
+          for (const f of files) {
+            try { const url = await fileToDataURL(f); d.blocks[bi].images.push({ name: f.name, url }); } catch (e) {}
+          }
+          input.value = '';
+          if (files.length) { scheduleSave(pageIdx); renderNotePage(page); }
+        });
+      });
+
+      // Click a thumbnail to preview; ✕ deletes it
+      $canvas.querySelectorAll('.note-thumb').forEach(th => {
+        th.addEventListener('click', (e) => {
+          if (e.target.closest('.note-thumb-del')) return;
+          const [bi, ii] = th.dataset.notePreview.split(':').map(Number);
+          const im = d.blocks[bi] && d.blocks[bi].images[ii];
+          if (im) openSwLightbox(im.url, im.name);
+        });
+      });
+      $canvas.querySelectorAll('.note-thumb-del').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const [bi, ii] = btn.dataset.noteImgDel.split(':').map(Number);
+          if (d.blocks[bi] && d.blocks[bi].images[ii] !== undefined) {
+            d.blocks[bi].images.splice(ii, 1);
+            scheduleSave(pageIdx);
+            renderNotePage(page);
+          }
+        });
+      });
+    }
+
     // Margin between measured Tc and derated spec, coloured like the data page
     function conclMargin(tc, spec) {
       const t = parseFloat(tc), s = parseFloat(spec);
@@ -8643,6 +8949,8 @@
     function buildVirtualPages() {
       const list = [];
       state.pages.forEach((page, pageIdx) => {
+        // 備註頁 is an editor-only scratchpad — never part of preview or PDF.
+        if (page.type === 'note') return;
         if (page.type === 'data') {
           const subPages = buildDataPagePagesHTML(page.data);
           subPages.forEach(html => {

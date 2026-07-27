@@ -8568,7 +8568,7 @@
                 <button type="button" class="note-tool-btn note-block-del" data-note-block-del="${bi}" title="刪除此記錄">✕</button>
               </div>
             </div>
-            <textarea class="note-block-text" data-note-text="${bi}" placeholder="輸入指令 / 實驗流程小記…（例：$ ssh dut && ./run_test.sh -mode thermal）">${escHtml(blk.text || '')}</textarea>
+            <textarea class="note-block-text" data-note-text="${bi}" placeholder="輸入指令 / 實驗流程小記…（例：$ ssh dut && ./run_test.sh -mode thermal）　｜ 可直接 Ctrl+V 貼上截圖">${escHtml(blk.text || '')}</textarea>
             <input type="file" class="note-file-input" data-note-file="${bi}" accept="image/png,image/jpeg,image/bmp,.png,.jpg,.jpeg,.bmp" multiple style="display:none;">
             ${blk.images.length ? `<div class="note-img-strip">${thumbs}</div>` : ''}
           </div>`;
@@ -8581,7 +8581,7 @@
               <span class="note-page-kicker">🗒 備註頁</span>
               <input class="note-page-title" type="text" placeholder="標題（例：DVT 熱測隨手記）" value="${escapeAttr(d.title || '')}">
             </div>
-            <div class="note-page-hint">此頁僅供實驗隨手記錄（指令、流程小記、截圖…），不會納入預覽與 PDF 匯出。</div>
+            <div class="note-page-hint">此頁僅供實驗隨手記錄（指令、流程小記、截圖…）；截圖可用上傳鈕或直接 Ctrl+V 貼上。不會納入預覽與 PDF 匯出。</div>
           </div>
           <div class="note-blocks">${blocksHtml}</div>
           <button type="button" class="note-add-block-btn" id="note-add-block">＋ 新增記錄</button>
@@ -8595,6 +8595,46 @@
         ta.addEventListener('input', () => {
           const bi = parseInt(ta.dataset.noteText);
           if (d.blocks[bi]) { d.blocks[bi].text = ta.value; scheduleSave(pageIdx); }
+        });
+      });
+
+      // Shared: append image File objects to a block (used by both the upload
+      // button and clipboard paste). Clipboard screenshots have no real filename,
+      // so one is synthesised from the timestamp. Re-renders on success.
+      const addNoteImages = async (bi, fileArr) => {
+        if (!d.blocks[bi]) return 0;
+        const okExt = /\.(png|jpe?g|bmp)$/i;
+        const files = fileArr.filter(f => f && (/^image\//.test(f.type) || okExt.test(f.name || '')));
+        let added = 0;
+        for (const f of files) {
+          try {
+            const url = await fileToDataURL(f);
+            let name = (f.name || '').trim();
+            if (!name || name.toLowerCase() === 'image.png') {
+              const ext = ((f.type && f.type.split('/')[1]) || 'png').replace('jpeg', 'jpg');
+              name = `貼上截圖_${noteTimestamp().replace(/[: ]/g, '-')}.${ext}`;
+            }
+            d.blocks[bi].images.push({ name, url });
+            added++;
+          } catch (e) {}
+        }
+        if (added) { scheduleSave(pageIdx); renderNotePage(page); }
+        return added;
+      };
+
+      // Paste a screenshot (Win+Shift+S / Ctrl+Win+S → clipboard) with Ctrl+V into
+      // the focused block — it lands in that block's image strip, exactly like an
+      // uploaded screenshot. Pure-text pastes fall through to normal behaviour.
+      $canvas.querySelectorAll('textarea[data-note-text]').forEach(ta => {
+        ta.addEventListener('paste', (e) => {
+          const items = (e.clipboardData && e.clipboardData.items) || [];
+          const imgFiles = Array.from(items)
+            .filter(it => it.kind === 'file' && /^image\//.test(it.type))
+            .map(it => it.getAsFile())
+            .filter(Boolean);
+          if (!imgFiles.length) return;
+          e.preventDefault();
+          addNoteImages(parseInt(ta.dataset.noteText), imgFiles);
         });
       });
 
@@ -8632,15 +8672,9 @@
       $canvas.querySelectorAll('input[data-note-file]').forEach(input => {
         input.addEventListener('change', async () => {
           const bi = parseInt(input.dataset.noteFile);
-          if (!d.blocks[bi]) return;
-          const okTypes = ['image/png', 'image/jpeg', 'image/bmp'];
-          const okExt = /\.(png|jpe?g|bmp)$/i;
-          const files = Array.from(input.files || []).filter(f => okTypes.includes(f.type) || okExt.test(f.name));
-          for (const f of files) {
-            try { const url = await fileToDataURL(f); d.blocks[bi].images.push({ name: f.name, url }); } catch (e) {}
-          }
+          const files = Array.from(input.files || []);
           input.value = '';
-          if (files.length) { scheduleSave(pageIdx); renderNotePage(page); }
+          await addNoteImages(bi, files);
         });
       });
 

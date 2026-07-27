@@ -2242,6 +2242,58 @@
     .sensor-table input:focus { background: rgba(56,189,248,0.05); }
     .sensor-table select { cursor: pointer; appearance: auto; width: auto; }
 
+    /* Sensor 對應元件 Δ column (link a sensor to a component; show per-Ta diff) */
+    .sensor-table th.sensor-ref-th { min-width: 116px; }
+    .sensor-table td.sensor-ref-cell { padding: 3px 5px; text-align: left; vertical-align: top; }
+    .sensor-ref-btn {
+      width: 100%;
+      padding: 5px 6px;
+      font-size: 10.5px;
+      font-family: var(--font-ui);
+      color: rgba(56,189,248,0.9);
+      background: transparent;
+      border: 1px dashed rgba(56,189,248,0.35);
+      border-radius: 4px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background var(--transition-fast), border-color var(--transition-fast);
+    }
+    .sensor-ref-btn:hover { background: rgba(56,189,248,0.06); border-color: rgba(56,189,248,0.55); }
+    .sensor-ref-btn.stale { color: #B45309; border-color: rgba(245,158,11,0.5); }
+    .sensor-ref-linked { display: flex; flex-direction: column; gap: 3px; }
+    .sensor-ref-head { display: flex; align-items: center; gap: 4px; }
+    .sensor-ref-name {
+      flex: 1; min-width: 0;
+      font-size: 11px; font-weight: 600; color: #2357A7;
+      cursor: pointer; text-decoration: underline; text-underline-offset: 2px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .sensor-ref-name:hover { color: #0B3D7A; }
+    .sensor-ref-clear {
+      flex-shrink: 0; width: 16px; height: 16px; padding: 0; border: none; border-radius: 3px;
+      background: transparent; color: rgba(15,23,42,0.30); font-size: 10px; cursor: pointer; line-height: 1;
+    }
+    .sensor-ref-clear:hover { background: rgba(231,76,60,0.12); color: #E74C3C; }
+    .sensor-ref-deltas { display: flex; flex-wrap: wrap; gap: 2px 10px; }
+    .sensor-ref-delta { display: inline-flex; align-items: baseline; gap: 4px; font-family: var(--font-mono); font-size: 10px; }
+    .sensor-ref-delta .srd-ta { color: rgba(15,23,42,0.45); }
+    .sensor-ref-delta .srd-val { font-weight: 600; color: rgba(15,23,42,0.80); }
+
+    /* Sensor→component single-select picker (rows show each Ta's measured value).
+       Lives inside the dark .sim-modal, so styling is light-on-dark. */
+    .scp-body { display: flex; flex-direction: column; gap: 5px; padding: 4px 12px; }
+    .scp-item {
+      display: flex; align-items: center; gap: 8px; width: 100%;
+      padding: 8px 10px; text-align: left; cursor: pointer;
+      background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.10); border-radius: 6px;
+      font-family: var(--font-ui); color: #e2e8f0; transition: all 0.12s;
+    }
+    .scp-item:hover { background: rgba(56,189,248,0.12); border-color: rgba(56,189,248,0.55); }
+    .scp-num { font-family: var(--font-mono); font-size: 10px; color: rgba(226,232,240,0.5); flex-shrink: 0; }
+    .scp-name { font-weight: 600; font-size: 13px; flex-shrink: 0; color: #f1f5f9; }
+    .scp-readings { margin-left: auto; display: flex; flex-wrap: wrap; gap: 4px 10px; justify-content: flex-end; }
+    .scp-reading { font-family: var(--font-mono); font-size: 11px; color: rgba(226,232,240,0.7); }
+
     /* ━━━ Sim vs Meas Comparison Page ━━━ */
     .sim-page {
       width: 100%;
@@ -7231,6 +7283,7 @@
               `<option value="${t}" ${s.type === t ? 'selected' : ''}>${t}</option>`).join('')}
             </select></td>
           ${taSensorCells}
+          <td class="sensor-ref-cell">${sensorRefCellHTML(d, s, si)}</td>
           <td><input type="text" class="dt-note-input" placeholder="備註" value="${escapeAttr(s.note || '')}" data-sensor="${si}" data-sensor-field="note" data-fill-col="s:note"></td>
           <td class="dt-act-cell">
             <button type="button" class="dt-act-btn dt-hl-btn" data-hl-sensor="${si}" title="標記顏色"><span class="dt-hl-dot"${s.highlight ? ` style="background:${hlSwatchColor(s.highlight)};border-color:${hlSwatchColor(s.highlight)};"` : ''}></span></button>
@@ -7417,6 +7470,7 @@
                     <th>Sensor 名稱</th>
                     <th>類型</th>
                     ${sensorTaHeaders}
+                    <th class="sensor-ref-th">對應元件 / Δ</th>
                     <th>備註</th>
                     <th class="dt-act-header"></th>
                   </tr>
@@ -7757,6 +7811,26 @@
       const sensorTbody = document.getElementById('sensor-tbody');
       if (sensorTbody) {
         sensorTbody.addEventListener('click', (e) => {
+          const refPick = e.target.closest('[data-sensor-ref-pick]');
+          if (refPick) {
+            const si = parseInt(refPick.dataset.sensorRefPick);
+            if (isNaN(si) || !d.sensors[si]) return;
+            showSensorComponentPicker(d, (ref) => {
+              d.sensors[si].ref = ref;
+              scheduleSave(state.activePage);
+              renderDataPage(page);
+            });
+            return;
+          }
+          const refClear = e.target.closest('[data-sensor-ref-clear]');
+          if (refClear) {
+            const si = parseInt(refClear.dataset.sensorRefClear);
+            if (isNaN(si) || !d.sensors[si]) return;
+            delete d.sensors[si].ref;
+            scheduleSave(state.activePage);
+            renderDataPage(page);
+            return;
+          }
           const disBtn = e.target.closest('.dt-disable-btn');
           if (disBtn) {
             const si = parseInt(disBtn.dataset.disableSensor);
@@ -8238,6 +8312,99 @@
         checked.forEach(cb => { selected.push(available[parseInt(cb.value)]); });
         document.body.removeChild(overlay);
         onConfirm(selected);
+      });
+    }
+
+    // ── Sensor ↔ component link (對應元件 Δ) ─────────────────────────────
+    // A sensor row on a data page can be linked to one component on the SAME
+    // page (sensor.ref = { name, idx }). We resolve it back to the live component
+    // preferring an index-with-matching-name, then a name search, so reordering
+    // the component list doesn't break the link. Returns null if it went stale.
+    function resolveSensorRef(d, s) {
+      const ref = s && s.ref;
+      if (!ref) return null;
+      const comps = (d && d.components) || [];
+      const name = ref.name || '';
+      if (name) {
+        if (typeof ref.idx === 'number' && comps[ref.idx] && (comps[ref.idx].name || '') === name) return comps[ref.idx];
+        return comps.find(c => (c.name || '') === name) || null;
+      }
+      return (typeof ref.idx === 'number' && comps[ref.idx]) ? comps[ref.idx] : null;
+    }
+    // Per-Ta difference: sensor software value − linked component measured value.
+    function sensorRefDeltas(d, s) {
+      const comp = resolveSensorRef(d, s);
+      if (!comp) return null;
+      return (d.ta_conditions || []).map(ta => {
+        const key = 'ta_' + ta;
+        const sv = parseFloat(s.readings ? s.readings[key] : NaN);
+        const cv = parseFloat(comp.readings ? comp.readings[key] : NaN);
+        const delta = (!isNaN(sv) && !isNaN(cv)) ? (sv - cv) : null;
+        return { ta, sv, cv, delta };
+      });
+    }
+    const fmtDelta = v => v === null ? '—' : (v > 0 ? '+' : '') + v.toFixed(1);
+
+    // Editor cell HTML for a sensor's 對應元件 Δ column.
+    function sensorRefCellHTML(d, s, si) {
+      if (!s.ref) {
+        return `<button type="button" class="sensor-ref-btn" data-sensor-ref-pick="${si}" title="選擇對應元件">＋ 對應元件</button>`;
+      }
+      const comp = resolveSensorRef(d, s);
+      if (!comp) {
+        return `<button type="button" class="sensor-ref-btn stale" data-sensor-ref-pick="${si}" title="原元件已變更，點擊重新選擇">⚠ 元件已變更 · 重選</button>`;
+      }
+      const rows = (sensorRefDeltas(d, s) || []).map(x =>
+        `<div class="sensor-ref-delta"><span class="srd-ta">${x.ta}°C</span><span class="srd-val">${fmtDelta(x.delta)}</span></div>`).join('');
+      return `<div class="sensor-ref-linked">
+          <div class="sensor-ref-head">
+            <span class="sensor-ref-name" data-sensor-ref-pick="${si}" title="點擊更換元件">${escHtml(comp.name || '(未命名)')}</span>
+            <button type="button" class="sensor-ref-clear" data-sensor-ref-clear="${si}" title="取消連結">✕</button>
+          </div>
+          <div class="sensor-ref-deltas">${rows}</div>
+        </div>`;
+    }
+
+    // Single-select picker: this data page's components (with each Ta's measured
+    // value shown), so the user can link the sensor to the matching thermocouple.
+    function showSensorComponentPicker(d, onPick) {
+      const comps = (d && d.components) || [];
+      if (comps.length === 0) { alert('此數據頁尚無元件可對應。請先於元件列表新增元件。'); return; }
+      const tas = d.ta_conditions || [];
+      const catCounters = { RF: 0, Digital: 0, PWR: 0, Other: 0 };
+      const overlay = document.createElement('div');
+      overlay.className = 'sim-modal-overlay';
+      const itemsHTML = comps.map((c, i) => {
+        const cat = c.category || 'RF';
+        catCounters[cat] = (catCounters[cat] || 0) + 1;
+        const autoNum = cat + '-' + catCounters[cat];
+        const readings = tas.map(ta => {
+          const v = c.readings ? c.readings['ta_' + ta] : '';
+          return `<span class="scp-reading">${ta}°C: ${(v !== undefined && v !== '') ? escHtml(String(v)) : '—'}</span>`;
+        }).join('');
+        return `<button type="button" class="scp-item" data-idx="${i}">
+            <span class="sim-modal-item-cat ${catClassOf(cat)}">${cat}</span>
+            <span class="scp-num">${autoNum}</span>
+            <span class="scp-name">${escHtml(c.name || '(未命名)')}</span>
+            <span class="scp-readings">${readings}</span>
+          </button>`;
+      }).join('');
+      overlay.innerHTML = `
+        <div class="sim-modal">
+          <div class="sim-modal-header">選擇對應元件（取其溫度線實測值）</div>
+          <div class="sim-modal-body scp-body">${itemsHTML}</div>
+          <div class="sim-modal-footer"><button class="sim-modal-btn" id="scp-cancel">取消</button></div>
+        </div>`;
+      document.body.appendChild(overlay);
+      const close = () => document.body.removeChild(overlay);
+      overlay.querySelector('#scp-cancel').addEventListener('click', close);
+      overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+      overlay.querySelectorAll('.scp-item').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const c = comps[parseInt(btn.dataset.idx)];
+          close();
+          onPick({ name: c.name || '', idx: parseInt(btn.dataset.idx) });
+        });
       });
     }
 
@@ -9506,10 +9673,17 @@
             const val = s.readings ? s.readings['ta_' + ta] : '';
             return `<td style="${sTdStyle}">${escHtml(val) || '—'}</td>`;
           }).join('');
+          const refComp = resolveSensorRef(d, s);
+          let refCell = '—';
+          if (refComp) {
+            const dl = (sensorRefDeltas(d, s) || []).map(x => `${x.ta}°C ${fmtDelta(x.delta)}`).join('　');
+            refCell = `${escHtml(refComp.name || '(未命名)')}<div style="font-size:8px;color:rgba(15,23,42,0.6);margin-top:1px;">${dl}</div>`;
+          }
           return `<tr style="${sRowBg}">
             <td style="${sTdStyle}${sNameStyle}">${escHtml(s.name)}</td>
             <td style="${sTdStyle}">${escHtml(['Local','Remote'].includes(s.type) ? s.type : 'Local')}</td>
             ${taCells}
+            <td style="${sTdStyle}">${refCell}</td>
             <td style="${sTdStyle}${sNoteStyle}">${escHtml(s.note)}</td>
           </tr>`;
         }).join('');
@@ -9521,6 +9695,7 @@
                 <th style="${sThStyle}">Sensor</th>
                 <th style="${sThStyle}">類型</th>
                 ${sensorTaHeaders}
+                <th style="${sThStyle}">對應元件 / Δ</th>
                 <th style="${sThStyle}">備註</th>
               </tr></thead>
               <tbody>${sensorRows}</tbody>
@@ -9678,10 +9853,17 @@
             const val = s.readings ? s.readings['ta_' + ta] : '';
             return `<td style="${sTdStyle}">${escHtml(val) || '—'}</td>`;
           }).join('');
+          const refComp = resolveSensorRef(d, s);
+          let refCell = '—';
+          if (refComp) {
+            const dl = (sensorRefDeltas(d, s) || []).map(x => `${x.ta}°C ${fmtDelta(x.delta)}`).join('　');
+            refCell = `${escHtml(refComp.name || '(未命名)')}<div style="font-size:8px;color:rgba(15,23,42,0.6);margin-top:1px;">${dl}</div>`;
+          }
           return `<tr style="${sRowBg}">
             <td style="${sTdStyle}${sNameStyle}">${escHtml(s.name)}</td>
             <td style="${sTdStyle}">${escHtml(['Local','Remote'].includes(s.type) ? s.type : 'Local')}</td>
             ${taCells}
+            <td style="${sTdStyle}">${refCell}</td>
             <td style="${sTdStyle}${sNoteStyle}">${escHtml(s.note)}</td>
           </tr>`;
         });
@@ -9695,6 +9877,7 @@
                 <th style="${sThStyle}">Sensor</th>
                 <th style="${sThStyle}">類型</th>
                 ${sensorTaHeaders}
+                <th style="${sThStyle}">對應元件 / Δ</th>
                 <th style="${sThStyle}">備註</th>
               </tr></thead>
               <tbody>${rowsArr.join('')}</tbody>

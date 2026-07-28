@@ -1712,6 +1712,22 @@
       background: rgba(239,68,68,0.12);
     }
 
+    /* Click the temperature text to edit an existing Ta condition in place */
+    .ta-tag-temp { cursor: pointer; }
+    .ta-tag-temp:hover { text-decoration: underline dotted; text-underline-offset: 2px; }
+    .ta-tag-edit {
+      width: 52px;
+      font-size: 10px;
+      font-family: var(--font-mono);
+      color: #2357A7;
+      text-align: center;
+      border: 1px solid rgba(35,87,167,0.45);
+      border-radius: 3px;
+      outline: none;
+      background: #fff;
+      padding: 1px 2px;
+    }
+
     .ta-add-btn {
       display: inline-flex;
       align-items: center;
@@ -7116,6 +7132,26 @@
       return (vn * inn).toFixed(1) + ' W';
     }
 
+    // Rename an existing Ta condition and carry all data keyed by ta_<temp> to the
+    // new temperature: component readings, sensor readings, and machine-power rows.
+    // Caller guarantees newTemp is a number that isn't already in ta_conditions.
+    function renameTaCondition(d, idx, newTemp) {
+      const oldTemp = d.ta_conditions[idx];
+      if (oldTemp === undefined || newTemp === oldTemp) return false;
+      const oldKey = 'ta_' + oldTemp, newKey = 'ta_' + newTemp;
+      const migrate = (obj) => {
+        if (obj && Object.prototype.hasOwnProperty.call(obj, oldKey)) {
+          obj[newKey] = obj[oldKey];
+          delete obj[oldKey];
+        }
+      };
+      (d.components || []).forEach(c => migrate(c.readings));
+      (d.sensors || []).forEach(s => migrate(s.readings));
+      migrate(d.machine_power);
+      d.ta_conditions[idx] = newTemp;
+      return true;
+    }
+
     // Rebuild the component "TIM Type" dropdown options in place from the current
     // TIM library, preserving each row's current selection. Used when a TIM entry
     // is edited so the dropdowns update immediately without a full re-render
@@ -7170,7 +7206,7 @@
       ].filter(Boolean);
 
       const taTagsHTML = d.ta_conditions.map((temp, i) =>
-        `<span class="ta-tag">Ta = ${temp}°C<button class="ta-tag-remove" data-ta-idx="${i}" title="刪除">✕</button></span>`
+        `<span class="ta-tag"><span class="ta-tag-temp" data-ta-idx="${i}" title="點擊編輯溫度">Ta = ${temp}°C</span><button class="ta-tag-remove" data-ta-idx="${i}" title="刪除">✕</button></span>`
       ).join('');
 
       // ── Build component rows ──
@@ -7583,6 +7619,45 @@
           d.ta_conditions.splice(parseInt(btn.dataset.taIdx), 1);
           scheduleSave(state.activePage);
           renderDataPage(page);
+        });
+      });
+      // Click a Ta tag's temperature to edit it in place. Committing re-keys all
+      // component / sensor / machine-power data from ta_<old> to ta_<new> so the
+      // already-entered readings follow the changed condition.
+      $canvas.querySelectorAll('.ta-tag-temp').forEach(el => {
+        el.addEventListener('click', () => {
+          const idx = parseInt(el.dataset.taIdx);
+          const cur = d.ta_conditions[idx];
+          if (cur === undefined) return;
+          const tag = el.closest('.ta-tag');
+          const rm = tag.querySelector('.ta-tag-remove');
+          const input = document.createElement('input');
+          input.type = 'number'; input.step = 'any';
+          input.className = 'ta-tag-edit';
+          input.value = cur;
+          el.style.display = 'none';
+          if (rm) rm.style.display = 'none';
+          tag.insertBefore(input, el);
+          input.focus(); input.select();
+          let done = false;
+          const commit = (save) => {
+            if (done) return; done = true;
+            const num = parseFloat(input.value);
+            if (save && !isNaN(num) && num !== cur) {
+              if (d.ta_conditions.some((t, i) => i !== idx && t === num)) {
+                alert('環溫 ' + num + '°C 已存在，請使用不同的值。');
+              } else {
+                renameTaCondition(d, idx, num);
+                scheduleSave(state.activePage);
+              }
+            }
+            renderDataPage(page);
+          };
+          input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') { e.preventDefault(); commit(true); }
+            else if (e.key === 'Escape') { e.preventDefault(); commit(false); }
+          });
+          input.addEventListener('blur', () => commit(true));
         });
       });
       const taAddBtn = document.getElementById('ta-add-btn');

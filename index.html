@@ -2557,6 +2557,20 @@
       text-align: left;
     }
 
+    /* 比對頁結論敘述 */
+    .sim-conclusion { margin-top: 16px; flex-shrink: 0; }
+    .sim-conclusion-label {
+      font-size: 12px; font-weight: 600; color: #0B3D7A;
+      margin-bottom: 6px; font-family: var(--font-ui);
+    }
+    .sim-conclusion-input {
+      width: 100%; box-sizing: border-box; min-height: 90px; resize: vertical;
+      font-family: var(--font-ui); font-size: 13px; line-height: 1.6; color: var(--text-on-white);
+      border: 1px solid rgba(15,23,42,0.12); border-radius: 6px; outline: none; background: #fff; padding: 8px 10px;
+    }
+    .sim-conclusion-input:focus { border-color: rgba(56,189,248,0.45); background: rgba(56,189,248,0.02); }
+    .sim-conclusion-input::placeholder { color: rgba(15,23,42,0.28); }
+
     /* Component selection modal */
     .sim-modal-overlay {
       position: fixed;
@@ -8595,9 +8609,24 @@
             <div>※ 備註 1：判斷規則：偏差 ≤5% 為 ✅，5%~10% 為 ⚠️，&gt;10% 為 ❌。</div>
             <div>※ 備註 2：Sim Tc 為實測瓦數後的模擬校正值。</div>
           </div>
+
+          <!-- Conclusion description -->
+          <div class="sim-conclusion">
+            <div class="sim-conclusion-label">結論敘述</div>
+            <textarea class="sim-conclusion-input" id="sim-conclusion" placeholder="輸入模擬與實測比對的結論敘述…">${escHtml(d.conclusion || '')}</textarea>
+          </div>
         </div>
       `);
       $canvas.classList.add('scrollable-edit');
+
+      // ── Conclusion description (free text; saved in place, no re-render) ──
+      const simConcl = document.getElementById('sim-conclusion');
+      if (simConcl) {
+        simConcl.addEventListener('input', () => {
+          d.conclusion = simConcl.value;
+          scheduleSave(state.activePage);
+        });
+      }
 
       // ── Select components button ──
       document.getElementById('sim-select-comp').addEventListener('click', () => {
@@ -9425,10 +9454,11 @@
 
     function buildCoverHTML(d) {
       const hasImg = !!d.cover_image;
-      const imgW = d.cover_image_w || 460;
-      const maxPdfW = 499;
-      const scale = imgW > maxPdfW ? maxPdfW / imgW : 1;
-      const pdfW = Math.round(imgW * scale);
+      // Size the cover image box by the SAME width-percentage the editor uses, so
+      // dragging the frame to resize is reflected in the preview and PDF. Width
+      // basis 499 = cover content width (A4 portrait 595 − 48×2 padding).
+      const pctW = Math.min(100, Math.max(10, d.cover_image_w_pct || 77));
+      const pdfW = Math.round(499 * pctW / 100);
       const pdfH = Math.round(pdfW * 3 / 4); // 固定 4:3 橫式插圖框
       const deptUpper = (d.dept || '').toUpperCase();
       const progBar = 'linear-gradient(90deg, #0B3D7A, #2357A7, #3A7AD4, #5BA3E6, #6EC5A0, #4CAF79)';
@@ -10206,6 +10236,10 @@
           <div>※ 備註 1：判斷規則：偏差 ≤5% 為 ✅，5%~10% 為 ⚠️，&gt;10% 為 ❌。</div>
           <div>※ 備註 2：Sim Tc 為實測瓦數後的模擬校正值。</div>
         </div>
+        ${d.conclusion ? `<div style="margin-top:12px;">
+          <div style="font-family:'Space Grotesk',sans-serif;font-size:11px;font-weight:600;color:#0B3D7A;margin-bottom:4px;">結論敘述</div>
+          <div style="font-size:10px;line-height:1.7;color:rgba(15,23,42,0.85);white-space:pre-wrap;border:1px solid #C2DFF8;border-radius:4px;padding:8px 10px;background:#F7F9FC;">${escHtml(d.conclusion)}</div>
+        </div>` : ''}
       </div>`;
       return wrapPageHTML(inner);
     }

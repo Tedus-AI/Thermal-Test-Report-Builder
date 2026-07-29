@@ -4532,7 +4532,7 @@
           report_version: 'v1.0',
           cover_image: '',
           cover_image_w: 460,
-          cover_image_h: 300,
+          cover_image_h: 345, // 4:3 橫式
         }
       };
       state.pages.push(page);
@@ -4785,7 +4785,7 @@
       const hasImage = !!d.cover_image;
       // Photo zone uses percentage width + aspect-ratio for responsive scaling
       const pzWidthPct = d.cover_image_w_pct || 77; // % of cover-page width
-      const pzAspect = (d.cover_image_w || 460) / (d.cover_image_h || 300);
+      const pzAspect = 4 / 3; // 固定 4:3 橫式插圖框（寬度可調、比例固定）
 
       $canvas.innerHTML = `
         <div class="cover-page">
@@ -9426,11 +9426,10 @@
     function buildCoverHTML(d) {
       const hasImg = !!d.cover_image;
       const imgW = d.cover_image_w || 460;
-      const imgH = d.cover_image_h || 300;
       const maxPdfW = 499;
       const scale = imgW > maxPdfW ? maxPdfW / imgW : 1;
       const pdfW = Math.round(imgW * scale);
-      const pdfH = Math.round(imgH * scale);
+      const pdfH = Math.round(pdfW * 3 / 4); // 固定 4:3 橫式插圖框
       const deptUpper = (d.dept || '').toUpperCase();
       const progBar = 'linear-gradient(90deg, #0B3D7A, #2357A7, #3A7AD4, #5BA3E6, #6EC5A0, #4CAF79)';
       const cornerStyle = 'position:absolute;width:32px;height:32px;';

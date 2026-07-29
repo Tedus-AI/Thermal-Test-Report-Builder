@@ -883,6 +883,7 @@
       top: 8px;
       right: 8px;
       gap: 4px;
+      z-index: 4;   /* above the image (z-index:1) so the buttons are clickable */
     }
 
     .cover-photo-zone.has-image:hover .cover-photo-actions {
@@ -4805,7 +4806,7 @@
             ${hasImage
               ? `<img src="${escapeAttr(d.cover_image)}" alt="Cover" style="position:relative;z-index:1;">
                  <div class="cover-photo-actions">
-                   <button class="photo-action-btn" id="photo-replace">替換</button>
+                   <button class="photo-action-btn" id="photo-replace">更換</button>
                    <button class="photo-action-btn danger" id="photo-delete">刪除</button>
                  </div>
                  <div class="cover-photo-resize" id="cover-photo-resize"></div>`

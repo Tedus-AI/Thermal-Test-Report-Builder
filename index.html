@@ -1115,6 +1115,17 @@
       border-color: rgba(56,189,248,0.4);
     }
 
+    /* 標記 (highlight) toolbar shared by the conclusion + comparison 結論敘述 */
+    .concl-hl-toolbar { display: flex; gap: 6px; margin-bottom: 6px; }
+    .concl-hl-btn {
+      font-size: 11px; color: #0B3D7A; background: #fff;
+      border: 1px solid rgba(15,23,42,0.18); border-radius: 4px;
+      padding: 2px 10px; cursor: pointer; font-family: var(--font-ui);
+      transition: background var(--transition-fast), border-color var(--transition-fast);
+    }
+    .concl-hl-btn:hover { background: #fff7cc; border-color: #ffe066; }
+    .concl-summary mark, .sim-conclusion-input mark { background: #ffe066; color: inherit; border-radius: 2px; padding: 0 1px; }
+
     /* Compliance table */
     .concl-table {
       width: 100%;
@@ -2617,12 +2628,15 @@
       margin-bottom: 6px; font-family: var(--font-ui);
     }
     .sim-conclusion-input {
-      width: 100%; box-sizing: border-box; min-height: 90px; resize: vertical;
+      width: 100%; box-sizing: border-box; min-height: 90px;
       font-family: var(--font-ui); font-size: 13px; line-height: 1.6; color: var(--text-on-white);
       border: 1px solid rgba(15,23,42,0.12); border-radius: 6px; outline: none; background: #fff; padding: 8px 10px;
+      white-space: pre-wrap; word-break: break-word;
     }
     .sim-conclusion-input:focus { border-color: rgba(56,189,248,0.45); background: rgba(56,189,248,0.02); }
-    .sim-conclusion-input::placeholder { color: rgba(15,23,42,0.28); }
+    .sim-conclusion-input:empty::before {
+      content: attr(data-placeholder); color: rgba(15,23,42,0.28); pointer-events: none;
+    }
 
     /* Component selection modal */
     .sim-modal-overlay {
@@ -8811,19 +8825,31 @@
           <!-- Conclusion description -->
           <div class="sim-conclusion">
             <div class="sim-conclusion-label">結論敘述</div>
-            <textarea class="sim-conclusion-input" id="sim-conclusion" placeholder="輸入模擬與實測比對的結論敘述…">${escHtml(d.conclusion || '')}</textarea>
+            ${conclHlToolbarHTML()}
+            <div class="sim-conclusion-input" id="sim-conclusion" contenteditable="true" data-placeholder="輸入模擬與實測比對的結論敘述…"></div>
           </div>
         </div>
       `);
       $canvas.classList.add('scrollable-edit');
 
-      // ── Conclusion description (free text; saved in place, no re-render) ──
+      // ── Conclusion description (rich text w/ 標記 highlight; saved in place) ──
       const simConcl = document.getElementById('sim-conclusion');
       if (simConcl) {
-        simConcl.addEventListener('input', () => {
-          d.conclusion = simConcl.value;
+        // Init from the highlighted HTML if present, else the legacy plain text.
+        simConcl.innerHTML = d.conclusion_html || escHtml(d.conclusion || '');
+        const saveConcl = () => {
+          const text = simConcl.innerText;
+          const empty = text.trim() === '';
+          d.conclusion = empty ? '' : text;
+          d.conclusion_html = empty ? '' : simConcl.innerHTML;
           scheduleSave(state.activePage);
-        });
+        };
+        simConcl.addEventListener('input', saveConcl);
+        setupConclHighlightToolbar(
+          simConcl.parentElement.querySelector('.concl-hl-toolbar'),
+          simConcl,
+          saveConcl
+        );
       }
 
       // ── Select components button ──
@@ -9239,6 +9265,81 @@
       return { status: 'none', label: '尚未判定' };
     }
 
+    // ── Shared 結論敘述 highlight (標記) for the conclusion + comparison pages ──
+    // Both use a contenteditable div storing innerHTML. These helpers wrap the
+    // current selection in a <mark> (or unwrap intersecting marks), so the user
+    // can highlight a segment of the conclusion text they typed.
+    const CONCL_HL_STYLE = 'background:#ffe066;color:inherit;border-radius:2px;padding:0 1px;';
+
+    function conclHlToolbarHTML() {
+      return `<div class="concl-hl-toolbar">
+        <button type="button" class="concl-hl-btn" data-concl-hl="apply" title="標記選取的文字">🖍 標記</button>
+        <button type="button" class="concl-hl-btn" data-concl-hl="remove" title="取消選取範圍的標記">取消標記</button>
+      </div>`;
+    }
+
+    // Wrap the current (non-empty) selection inside `editor` in a <mark>. Returns
+    // true if something was highlighted.
+    function conclHighlightApply(editor) {
+      const sel = window.getSelection();
+      if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return false;
+      const range = sel.getRangeAt(0);
+      if (!editor.contains(range.commonAncestorContainer)) return false;
+      const mark = document.createElement('mark');
+      mark.className = 'concl-hl';
+      mark.setAttribute('style', CONCL_HL_STYLE);
+      try {
+        range.surroundContents(mark);
+      } catch (e) {
+        // Selection spans multiple nodes → extract then wrap.
+        const frag = range.extractContents();
+        mark.appendChild(frag);
+        range.insertNode(mark);
+      }
+      // Flatten any nested marks that resulted from wrapping over existing ones.
+      editor.querySelectorAll('mark.concl-hl mark').forEach(inner => {
+        while (inner.firstChild) inner.parentNode.insertBefore(inner.firstChild, inner);
+        inner.remove();
+      });
+      editor.normalize();
+      sel.removeAllRanges();
+      return true;
+    }
+
+    // Unwrap every <mark> that the current selection intersects. Returns true if
+    // any highlight was removed.
+    function conclHighlightRemove(editor) {
+      const sel = window.getSelection();
+      if (!sel || sel.rangeCount === 0) return false;
+      const range = sel.getRangeAt(0);
+      if (!editor.contains(range.commonAncestorContainer)) return false;
+      let changed = false;
+      Array.from(editor.querySelectorAll('mark')).forEach(m => {
+        if (range.intersectsNode(m)) {
+          while (m.firstChild) m.parentNode.insertBefore(m.firstChild, m);
+          m.remove();
+          changed = true;
+        }
+      });
+      editor.normalize();
+      return changed;
+    }
+
+    // Wire a highlight toolbar to its editor. mousedown+preventDefault keeps the
+    // text selection alive (a plain click would collapse it before the handler).
+    function setupConclHighlightToolbar(toolbarEl, editorEl, onChange) {
+      if (!toolbarEl || !editorEl) return;
+      toolbarEl.querySelectorAll('[data-concl-hl]').forEach(btn => {
+        btn.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+          const changed = btn.dataset.conclHl === 'apply'
+            ? conclHighlightApply(editorEl)
+            : conclHighlightRemove(editorEl);
+          if (changed && onChange) onChange();
+        });
+      });
+    }
+
     function renderConclusionPage(page) {
       const d = page.data;
       if (!d.issues) d.issues = [''];
@@ -9308,6 +9409,7 @@
           <!-- 1. Summary -->
           <div class="concl-section">
             <div class="concl-section-title">Conclusion</div>
+            ${conclHlToolbarHTML()}
             <div class="concl-summary" contenteditable="true" data-placeholder="請輸入實驗結論..."
                  id="concl-summary-editor">${d.summary || ''}</div>
           </div>
@@ -9380,6 +9482,12 @@
             document.execCommand('bold');
           }
         });
+        // 標記 / 取消標記 highlight toolbar
+        setupConclHighlightToolbar(
+          summaryEl.parentElement.querySelector('.concl-hl-toolbar'),
+          summaryEl,
+          () => { d.summary = summaryEl.innerHTML; scheduleSave(pageIdx); }
+        );
       }
 
       // (Compliance Component / Tc / Spec / Margin / Verdict are all auto-filled
@@ -10446,9 +10554,11 @@
           <div>※ 備註 1：判斷規則：偏差 ≤5% 為 ✅，5%~10% 為 ⚠️，&gt;10% 為 ❌。</div>
           <div>※ 備註 2：Sim Tc 為實測瓦數後的模擬校正值。</div>
         </div>`;
-      const conclusionHtml = d.conclusion ? `<div style="margin-top:12px;">
+      // Prefer the highlighted rich HTML; fall back to the legacy plain text.
+      const conclBody = d.conclusion_html || (d.conclusion ? escHtml(d.conclusion) : '');
+      const conclusionHtml = conclBody ? `<div style="margin-top:12px;">
           <div style="font-family:'Space Grotesk',sans-serif;font-size:11px;font-weight:600;color:#0B3D7A;margin-bottom:4px;">結論敘述</div>
-          <div style="font-size:10px;line-height:1.7;color:rgba(15,23,42,0.85);white-space:pre-wrap;border:1px solid #C2DFF8;border-radius:4px;padding:8px 10px;background:#F7F9FC;">${escHtml(d.conclusion)}</div>
+          <div style="font-size:10px;line-height:1.7;color:rgba(15,23,42,0.85);white-space:pre-wrap;border:1px solid #C2DFF8;border-radius:4px;padding:8px 10px;background:#F7F9FC;">${conclBody}</div>
         </div>` : '';
       const extrasHtml = notesHtml + conclusionHtml;
 

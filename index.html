@@ -8326,15 +8326,17 @@
       document.body.appendChild(ov);
     }
 
-    function getDataPageComponents() {
-      // Gather all components from all data pages
-      const result = [];
-      state.pages.forEach(p => {
+    // Components grouped per data page: [{ pageIdx, label, note, components:[…] }].
+    // Each data page restarts its own category counter (RF-1, RF-2, …). This is
+    // the single source of truth; getDataPageComponents() flattens it.
+    function getDataPageComponentGroups() {
+      const groups = [];
+      state.pages.forEach((p, pageIdx) => {
         if (p.type !== 'data') return;
         const comps = p.data.components || [];
         const tas = p.data.ta_conditions || [];
         const catCounters = { RF: 0, Digital: 0, PWR: 0, Other: 0 };
-        comps.forEach(comp => {
+        const list = comps.map(comp => {
           const cat = comp.category || 'RF';
           catCounters[cat] = (catCounters[cat] || 0) + 1;
           const tcSpec = parseFloat(comp.tc_spec) || 0;
@@ -8360,16 +8362,22 @@
             }
           }
 
-          result.push({
+          return {
             category: cat,
             component_name: comp.name || ('(' + cat + '-' + catCounters[cat] + ')'),
             tc_derated: derated,
             meas_tc: measTc,
             sourceId: cat + '-' + catCounters[cat],
-          });
+          };
         });
+        groups.push({ pageIdx, label: pageBaseLabel(pageIdx), note: (p.data.list_note || ''), components: list });
       });
-      return result;
+      return groups;
+    }
+
+    // Flat list of all data-page components (across every data page).
+    function getDataPageComponents() {
+      return getDataPageComponentGroups().flatMap(g => g.components);
     }
 
     // Generic data-page component picker. `preCheckedNames` is a Set/array of
@@ -8499,9 +8507,13 @@
       });
     }
 
+    // Component picker grouped by data page: each data page is a collapsible
+    // section with its own "select all" parent checkbox, so components from
+    // different data pages are no longer crammed into one flat list. onConfirm
+    // still receives a flat array of the selected getDataPageComponents() entries.
     function showComponentSelectModal(preCheckedNames, onConfirm) {
-      const available = getDataPageComponents();
-      if (available.length === 0) {
+      const groups = getDataPageComponentGroups().filter(g => g.components.length > 0);
+      if (groups.length === 0) {
         alert('尚無數據頁元件可選取。請先在數據頁新增元件。');
         return;
       }
@@ -8511,14 +8523,25 @@
       const overlay = document.createElement('div');
       overlay.className = 'sim-modal-overlay';
 
-      let itemsHTML = available.map((comp, i) => {
-        const checked = existing.has(comp.component_name) ? 'checked' : '';
-        const catClass = catClassOf(comp.category);
-        return `<label class="sim-modal-item">
-          <input type="checkbox" value="${i}" ${checked}>
-          <span class="sim-modal-item-cat ${catClass}">${comp.category}</span>
-          <span class="sim-modal-item-label">${escapeAttr(comp.component_name)}</span>
-        </label>`;
+      const groupsHTML = groups.map((g, gi) => {
+        const childrenHTML = g.components.map((comp, ci) => {
+          const checked = existing.has(comp.component_name) ? ' checked' : '';
+          const catClass = catClassOf(comp.category);
+          return `<label class="anno-imp-child">
+            <input type="checkbox" class="csm-comp-cb" data-group="${gi}" data-comp="${ci}"${checked}>
+            <span class="sim-modal-item-cat ${catClass}">${comp.category}</span>
+            <span class="sim-modal-item-label">${escapeAttr(comp.component_name)}</span>
+          </label>`;
+        }).join('');
+        return `<div class="anno-imp-page" data-group="${gi}">
+          <div class="anno-imp-page-row" data-group="${gi}">
+            <button type="button" class="anno-imp-toggle" data-group="${gi}">▾</button>
+            <input type="checkbox" class="csm-group-cb" data-group="${gi}">
+            <span class="sim-modal-item-label" style="font-weight:600;">${escapeAttr(g.label)}${g.note ? ' · ' + escapeAttr(g.note) : ''}</span>
+            <span class="anno-imp-count">${g.components.length} 個元件</span>
+          </div>
+          <div class="anno-imp-children" data-group="${gi}" style="display:block;">${childrenHTML}</div>
+        </div>`;
       }).join('');
 
       overlay.innerHTML = `
@@ -8528,7 +8551,7 @@
             <button type="button" class="sim-modal-tool-btn" id="sim-modal-select-all">全選</button>
             <button type="button" class="sim-modal-tool-btn" id="sim-modal-deselect-all">全不選</button>
           </div>
-          <div class="sim-modal-body">${itemsHTML}</div>
+          <div class="sim-modal-body">${groupsHTML}</div>
           <div class="sim-modal-footer">
             <button class="sim-modal-btn" id="sim-modal-cancel">取消</button>
             <button class="sim-modal-btn primary" id="sim-modal-confirm">確認選取</button>
@@ -8537,26 +8560,64 @@
       `;
 
       document.body.appendChild(overlay);
+      const close = () => document.body.removeChild(overlay);
 
-      const setAllChecked = (val) => overlay
-        .querySelectorAll('.sim-modal-body input[type="checkbox"]')
-        .forEach(cb => { cb.checked = val; });
-      overlay.querySelector('#sim-modal-select-all').addEventListener('click', () => setAllChecked(true));
-      overlay.querySelector('#sim-modal-deselect-all').addEventListener('click', () => setAllChecked(false));
-
-      overlay.querySelector('#sim-modal-cancel').addEventListener('click', () => {
-        document.body.removeChild(overlay);
+      const setExpanded = (gi, open) => {
+        const kids = overlay.querySelector(`.anno-imp-children[data-group="${gi}"]`);
+        const btn = overlay.querySelector(`.anno-imp-toggle[data-group="${gi}"]`);
+        if (!kids || !btn) return;
+        kids.style.display = open ? 'block' : 'none';
+        btn.textContent = open ? '▾' : '▸';
+      };
+      // Click the page row (but not the checkbox) to expand/collapse that group.
+      overlay.querySelectorAll('.anno-imp-page-row').forEach(row => {
+        row.addEventListener('click', (e) => {
+          if (e.target.classList.contains('csm-group-cb')) return;
+          const gi = row.dataset.group;
+          const kids = overlay.querySelector(`.anno-imp-children[data-group="${gi}"]`);
+          setExpanded(gi, kids.style.display === 'none');
+        });
       });
-
-      overlay.addEventListener('click', (e) => {
-        if (e.target === overlay) document.body.removeChild(overlay);
+      // Group checkbox toggles all its components.
+      overlay.querySelectorAll('.csm-group-cb').forEach(cb => {
+        cb.addEventListener('change', () => {
+          overlay.querySelectorAll(`.csm-comp-cb[data-group="${cb.dataset.group}"]`)
+            .forEach(k => { k.checked = cb.checked; });
+          cb.indeterminate = false;
+        });
       });
+      // Component checkbox updates its group (checked / indeterminate / unchecked).
+      const syncGroup = (gi) => {
+        const gcb = overlay.querySelector(`.csm-group-cb[data-group="${gi}"]`);
+        const kids = Array.from(overlay.querySelectorAll(`.csm-comp-cb[data-group="${gi}"]`));
+        if (!gcb || kids.length === 0) return;
+        const n = kids.filter(k => k.checked).length;
+        gcb.checked = n === kids.length;
+        gcb.indeterminate = n > 0 && n < kids.length;
+      };
+      overlay.querySelectorAll('.csm-comp-cb').forEach(cb => {
+        cb.addEventListener('change', () => syncGroup(cb.dataset.group));
+      });
+      groups.forEach((g, gi) => syncGroup(gi));   // reflect any pre-checked items
+
+      const setAll = (val) => {
+        overlay.querySelectorAll('.csm-comp-cb').forEach(cb => { cb.checked = val; });
+        overlay.querySelectorAll('.csm-group-cb').forEach(cb => { cb.checked = val; cb.indeterminate = false; });
+      };
+      overlay.querySelector('#sim-modal-select-all').addEventListener('click', () => setAll(true));
+      overlay.querySelector('#sim-modal-deselect-all').addEventListener('click', () => setAll(false));
+
+      overlay.querySelector('#sim-modal-cancel').addEventListener('click', close);
+      overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
 
       overlay.querySelector('#sim-modal-confirm').addEventListener('click', () => {
-        const checked = overlay.querySelectorAll('input[type="checkbox"]:checked');
         const selected = [];
-        checked.forEach(cb => { selected.push(available[parseInt(cb.value)]); });
-        document.body.removeChild(overlay);
+        overlay.querySelectorAll('.csm-comp-cb:checked').forEach(cb => {
+          const g = groups[parseInt(cb.dataset.group)];
+          const comp = g && g.components[parseInt(cb.dataset.comp)];
+          if (comp) selected.push(comp);
+        });
+        close();
         onConfirm(selected);
       });
     }

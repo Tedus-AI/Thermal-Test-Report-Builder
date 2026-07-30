@@ -1942,20 +1942,23 @@
       cursor: crosshair;
       z-index: 9;
     }
-    .data-table td.dt-fill-target {
+    .data-table td.dt-fill-target,
+    .sim-table td.dt-fill-target {
       box-shadow: inset 0 0 0 1px #2357A7;
       background: rgba(35,87,167,0.08) !important;
     }
 
     /* Rectangular range selection (drag to select, Ctrl+C copy, Del clears) */
     .data-table td.dt-range-sel,
-    .sensor-table td.dt-range-sel {
+    .sensor-table td.dt-range-sel,
+    .sim-table td.dt-range-sel {
       background: rgba(56,189,248,0.18) !important;
       box-shadow: inset 0 0 0 1px rgba(35,87,167,0.55);
     }
     /* Suppress text selection while dragging a range */
     #dt-tbody.dt-selecting, #dt-tbody.dt-selecting *,
-    #sensor-tbody.dt-selecting, #sensor-tbody.dt-selecting * {
+    #sensor-tbody.dt-selecting, #sensor-tbody.dt-selecting *,
+    #sim-tbody.dt-selecting, #sim-tbody.dt-selecting * {
       user-select: none !important;
       -webkit-user-select: none !important;
       cursor: cell;
@@ -6962,8 +6965,7 @@
     // the data model, computed cells and autosave all update as if typed.
     // Re-created on every renderDataPage; listeners live on the fresh .data-page
     // container so nothing leaks across renders.
-    function setupDataFillHandle() {
-      const container = $canvas.querySelector('.data-page');
+    function setupDataFillHandle(container) {
       if (!container) return;
 
       const handle = document.createElement('div');
@@ -7185,8 +7187,9 @@
 
     // Excel-style block paste for a table body: a TSV pasted into a cell fills
     // rightwards/downwards from it, growing the underlying row list as needed.
-    function setupGridPaste(page, tbody, fieldMap, rowIndexAttr, getRows, makeRow) {
+    function setupGridPaste(page, tbody, fieldMap, rowIndexAttr, getRows, makeRow, rerender) {
       if (!tbody) return;
+      rerender = rerender || renderDataPage;
       tbody.addEventListener('paste', (e) => {
         const target = e.target;
         if (target.tagName !== 'INPUT' && target.tagName !== 'SELECT') return;
@@ -7205,20 +7208,23 @@
         const rows = getRows();
         for (let r = 0; r < clipGrid.length; r++) {
           const rowIdx = startRowIdx + r;
-          while (rowIdx >= rows.length) rows.push(makeRow());
+          while (rowIdx >= rows.length) {
+            if (!makeRow) break;         // fixed row set (e.g. 比對頁) → don't grow
+            rows.push(makeRow());
+          }
+          if (rowIdx >= rows.length) break;   // clamp: skip pasted rows past the last row
           const rowObj = rows[rowIdx];
-          if (!rowObj.readings) rowObj.readings = {};
           for (let c = 0; c < clipGrid[r].length; c++) {
             const colIdx = startColIdx + c;
             if (colIdx >= fieldMap.length) break;
             const val = clipGrid[r][c].trim();
             const fld = fieldMap[colIdx];
-            if (fld.taKey) rowObj.readings[fld.taKey] = val;
+            if (fld.taKey) { if (!rowObj.readings) rowObj.readings = {}; rowObj.readings[fld.taKey] = val; }
             else rowObj[fld.field] = val;
           }
         }
         scheduleSave(state.activePage);
-        renderDataPage(page);
+        rerender(page);
       });
     }
 
@@ -8101,7 +8107,7 @@
       });
 
       // ── Excel-style drag-to-fill handle ──
-      setupDataFillHandle();
+      setupDataFillHandle($canvas.querySelector('.data-page'));
 
       // ── Excel-style range select + copy + delete + nav (both tables) ──
       setupGridSelection(document.getElementById('dt-tbody'));
@@ -8657,12 +8663,12 @@
           <td style="text-align:left;"><span class="dt-cat-strip ${catClass}"></span><span class="sim-readonly">${escapeAttr(item.category)}</span></td>
           <td class="sim-readonly">${escapeAttr(item.component_name)}</td>
           <td class="sim-readonly">${item.tc_derated ? parseFloat(item.tc_derated).toFixed(1) : '—'}</td>
-          <td class="sim-tc-cell"><input type="number" step="any" style="width:55px;text-align:center;" placeholder="—" value="${item.sim_tc !== undefined && item.sim_tc !== '' ? escapeAttr(String(item.sim_tc)) : ''}" data-sim-idx="${i}" data-sim-field="sim_tc"></td>
+          <td class="sim-tc-cell"><input type="number" step="any" style="width:55px;text-align:center;" placeholder="—" value="${item.sim_tc !== undefined && item.sim_tc !== '' ? escapeAttr(String(item.sim_tc)) : ''}" data-sim-idx="${i}" data-sim-field="sim_tc" data-fill-col="sim:sim_tc"></td>
           <td class="sim-readonly">${!isNaN(measTc) ? measTc.toFixed(1) : '—'}</td>
           <td class="${devCClass}" style="text-align:center;">${devC}</td>
           <td class="${devPClass}" style="text-align:center;">${devPct}</td>
           <td class="sim-judge ${judgeClass}">${judgeText}</td>
-          <td><input type="text" placeholder="備註" value="${escapeAttr(item.note || '')}" data-sim-idx="${i}" data-sim-field="note"></td>
+          <td><input type="text" placeholder="備註" value="${escapeAttr(item.note || '')}" data-sim-idx="${i}" data-sim-field="note" data-fill-col="sim:note"></td>
           <td class="sim-del-cell"><button class="sim-del-btn" data-sim-del="${i}" title="刪除此元件">✕</button></td>
         </tr>`;
       }).join('');
@@ -8802,6 +8808,17 @@
           }
         });
       }
+
+      // ── Excel-style grid behaviours (same engine as the data page) ──
+      // The two editable columns — Sim Tc and 備註 — get drag-to-fill, rectangular
+      // range select + Ctrl+C copy, Delete-to-clear, ↑/↓/Enter navigation, and
+      // block paste from Excel. Read-only/computed cells carry no input so they
+      // are naturally excluded from the grid, exactly like the data page.
+      setupDataFillHandle($canvas.querySelector('.sim-page'));
+      setupGridSelection(simTbody);
+      const simFieldMap = [{ field: 'sim_tc' }, { field: 'note' }];
+      setupGridPaste(page, simTbody, simFieldMap, 'simIdx',
+        () => d.items, null, renderSimVsMeasPage);
     }
 
     async function handleSimPaste(page, file) {

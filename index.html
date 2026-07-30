@@ -2657,6 +2657,20 @@
       border-bottom: 1px solid rgba(255,255,255,0.08);
     }
 
+    /* 全選 / 全不選 toolbar shown under a picker modal's header */
+    .sim-modal-toolbar {
+      display: flex;
+      gap: 8px;
+      padding: 8px 16px;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .sim-modal-tool-btn {
+      font-size: 11px; color: rgba(56,189,248,0.9); background: transparent;
+      border: 1px solid rgba(56,189,248,0.35); border-radius: 4px;
+      padding: 3px 12px; cursor: pointer; transition: background var(--transition-fast);
+    }
+    .sim-modal-tool-btn:hover { background: rgba(56,189,248,0.12); }
+
     .sim-modal-body {
       flex: 1;
       overflow-y: auto;
@@ -8404,6 +8418,10 @@
       overlay.innerHTML = `
         <div class="sim-modal">
           <div class="sim-modal-header">帶入標註頁元件</div>
+          <div class="sim-modal-toolbar">
+            <button type="button" class="sim-modal-tool-btn" id="anno-import-select-all">全選</button>
+            <button type="button" class="sim-modal-tool-btn" id="anno-import-deselect-all">全不選</button>
+          </div>
           <div class="sim-modal-body">${pagesHTML}</div>
           <div class="sim-modal-footer">
             <button class="sim-modal-btn" id="anno-import-cancel">取消</button>
@@ -8412,6 +8430,18 @@
         </div>`;
       document.body.appendChild(overlay);
       const close = () => document.body.removeChild(overlay);
+
+      // 全選 / 全不選: toggle every marker; keep the page checkboxes in sync
+      // (skip disabled ones on pages with no markers).
+      const setAllMarkers = (val) => {
+        overlay.querySelectorAll('.anno-imp-marker-cb').forEach(cb => { cb.checked = val; });
+        overlay.querySelectorAll('.anno-imp-page-cb').forEach(cb => {
+          if (!cb.disabled) cb.checked = val;
+          cb.indeterminate = false;
+        });
+      };
+      overlay.querySelector('#anno-import-select-all').addEventListener('click', () => setAllMarkers(true));
+      overlay.querySelector('#anno-import-deselect-all').addEventListener('click', () => setAllMarkers(false));
 
       const setExpanded = (pi, open) => {
         const kids = overlay.querySelector(`.anno-imp-children[data-page="${pi}"]`);
@@ -8494,6 +8524,10 @@
       overlay.innerHTML = `
         <div class="sim-modal">
           <div class="sim-modal-header">從數據頁選取元件</div>
+          <div class="sim-modal-toolbar">
+            <button type="button" class="sim-modal-tool-btn" id="sim-modal-select-all">全選</button>
+            <button type="button" class="sim-modal-tool-btn" id="sim-modal-deselect-all">全不選</button>
+          </div>
           <div class="sim-modal-body">${itemsHTML}</div>
           <div class="sim-modal-footer">
             <button class="sim-modal-btn" id="sim-modal-cancel">取消</button>
@@ -8503,6 +8537,12 @@
       `;
 
       document.body.appendChild(overlay);
+
+      const setAllChecked = (val) => overlay
+        .querySelectorAll('.sim-modal-body input[type="checkbox"]')
+        .forEach(cb => { cb.checked = val; });
+      overlay.querySelector('#sim-modal-select-all').addEventListener('click', () => setAllChecked(true));
+      overlay.querySelector('#sim-modal-deselect-all').addEventListener('click', () => setAllChecked(false));
 
       overlay.querySelector('#sim-modal-cancel').addEventListener('click', () => {
         document.body.removeChild(overlay);

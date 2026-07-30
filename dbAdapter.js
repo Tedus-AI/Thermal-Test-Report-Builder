@@ -115,7 +115,15 @@ const dbAdapter = {
   exportBackup() {
     if (DB_MODE === 'local') fileDb.exportBackup();
     else alert('Firebase 模式請至 Firebase Console 備份');
-  }
+  },
+
+  // ── Auto-backup folder passthroughs ──
+  hasBackupDir() { return DB_MODE === 'local' ? fileDb.hasBackupDir() : false; },
+  getBackupDirName() { return DB_MODE === 'local' ? fileDb.getBackupDirName() : null; },
+  async pickBackupDir() { if (DB_MODE === 'local') return await fileDb.pickBackupDir(); return { success: false }; },
+  async tryRestoreBackupDir() { if (DB_MODE === 'local') return await fileDb.tryRestoreBackupDir(); return { success: false }; },
+  async reconnectBackupDir() { if (DB_MODE === 'local') return await fileDb.reconnectBackupDir(); return { success: false }; },
+  async writeAutoBackup() { if (DB_MODE === 'local') return await fileDb.writeAutoBackup(); return { success: false }; }
 };
 
 window.dbAdapter = dbAdapter;

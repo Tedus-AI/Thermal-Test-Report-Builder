@@ -4136,6 +4136,13 @@
                  color:#ccc; cursor:pointer;">
           💾 備份資料庫
         </button>
+        <button id="hp-btn-backup-dir" onclick="handlePickBackupDir()"
+          title="設定自動備份資料夾（每日自動備份、保留最近 30 份）"
+          style="font-size:12px; padding:4px 12px; border-radius:4px;
+                 border:1px solid #555; background:transparent;
+                 color:#ccc; cursor:pointer;">
+          🗂 自動備份：未設定
+        </button>
         <button class="hp-new-btn" id="hp-new-report">+ 新增報告</button>
       </div>
     </div>
@@ -4196,6 +4203,13 @@
                  border:1px solid #555; background:transparent;
                  color:#ccc; cursor:pointer;">
           💾 備份資料庫
+        </button>
+        <button id="btn-backup-dir" onclick="handlePickBackupDir()"
+          title="設定自動備份資料夾（每日自動備份、保留最近 30 份）"
+          style="font-size:12px; padding:4px 12px; border-radius:4px;
+                 border:1px solid #555; background:transparent;
+                 color:#ccc; cursor:pointer;">
+          🗂 自動備份：未設定
         </button>
       </div>
     </header>
@@ -10971,6 +10985,7 @@ async function handlePickDb() {
     if (restored && restored.success) {
       updateDbStatus('✅ ' + restored.filename, 'success');
       if (typeof renderHomepage === 'function') await renderHomepage();
+      runAutoBackup(true);   // catch-up backup once the DB is restored
       return;
     }
   }
@@ -10980,6 +10995,71 @@ async function handlePickDb() {
     if (typeof renderHomepage === 'function') {
       await renderHomepage();
     }
+    runAutoBackup(true);   // catch-up backup once a DB is opened
+  }
+}
+
+// ── Auto-backup folder (每日自動備份到選定資料夾) ──────────────────────
+// Web pages can't run when closed, so "daily" means: back up on open (catch-up)
+// + periodically while open + when the tab is hidden. One file per calendar day
+// (overwritten with the latest state), keeping the newest 30 (pruned in fileDb).
+let _autoBackupTimer = null;
+let _lastAutoBackupAt = 0;
+
+function updateBackupDirButtons(name, level, done) {
+  const label = level === 'ready'
+    ? `🗂 自動備份：${name}${done ? ' ✓' : ''}`
+    : level === 'needs-permission'
+      ? `🗂 自動備份：${name}（點擊授權）`
+      : '🗂 自動備份：未設定';
+  ['btn-backup-dir', 'hp-btn-backup-dir'].forEach(id => {
+    const b = document.getElementById(id);
+    if (b) b.textContent = label;
+  });
+}
+
+async function runAutoBackup(force) {
+  if (!dbAdapter.hasBackupDir || !dbAdapter.hasBackupDir()) return;
+  if (!dbAdapter.isReady()) return;                       // need the DB open (has content)
+  const now = Date.now();
+  if (!force && now - _lastAutoBackupAt < 10 * 60 * 1000) return;  // throttle to ~10 min
+  const res = await dbAdapter.writeAutoBackup();
+  if (res && res.success) {
+    _lastAutoBackupAt = now;
+    updateBackupDirButtons(dbAdapter.getBackupDirName(), 'ready', true);
+  } else if (res && res.needsPermission) {
+    updateBackupDirButtons(dbAdapter.getBackupDirName(), 'needs-permission');
+  }
+}
+
+async function initAutoBackup() {
+  try {
+    const r = await dbAdapter.tryRestoreBackupDir();
+    if (r && r.success) {
+      updateBackupDirButtons(r.name, 'ready');
+      await runAutoBackup(true);
+    } else if (r && r.needsPermission) {
+      updateBackupDirButtons(r.name, 'needs-permission');
+    } else {
+      updateBackupDirButtons(null, 'none');
+    }
+    if (!_autoBackupTimer) {
+      _autoBackupTimer = setInterval(() => runAutoBackup(false), 3 * 60 * 60 * 1000); // every 3h
+    }
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') runAutoBackup(false);
+    });
+  } catch (e) {}
+}
+
+// Toolbar button: pick a new folder (if already active) or re-grant/pick otherwise.
+async function handlePickBackupDir() {
+  const res = dbAdapter.hasBackupDir()
+    ? await dbAdapter.pickBackupDir()
+    : await dbAdapter.reconnectBackupDir();
+  if (res && res.success) {
+    updateBackupDirButtons(res.name, 'ready');
+    await runAutoBackup(true);
   }
 }
 
@@ -10995,14 +11075,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (restored && restored.success) {
     updateDbStatus('✅ ' + restored.filename, 'success');
     if (typeof renderHomepage === 'function') await renderHomepage();
-    return;
-  }
-  if (restored && restored.needsPermission) {
+  } else if (restored && restored.needsPermission) {
     // A handle exists but browser requires a user click to re-grant access.
     updateDbStatus('🔒 點擊恢復資料庫: ' + restored.filename, 'warning');
-    return;
+  } else {
+    updateDbStatus('⚠️ 請選擇資料庫', 'warning');
   }
-  updateDbStatus('⚠️ 請選擇資料庫', 'warning');
+
+  // Restore the auto-backup folder and run a catch-up backup (if the DB is ready).
+  await initAutoBackup();
 });
 </script>
 </body>

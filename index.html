@@ -2746,7 +2746,9 @@
     }
     .anno-imp-toggle:hover { color: #38bdf8; }
     .anno-imp-page-cb,
-    .anno-imp-marker-cb {
+    .anno-imp-marker-cb,
+    .csm-group-cb,
+    .csm-comp-cb {
       accent-color: #38bdf8;
       width: 16px;
       height: 16px;
@@ -8350,7 +8352,7 @@
         const comps = p.data.components || [];
         const tas = p.data.ta_conditions || [];
         const catCounters = { RF: 0, Digital: 0, PWR: 0, Other: 0 };
-        const list = comps.map(comp => {
+        const list = comps.map((comp, ci) => {
           const cat = comp.category || 'RF';
           catCounters[cat] = (catCounters[cat] || 0) + 1;
           const tcSpec = parseFloat(comp.tc_spec) || 0;
@@ -8382,9 +8384,14 @@
             tc_derated: derated,
             meas_tc: measTc,
             sourceId: cat + '-' + catCounters[cat],
+            // Stable reference back to the exact source component. `source_page`
+            // is the data page's own id (copied pages get a fresh id), so two
+            // pages sharing a component name are still told apart.
+            source_page: p.id,
+            source_idx: ci,
           };
         });
-        groups.push({ pageIdx, label: pageBaseLabel(pageIdx), note: (p.data.list_note || ''), components: list });
+        groups.push({ pageIdx, pageId: p.id, label: pageBaseLabel(pageIdx), note: (p.data.list_note || ''), components: list });
       });
       return groups;
     }
@@ -8532,14 +8539,24 @@
         return;
       }
 
-      const existing = preCheckedNames instanceof Set ? preCheckedNames : new Set(preCheckedNames || []);
+      // preChecked may be a plain Set of names (legacy / compliance caller) or
+      // { keys, names }: `keys` are stable "pageId::idx" references (no name
+      // bleed across copied data pages), `names` a legacy fallback.
+      let keySet, nameSet;
+      if (preCheckedNames instanceof Set) { keySet = new Set(); nameSet = preCheckedNames; }
+      else if (preCheckedNames && (preCheckedNames.keys || preCheckedNames.names)) {
+        keySet = preCheckedNames.keys || new Set();
+        nameSet = preCheckedNames.names || new Set();
+      } else { keySet = new Set(); nameSet = new Set(); }
+      const isPreChecked = (g, comp, ci) =>
+        keySet.has(g.pageId + '::' + ci) || nameSet.has(comp.component_name);
 
       const overlay = document.createElement('div');
       overlay.className = 'sim-modal-overlay';
 
       const groupsHTML = groups.map((g, gi) => {
         const childrenHTML = g.components.map((comp, ci) => {
-          const checked = existing.has(comp.component_name) ? ' checked' : '';
+          const checked = isPreChecked(g, comp, ci) ? ' checked' : '';
           const catClass = catClassOf(comp.category);
           return `<label class="anno-imp-child">
             <input type="checkbox" class="csm-comp-cb" data-group="${gi}" data-comp="${ci}"${checked}>
@@ -8736,13 +8753,23 @@
       const hasSim = !!d.sim_image;
       const hasMeas = !!d.meas_image;
 
-      // Refresh meas_tc from data pages
-      const latestComps = getDataPageComponents();
+      // Refresh meas_tc / tc_derated from the exact source component (by page id
+      // + index), so a component copied onto several data pages pulls each page's
+      // own values instead of always the first same-named one. Legacy items with
+      // no source reference fall back to a name+category match and are migrated
+      // to carry the source, which also stops the picker's name-bleed on reopen.
+      const refreshGroups = getDataPageComponentGroups();
+      const bySource = new Map();
+      refreshGroups.forEach(g => g.components.forEach((c, ci) => bySource.set(g.pageId + '::' + ci, c)));
+      const refreshFlat = refreshGroups.flatMap(g => g.components);
       d.items.forEach(item => {
-        const match = latestComps.find(c => c.component_name === item.component_name && c.category === item.category);
+        let match = null;
+        if (item.source_page != null && item.source_idx != null) match = bySource.get(item.source_page + '::' + item.source_idx);
+        if (!match) match = refreshFlat.find(c => c.component_name === item.component_name && c.category === item.category);
         if (match) {
           item.meas_tc = match.meas_tc;
           item.tc_derated = match.tc_derated;
+          if (item.source_page == null) { item.source_page = match.source_page; item.source_idx = match.source_idx; }
         }
       });
 
@@ -8854,9 +8881,19 @@
 
       // ── Select components button ──
       document.getElementById('sim-select-comp').addEventListener('click', () => {
-        showComponentSelectModal(new Set((d.items || []).map(it => it.component_name)), (rawComps) => {
+        // Pre-check by exact source (page id + index) so identical component
+        // names on copied data pages no longer light each other up.
+        const preKeys = new Set();
+        const preNames = new Set();
+        (d.items || []).forEach(it => {
+          if (it.source_page != null && it.source_idx != null) preKeys.add(it.source_page + '::' + it.source_idx);
+          else if (it.component_name) preNames.add(it.component_name);
+        });
+        showComponentSelectModal({ keys: preKeys, names: preNames }, (rawComps) => {
           d.items = rawComps.map(comp => {
-            const prev = (d.items || []).find(it => it.component_name === comp.component_name);
+            const prev = (d.items || []).find(it =>
+              (it.source_page != null && it.source_page === comp.source_page && it.source_idx === comp.source_idx)
+              || (it.source_page == null && it.component_name === comp.component_name && it.category === comp.category));
             return {
               category: comp.category,
               component_name: comp.component_name,
@@ -8864,6 +8901,8 @@
               sim_tc: prev ? prev.sim_tc : '',
               meas_tc: comp.meas_tc,
               note: prev ? prev.note : '',
+              source_page: comp.source_page,
+              source_idx: comp.source_idx,
             };
           });
           scheduleSave(state.activePage);

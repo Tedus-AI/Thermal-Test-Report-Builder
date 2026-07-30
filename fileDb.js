@@ -1,6 +1,17 @@
 let fileHandle = null;
 let dbCache = {};
 
+// ── Auto-backup folder (a directory handle chosen once, persisted like the DB) ──
+let backupDirHandle = null;
+const BACKUP_PREFIX = 'thermal_reports_backup_';
+const BACKUP_KEEP = 30;         // keep the newest N daily backups, prune older
+// Pure helper (unit-testable): given backup filenames, return the ones to delete
+// so only the newest `keep` remain. Names are YYYY-MM-DD so lexicographic == time.
+function backupsToPrune(names, keep) {
+  const b = names.filter(n => n.startsWith(BACKUP_PREFIX) && n.endsWith('.json')).sort();
+  return b.length > keep ? b.slice(0, b.length - keep) : [];
+}
+
 const fileDb = {
 
   // Silent restore: tries to reuse a previously granted handle without prompting.
@@ -194,6 +205,101 @@ const fileDb = {
     a.click();
     URL.revokeObjectURL(a.href);
   },
+
+  // ── Auto-backup folder ──────────────────────────────────────────────
+  hasBackupDir() { return backupDirHandle !== null; },
+  getBackupDirName() { return backupDirHandle ? backupDirHandle.name : null; },
+
+  // Pick a folder (user gesture) to hold automatic daily backups; persist the handle.
+  async pickBackupDir() {
+    try {
+      const handle = await window.showDirectoryPicker({ mode: 'readwrite' });
+      backupDirHandle = handle;
+      await this._saveBackupDirHandle(handle);
+      return { success: true, name: handle.name };
+    } catch (e) {
+      if (e.name === 'AbortError') return { success: false, reason: 'cancelled' };
+      return { success: false, reason: 'error' };
+    }
+  },
+
+  // Silent restore on load (no prompt). granted → ready; otherwise needsPermission.
+  async tryRestoreBackupDir() {
+    const h = await this._loadBackupDirHandle();
+    if (!h) return { success: false, reason: 'no-saved' };
+    try {
+      const state = await h.queryPermission({ mode: 'readwrite' });
+      if (state === 'granted') { backupDirHandle = h; return { success: true, name: h.name }; }
+      return { success: false, needsPermission: true, name: h.name };
+    } catch { return { success: false, reason: 'error' }; }
+  },
+
+  // Re-grant permission on the saved folder from a user gesture.
+  async reconnectBackupDir() {
+    const h = await this._loadBackupDirHandle();
+    if (!h) return await this.pickBackupDir();
+    try {
+      const perm = await h.requestPermission({ mode: 'readwrite' });
+      if (perm === 'granted') { backupDirHandle = h; return { success: true, name: h.name }; }
+      return { success: false, reason: 'denied' };
+    } catch { return { success: false, reason: 'error' }; }
+  },
+
+  // Write today's backup into the folder (overwrite same-day), then prune old ones.
+  async writeAutoBackup() {
+    if (!backupDirHandle) return { success: false, reason: 'no-dir' };
+    if (!fileHandle) return { success: false, reason: 'no-db' };
+    try {
+      const state = await backupDirHandle.queryPermission({ mode: 'readwrite' });
+      if (state !== 'granted') return { success: false, needsPermission: true };
+      const name = `${BACKUP_PREFIX}${new Date().toISOString().slice(0, 10)}.json`;
+      const fh = await backupDirHandle.getFileHandle(name, { create: true });
+      const w = await fh.createWritable();
+      await w.write(JSON.stringify(dbCache, null, 2));
+      await w.close();
+      await this._pruneBackups();
+      return { success: true, name };
+    } catch (e) {
+      return { success: false, reason: 'error', error: String(e) };
+    }
+  },
+
+  async _pruneBackups() {
+    try {
+      const names = [];
+      for await (const [n, h] of backupDirHandle.entries()) {
+        if (h.kind === 'file') names.push(n);
+      }
+      for (const n of backupsToPrune(names, BACKUP_KEEP)) {
+        try { await backupDirHandle.removeEntry(n); } catch {}
+      }
+    } catch {}
+  },
+
+  async _saveBackupDirHandle(handle) {
+    try {
+      const idb = await this._openIdb();
+      const tx = idb.transaction('handles', 'readwrite');
+      tx.objectStore('handles').put(handle, 'thermal_reports_backup_dir');
+    } catch (e) {}
+  },
+  async _loadBackupDirHandle() {
+    try {
+      const idb = await this._openIdb();
+      return await new Promise((resolve) => {
+        const tx = idb.transaction('handles', 'readonly');
+        const req = tx.objectStore('handles').get('thermal_reports_backup_dir');
+        req.onsuccess = () => resolve(req.result ?? null);
+        req.onerror = () => resolve(null);
+      });
+    } catch { return null; }
+  },
+
+  // Test seams: inject fake handles (used only by headless verification).
+  __setBackupDirForTest(h) { backupDirHandle = h; },
+  __setFileHandleForTest(h) { fileHandle = h; },
+  __setDbCacheForTest(c) { dbCache = c; },
+  __backupsToPrune: backupsToPrune,
 
   async _readFile() {
     const file = await fileHandle.getFile();

@@ -261,6 +261,20 @@
       transform: scale(0.97);
     }
 
+    /* Disabled toolbar buttons (e.g. Undo/Redo at the end of history): greyed,
+       not-allowed, and no hover/press feedback so it's clear they can't be used. */
+    .glass-btn:disabled,
+    .glass-btn[disabled] {
+      color: rgba(255,255,255,0.30);
+      background: rgba(91,163,230,0.04);
+      border-color: rgba(91,163,230,0.12);
+      cursor: not-allowed;
+    }
+    .glass-btn:disabled:hover,
+    .glass-btn[disabled]:hover { background: rgba(91,163,230,0.04); }
+    .glass-btn:disabled:active,
+    .glass-btn[disabled]:active { transform: none; }
+
     .glass-btn.btn-accent {
       background: var(--d-300);
       border-color: var(--d-300);
@@ -1322,6 +1336,42 @@
       gap: 12px;
     }
     .data-page-title-text { white-space: nowrap; flex-shrink: 0; }
+    /* Whole-page freeze (唯讀鎖定) toggle, lives on the data-page title row */
+    .data-freeze-btn {
+      flex-shrink: 0;
+      margin-left: 8px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 10px;
+      font-family: var(--font-ui);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0;
+      text-transform: none;
+      color: #2357A7;
+      background: rgba(35,87,167,0.08);
+      border: 1px solid rgba(35,87,167,0.25);
+      border-radius: 4px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.15s;
+    }
+    .data-freeze-btn:hover { background: rgba(35,87,167,0.16); }
+    .data-freeze-btn.is-frozen {
+      color: #B45309;
+      background: rgba(245,158,11,0.16);
+      border-color: rgba(245,158,11,0.45);
+    }
+    /* Frozen data page: amber title underline as a clear read-only cue */
+    .data-page.data-frozen .data-page-title { border-bottom-color: #F59E0B; }
+    .data-page.data-frozen input:disabled,
+    .data-page.data-frozen select:disabled,
+    .data-page.data-frozen textarea:disabled {
+      cursor: not-allowed;
+      -webkit-text-fill-color: rgba(15,23,42,0.55); /* keep values readable when disabled */
+      opacity: 1;
+    }
     .data-top-note {
       margin-left: auto;
       flex: 1;
@@ -7410,6 +7460,10 @@
             <span class="data-page-title-text">Thermal Test Data</span>
             <input class="data-top-note" type="text" placeholder="註記（可手動輸入）"
                    value="${escapeAttr(d.top_note || '')}" data-field="top_note">
+            <button type="button" class="data-freeze-btn${d.frozen ? ' is-frozen' : ''}" id="data-freeze-btn" data-freeze-toggle
+                    title="${d.frozen ? '解除凍結後即可編輯' : '凍結整頁，鎖定所有內容避免誤改'}">
+              ${d.frozen ? '🔓 解除凍結' : '🔒 凍結此頁'}
+            </button>
           </div>
 
           <div class="data-header-grid">
@@ -8111,6 +8165,29 @@
             }
           });
         });
+      }
+
+      // ── Whole-page freeze (整頁凍結 / 唯讀鎖定) ──
+      // Toggle locks every control on the page so nothing can be edited or
+      // deleted by accident. Disabled controls receive no focus/mouse/keyboard,
+      // which also neutralises the Excel-grid select/paste/fill/delete handlers.
+      const freezeBtn = document.getElementById('data-freeze-btn');
+      if (freezeBtn) {
+        freezeBtn.addEventListener('click', () => {
+          d.frozen = !d.frozen;
+          scheduleSave(state.activePage);
+          renderDataPage(page);
+        });
+      }
+      if (d.frozen) {
+        const dp = $canvas.querySelector('.data-page');
+        if (dp) {
+          dp.classList.add('data-frozen');
+          dp.querySelectorAll('input, select, textarea, button').forEach(el => {
+            if (el.hasAttribute('data-freeze-toggle')) return; // keep the unlock button usable
+            el.disabled = true;
+          });
+        }
       }
     }
 

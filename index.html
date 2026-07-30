@@ -9436,13 +9436,17 @@
           if (swImgs.length) {
             list.push({ page, pageIdx, html: buildSwImagesPageHTML(swImgs), isLandscape: true });
           }
+        } else if (page.type === 'sim_vs_meas') {
+          // The comparison table paginates like the data page (many components).
+          buildSimVsMeasPagesHTML(page.data).forEach(html => {
+            list.push({ page, pageIdx, html, isLandscape: true });
+          });
         } else {
           let html = '';
-          const isLandscape = page.type === 'image' || page.type === 'annotation' || page.type === 'sim_vs_meas' || page.type === 'conclusion';
+          const isLandscape = page.type === 'image' || page.type === 'annotation' || page.type === 'conclusion';
           if (page.type === 'cover') html = buildCoverHTML(page.data);
           else if (page.type === 'image') html = buildImagePageHTML(page.data);
           else if (page.type === 'annotation') html = buildAnnotationHTML(page.data);
-          else if (page.type === 'sim_vs_meas') html = buildSimVsMeasHTML(page.data);
           else if (page.type === 'conclusion') html = buildConclusionHTML(page.data);
           list.push({ page, pageIdx, html, isLandscape });
         }
@@ -9591,7 +9595,7 @@
       } else if (page.type === 'data') {
         content.innerHTML = buildDataPageHTML(page.data);
       } else if (page.type === 'sim_vs_meas') {
-        content.innerHTML = buildSimVsMeasHTML(page.data);
+        content.innerHTML = buildSimVsMeasPagesHTML(page.data)[0];
       } else if (page.type === 'conclusion') {
         content.innerHTML = buildConclusionHTML(page.data);
       }
@@ -10332,15 +10336,18 @@
       return out;
     }
 
-    function buildSimVsMeasHTML(d) {
+    // Returns an ARRAY of page HTML strings. The comparison table is paginated at
+    // ITEMS_PER_PAGE rows per page (title + table header repeat on each page) so
+    // long component lists no longer get clipped to the first page. The footer
+    // notes and 結論敘述 sit on the last page, or spill onto their own final page
+    // when that last page is too full (measured, like the data page).
+    function buildSimVsMeasPagesHTML(d) {
       const items = d.items || [];
-      const hasSim = !!d.sim_image;
-      const hasMeas = !!d.meas_image;
 
       const thStyle = 'text-align:center;font-family:&apos;JetBrains Mono&apos;,monospace;font-size:8px;font-weight:500;color:#ffffff;padding:4px 6px;background:#0B3D7A;border:1px solid rgba(255,255,255,0.3);white-space:nowrap;letter-spacing:0.04em;word-spacing:0px;';
       const tdStyle = 'padding:3px 5px;border:1px solid rgba(15,23,42,0.08);font-size:10px;white-space:nowrap;letter-spacing:0px;word-spacing:0px;text-align:center;';
 
-      const rows = items.map(item => {
+      const rowHtml = (item) => {
         const simTc = parseFloat(item.sim_tc);
         const measTc = parseFloat(item.meas_tc);
         let devC = '—', devPct = '—', devStyle = '', judgeText = '—';
@@ -10366,30 +10373,72 @@
           <td style="${tdStyle}text-align:center;font-size:12px;${devStyle}">${judgeText}</td>
           <td style="${tdStyle}">${escHtml(item.note)}</td>
         </tr>`;
-      }).join('');
+      };
 
-      const inner = `<div style="width:100%;height:100%;padding:22px 28px 28px;color:rgba(15,23,42,0.90);overflow:hidden;letter-spacing:0px;word-spacing:0px;">
-        <div style="font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:600;letter-spacing:0.02em;word-spacing:0px;color:#0B3D7A;margin-bottom:10px;">SIMULATION VS MEASUREMENT COMPARISON</div>
-        <div style="border:1px solid #C2DFF8;">
-          <table style="width:100%;border-collapse:collapse;font-size:10px;">
-            <thead><tr>
+      const titleHtml = `<div style="font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:600;letter-spacing:0.02em;word-spacing:0px;color:#0B3D7A;margin-bottom:10px;">SIMULATION VS MEASUREMENT COMPARISON</div>`;
+      const theadHtml = `<thead><tr>
               <th style="${thStyle}">類別</th><th style="${thStyle}">元件名稱</th><th style="${thStyle}">Derated Tc (°C)</th>
               <th style="${thStyle}">Sim Tc</th><th style="${thStyle}">Meas Tc</th>
               <th style="${thStyle}">Dev (°C)</th><th style="${thStyle}">Dev (%)</th><th style="${thStyle}">判斷</th><th style="${thStyle}">備註</th>
-            </tr></thead>
-            <tbody>${rows}</tbody>
-          </table>
-        </div>
-        <div style="font-size:9px;color:rgba(15,23,42,0.55);padding:6px 0 0;text-align:left;line-height:1.6;">
+            </tr></thead>`;
+      const notesHtml = `<div style="font-size:9px;color:rgba(15,23,42,0.55);padding:6px 0 0;text-align:left;line-height:1.6;">
           <div>※ 備註 1：判斷規則：偏差 ≤5% 為 ✅，5%~10% 為 ⚠️，&gt;10% 為 ❌。</div>
           <div>※ 備註 2：Sim Tc 為實測瓦數後的模擬校正值。</div>
-        </div>
-        ${d.conclusion ? `<div style="margin-top:12px;">
+        </div>`;
+      const conclusionHtml = d.conclusion ? `<div style="margin-top:12px;">
           <div style="font-family:'Space Grotesk',sans-serif;font-size:11px;font-weight:600;color:#0B3D7A;margin-bottom:4px;">結論敘述</div>
           <div style="font-size:10px;line-height:1.7;color:rgba(15,23,42,0.85);white-space:pre-wrap;border:1px solid #C2DFF8;border-radius:4px;padding:8px 10px;background:#F7F9FC;">${escHtml(d.conclusion)}</div>
-        </div>` : ''}
-      </div>`;
-      return wrapPageHTML(inner);
+        </div>` : '';
+      const extrasHtml = notesHtml + conclusionHtml;
+
+      const tableBlock = (rowsStr) => `<div style="border:1px solid #C2DFF8;">
+          <table style="width:100%;border-collapse:collapse;font-size:10px;">
+            ${theadHtml}
+            <tbody>${rowsStr}</tbody>
+          </table>
+        </div>`;
+      const pageShell = (bodyHtml) => wrapPageHTML(`<div style="width:100%;height:100%;padding:22px 28px 28px;color:rgba(15,23,42,0.90);overflow:hidden;letter-spacing:0px;word-spacing:0px;">${titleHtml}${bodyHtml}</div>`);
+
+      // Landscape content (595px tall) must clear the footer band. Measure the
+      // last page's rows + extras with the export font; if it overflows, push the
+      // notes/結論敘述 to their own final page.
+      const SAFE_CONTENT_H = 560;   // matches the data page's calibrated cutoff (row-bottom 532 + 28px bottom padding)
+      const fits = (bodyHtml) => {
+        const m = document.createElement('div');
+        m.style.cssText = `position:fixed;left:-9999px;top:0;width:842px;background:#fff;z-index:-1;font-family:${PDF_FONT};letter-spacing:0;word-spacing:0;`;
+        m.innerHTML = `<div style="width:100%;padding:22px 28px 28px;letter-spacing:0;word-spacing:0;">${titleHtml}${bodyHtml}</div>`;
+        document.body.appendChild(m);
+        void m.offsetHeight;
+        const hgt = m.firstElementChild.getBoundingClientRect().height;
+        document.body.removeChild(m);
+        return hgt <= SAFE_CONTENT_H;
+      };
+
+      const ITEMS_PER_PAGE = 20;   // the 21st component starts a new page
+
+      if (items.length === 0) {
+        return [pageShell(tableBlock('') + extrasHtml)];
+      }
+
+      const chunks = [];
+      for (let i = 0; i < items.length; i += ITEMS_PER_PAGE) chunks.push(items.slice(i, i + ITEMS_PER_PAGE));
+
+      const pages = [];
+      chunks.forEach((chunk, ci) => {
+        const rowsStr = chunk.map(rowHtml).join('');
+        if (ci < chunks.length - 1) {
+          pages.push(pageShell(tableBlock(rowsStr)));         // middle pages: rows only
+        } else {
+          const combined = tableBlock(rowsStr) + extrasHtml;  // last page: rows + extras…
+          if (fits(combined)) {
+            pages.push(pageShell(combined));
+          } else {                                            // …unless it overflows
+            pages.push(pageShell(tableBlock(rowsStr)));
+            pages.push(pageShell(extrasHtml));
+          }
+        }
+      });
+      return pages;
     }
 
     function escHtml(s) {

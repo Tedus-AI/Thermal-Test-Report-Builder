@@ -64,10 +64,12 @@ const fileDb = {
 
   async pickFile() {
     try {
-      [fileHandle] = await window.showOpenFilePicker({
+      const opts = {
         types: [{ description: 'JSON Database', accept: { 'application/json': ['.json'] } }],
         multiple: false
-      });
+      };
+      if (fileHandle) opts.startIn = fileHandle;
+      [fileHandle] = await window.showOpenFilePicker(opts);
       await this._readFile();
       await this._saveHandle(fileHandle);
       return { success: true, filename: fileHandle.name };
@@ -79,10 +81,12 @@ const fileDb = {
 
   async createFile() {
     try {
-      fileHandle = await window.showSaveFilePicker({
+      const opts = {
         suggestedName: 'thermal_reports_db.json',
         types: [{ description: 'JSON Database', accept: { 'application/json': ['.json'] } }]
-      });
+      };
+      if (fileHandle) opts.startIn = fileHandle;
+      fileHandle = await window.showSaveFilePicker(opts);
       dbCache = { thermal_reports: {} };
       await this._writeFile();
       await this._saveHandle(fileHandle);
@@ -197,11 +201,29 @@ const fileDb = {
     await this._writeFile();
   },
 
-  exportBackup() {
-    const blob = new Blob([JSON.stringify(dbCache, null, 2)], { type: 'application/json' });
+  async exportBackup() {
+    const suggestedName = `${BACKUP_PREFIX}${new Date().toISOString().slice(0,10)}.json`;
+    const json = JSON.stringify(dbCache, null, 2);
+    if (window.showSaveFilePicker) {
+      try {
+        const opts = {
+          suggestedName,
+          types: [{ description: 'JSON Backup', accept: { 'application/json': ['.json'] } }]
+        };
+        if (fileHandle) opts.startIn = fileHandle;
+        const saveHandle = await window.showSaveFilePicker(opts);
+        const writable = await saveHandle.createWritable();
+        await writable.write(json);
+        await writable.close();
+        return;
+      } catch (e) {
+        if (e.name === 'AbortError') return;
+      }
+    }
+    const blob = new Blob([json], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `thermal_reports_backup_${new Date().toISOString().slice(0,10)}.json`;
+    a.download = suggestedName;
     a.click();
     URL.revokeObjectURL(a.href);
   },
@@ -213,7 +235,9 @@ const fileDb = {
   // Pick a folder (user gesture) to hold automatic daily backups; persist the handle.
   async pickBackupDir() {
     try {
-      const handle = await window.showDirectoryPicker({ mode: 'readwrite' });
+      const opts = { mode: 'readwrite' };
+      if (fileHandle) opts.startIn = fileHandle;
+      const handle = await window.showDirectoryPicker(opts);
       backupDirHandle = handle;
       await this._saveBackupDirHandle(handle);
       return { success: true, name: handle.name };

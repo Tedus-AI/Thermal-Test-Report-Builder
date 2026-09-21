@@ -112,9 +112,9 @@ const dbAdapter = {
     if (DB_MODE === 'local') return await fileDb.pickFile();
   },
 
-  exportBackup() {
-    if (DB_MODE === 'local') fileDb.exportBackup();
-    else alert('Firebase 模式請至 Firebase Console 備份');
+  async exportBackup() {
+    if (DB_MODE === 'local') return await fileDb.exportBackup();
+    alert('Firebase 模式請至 Firebase Console 備份');
   },
 
   // ── Auto-backup folder passthroughs ──

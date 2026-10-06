@@ -56,6 +56,42 @@ function isPlainObject(v) {
   return v !== null && typeof v === 'object' && !Array.isArray(v);
 }
 
+// ── SharePoint sync bookkeeping, persisted inside the local database file ──
+// dbCache.sp_sync = {
+//   dirty:   { [reportId]: seq }   reports changed locally and not yet on SharePoint
+//   deleted: [reportId]            reports deleted locally that still exist on SharePoint
+//   etags:   { [reportId]: eTag }  SharePoint version each report was last synced with
+//   tim_dirty: seq, tim_etag: eTag the shared TIM library, same idea
+// }
+// Every local mutation marks what changed, so the sync engine (spSync.js) can push
+// exactly those reports — even after a reload or a period offline.
+let dbGeneration = 0;            // bumps whenever a different database (or disk state) is loaded
+const writeListeners = new Set();
+function syncMeta() {
+  if (!isPlainObject(dbCache.sp_sync)) dbCache.sp_sync = {};
+  const m = dbCache.sp_sync;
+  if (!isPlainObject(m.dirty)) m.dirty = {};
+  if (!Array.isArray(m.deleted)) m.deleted = [];
+  if (!isPlainObject(m.etags)) m.etags = {};
+  if (typeof m.tim_dirty !== 'number') m.tim_dirty = 0;
+  if (m.tim_etag === undefined) m.tim_etag = null;
+  return m;
+}
+function markDirty(id) {
+  const m = syncMeta();
+  m.dirty[id] = (m.dirty[id] || 0) + 1;
+  m.deleted = m.deleted.filter(x => x !== id);
+}
+function markDeleted(id) {
+  const m = syncMeta();
+  delete m.dirty[id];
+  if (m.etags[id] && !m.deleted.includes(id)) m.deleted.push(id);
+}
+function markTimDirty() {
+  const m = syncMeta();
+  m.tim_dirty = (m.tim_dirty || 0) + 1;
+}
+
 // Parse + validate a database file's text. Throws DB_PARSE instead of ever
 // substituting an empty database (which the next save would write over the
 // real file). A brand-new empty file is accepted as an empty database.
@@ -145,6 +181,7 @@ const fileDb = {
     dbCache = { thermal_reports: {} };
     knownLastModified = null;
     conflict = false;
+    dbGeneration++;
     await this._writeFile();
     await this._saveHandle(handle);
     const otherTab = !(await this._acquireTabLock(handle.name));
@@ -166,6 +203,7 @@ const fileDb = {
     dbCache = parseDbText(await file.text());
     knownLastModified = file.lastModified;
     conflict = false;
+    dbGeneration++;
   },
   // …or overwrite the file with this window's state (explicit user choice).
   async forceOverwrite() {
@@ -193,6 +231,7 @@ const fileDb = {
     this._assertReady();
     if (!dbCache['thermal_reports']) dbCache['thermal_reports'] = {};
     dbCache['thermal_reports'][reportId] = { ...clone(meta), pages: {} };
+    markDirty(reportId);
     await this._writeFile();
   },
 
@@ -209,6 +248,7 @@ const fileDb = {
     const report = this._requireReport(reportId);
     const { pages: _ignored, ...rest } = fields || {};
     Object.assign(report, clone(rest));
+    markDirty(reportId);
     await this._writeFile();
   },
 
@@ -216,6 +256,7 @@ const fileDb = {
     this._assertReady();
     if (dbCache['thermal_reports']?.[reportId]) {
       delete dbCache['thermal_reports'][reportId];
+      markDeleted(reportId);
       await this._writeFile();
     }
   },
@@ -227,6 +268,7 @@ const fileDb = {
       ...clone(source),
       ...clone(newMeta),
     };
+    markDirty(newId);
     await this._writeFile();
   },
 
@@ -235,6 +277,7 @@ const fileDb = {
     const report = this._requireReport(reportId);
     if (!report.pages) report.pages = {};
     report.pages[String(order)] = clone(pageData);
+    markDirty(reportId);
     await this._writeFile();
   },
 
@@ -246,6 +289,7 @@ const fileDb = {
     const pages = {};
     pagesArray.forEach((p, i) => { pages[String(i)] = { ...clone(p), order: i }; });
     report.pages = pages;
+    markDirty(reportId);
     await this._writeFile();
   },
 
@@ -266,6 +310,7 @@ const fileDb = {
     this._assertReady();
     if (dbCache['thermal_reports']?.[reportId]?.pages) {
       delete dbCache['thermal_reports'][reportId].pages[String(order)];
+      markDirty(reportId);
       await this._writeFile();
     }
   },
@@ -278,6 +323,7 @@ const fileDb = {
   async setTimLibrary(data) {
     this._assertReady();
     dbCache['tim_library'] = clone(data);
+    markTimDirty();
     await this._writeFile();
   },
 
@@ -410,10 +456,87 @@ const fileDb = {
     } catch { return null; }
   },
 
+  // Called after every successful write of the local database file.
+  onWrite(fn) { writeListeners.add(fn); return () => writeListeners.delete(fn); },
+
+  // ── API for the SharePoint sync engine (spSync.js). Changes made here are
+  // sync results, so they never mark anything dirty themselves. ──
+  sync: {
+    generation() { return dbGeneration; },
+    state() { return clone(syncMeta()); },
+    hasPending() {
+      if (!fileHandle) return false;
+      const m = syncMeta();
+      return Object.keys(m.dirty).length > 0 || m.deleted.length > 0 || m.tim_dirty > 0;
+    },
+    pendingCount() {
+      const m = syncMeta();
+      return Object.keys(m.dirty).length + m.deleted.length + (m.tim_dirty ? 1 : 0);
+    },
+    reportIds() { return Object.keys(dbCache.thermal_reports || {}); },
+    getReport(id) { return clone(dbCache.thermal_reports?.[id] ?? null); },
+    getTim() { return clone(dbCache.tim_library) || { grease: [], pad: [], putty: [] }; },
+    // Take SharePoint's version of a report (it was not changed locally).
+    applyRemote(id, report, etag) {
+      if (!dbCache.thermal_reports) dbCache.thermal_reports = {};
+      dbCache.thermal_reports[id] = clone(report);
+      const m = syncMeta();
+      m.etags[id] = etag;
+      delete m.dirty[id];
+      m.deleted = m.deleted.filter(x => x !== id);
+    },
+    // A report deleted on SharePoint by someone else.
+    removeLocal(id) {
+      if (dbCache.thermal_reports) delete dbCache.thermal_reports[id];
+      const m = syncMeta();
+      delete m.etags[id];
+      delete m.dirty[id];
+      m.deleted = m.deleted.filter(x => x !== id);
+    },
+    // A new local report created by the sync itself (conflict copy); pushed next.
+    addReport(id, report) {
+      if (!dbCache.thermal_reports) dbCache.thermal_reports = {};
+      dbCache.thermal_reports[id] = clone(report);
+      markDirty(id);
+    },
+    markDirty(id) { markDirty(id); },
+    markTimDirty() { markTimDirty(); },
+    // Replace the TIM library with a merged version (keeps its dirty state).
+    setTim(lib) { dbCache.tim_library = clone(lib); },
+    setEtag(id, etag) { syncMeta().etags[id] = etag; },
+    markPushed(id, etag, seq) {
+      const m = syncMeta();
+      m.etags[id] = etag;
+      if (m.dirty[id] === seq) delete m.dirty[id];   // edited again meanwhile → stays dirty
+    },
+    markDeletePushed(id) {
+      const m = syncMeta();
+      m.deleted = m.deleted.filter(x => x !== id);
+      delete m.etags[id];
+    },
+    applyRemoteTim(lib, etag) {
+      dbCache.tim_library = clone(lib);
+      const m = syncMeta();
+      m.tim_etag = etag;
+      m.tim_dirty = 0;
+    },
+    markTimPushed(etag, seq) {
+      const m = syncMeta();
+      m.tim_etag = etag;
+      if (m.tim_dirty === seq) m.tim_dirty = 0;
+    },
+    // Full database without the sync bookkeeping (SharePoint daily backup).
+    backupText() {
+      const { sp_sync, ...rest } = dbCache;
+      return JSON.stringify(rest);
+    },
+    persist() { return fileDb._writeFile(); },
+  },
+
   // Test seams: inject fake handles (used only by headless verification).
   __setBackupDirForTest(h) { backupDirHandle = h; },
-  __setFileHandleForTest(h) { fileHandle = h; knownLastModified = null; conflict = false; },
-  __setDbCacheForTest(c) { dbCache = c; },
+  __setFileHandleForTest(h) { fileHandle = h; knownLastModified = null; conflict = false; dbGeneration++; },
+  __setDbCacheForTest(c) { dbCache = c; dbGeneration++; },
   __backupsToPrune: backupsToPrune,
   __parseDbText: parseDbText,
 
@@ -433,6 +556,7 @@ const fileDb = {
     dbCache = data;
     knownLastModified = lastModified;
     conflict = false;
+    dbGeneration++;
     const otherTab = !(await this._acquireTabLock(handle.name));
     return { success: true, filename: handle.name, otherTab };
   },
@@ -489,6 +613,7 @@ const fileDb = {
       throw e;
     }
     knownLastModified = (await handle.getFile()).lastModified;
+    writeListeners.forEach(fn => { try { fn(); } catch (e) { console.error(e); } });
   },
 
   _assertReady() {

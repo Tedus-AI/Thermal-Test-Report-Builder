@@ -22,7 +22,7 @@ jobs:
       - name: Check required files exist and are non-empty
         run: |
           set -e
-          for f in index.html dbAdapter.js fileDb.js; do
+          for f in index.html dbAdapter.js fileDb.js spSync.js auth.html; do
             if [ ! -s "$f" ]; then
               echo "::error file=$f::Required file '$f' is missing or empty"
               exit 1
@@ -42,7 +42,7 @@ jobs:
       - name: Syntax-check JavaScript files
         run: |
           set -e
-          for f in dbAdapter.js fileDb.js tests/smoke.js tests/check-inline-scripts.js; do
+          for f in dbAdapter.js fileDb.js spSync.js tests/smoke.js tests/fake-sharepoint.js tests/check-inline-scripts.js; do
             node --check "$f"
             echo "Syntax OK: $f"
           done

@@ -1207,6 +1207,117 @@ const assert = (cond, msg, detail) => { if (!cond) throw new Error(msg + (detail
     assert(!r.previewOpen && r.active === 0, 'preview dblclick → edit', r);
   });
 
+  await T('目錄頁：插在封面後、頁碼依實際 PDF 頁數（只匯出部分頁面時重算）', async (page) => {
+    const r = await page.evaluate(async (png) => {
+      await useDb({ thermal_reports: { A: report('A', {
+        0: cover('A'),
+        1: { type: 'image', order: 1, data: { title: 'Test Setup', images: [{ position: 0, url_or_base64: png, caption: '' }] } },
+        2: { id: 'dp', ...dataPage(2, [comp('PA', { ta_55: '80' })], [25, 55], { list_note: 'Full Load' }) },
+        3: { type: 'note', order: 3, data: { title: 'n', blocks: [] } },
+        4: { type: 'conclusion', order: 4, data: { summary: 'x', issues: [''], actions: [], compliance: [] } } }) } });
+      await openReport('A');
+      selectPage(4);
+      document.querySelector('.dropdown-item[data-type="toc"]').click();
+      await flushAllSaves();
+      const types = Object.values(disk().thermal_reports.A.pages).sort((a, b) => a.order - b.order).map(p => p.type);
+      const entries = (list) => {
+        const vp = list.find(v => v.page.type === 'toc');
+        const el = document.createElement('div');
+        el.innerHTML = vp.html;
+        return Array.from(el.querySelectorAll('div')).filter(d => d.children.length === 3 && d.style.display === 'flex')
+          .map(d => d.children[0].textContent + '=' + d.children[2].textContent);
+      };
+      const all = numberVirtualPages(buildVirtualPages());
+      const subset = numberVirtualPages(buildVirtualPages().filter(vp => [0, 1, 5].includes(vp.pageIdx)));
+      const editorShowsNumbers = document.getElementById('editor-canvas').textContent.includes('Test Conclusion');
+      const inp = document.getElementById('toc-title');
+      inp.value = '目錄'; inp.dispatchEvent(new Event('change'));
+      await flushAllSaves();
+      return { active: state.activePage, types, all: entries(all), subset: entries(subset), tocFooter: all[1].html.includes('2 / 5'), editorShowsNumbers,
+        title: Object.values(disk().thermal_reports.A.pages).find(p => p.type === 'toc').data.title,
+        retitled: numberVirtualPages(buildVirtualPages())[1].html.includes('目錄') };
+    }, PNG1);
+    assert(r.types.join() === 'cover,toc,image,data,note,conclusion' && r.active === 1, 'inserted after the cover', r);
+    assert(r.all.join('|') === 'Test Setup=3|Thermal Test Data — Full Load=4|Test Conclusion=5' && r.tocFooter, 'entries + numbers', r.all);
+    assert(r.subset.join('|') === 'Test Conclusion=3', 'renumbered for a partial export', r.subset);
+    assert(r.editorShowsNumbers && r.title === '目錄' && r.retitled, 'editor preview + title', r);
+  });
+
+  await T('比較頁：本報告不同測試條件（ΔTc、依 |ΔTc| 排序、摘要、結論草稿、範本重新對應）', async (page) => {
+    const r = await page.evaluate(async () => {
+      await useDb({ thermal_reports: { A: report('A', {
+        0: cover('A'),
+        1: { id: 'd1', ...dataPage(1, [comp('PA', { ta_55: '90' }), comp('LNA', { ta_55: '70' }), comp('FPGA', { ta_55: '100' })], [25, 55], { list_note: '補償前' }) },
+        2: { id: 'd2', ...dataPage(2, [comp('PA', { ta_55: '85' }), comp('LNA', { ta_55: '71.2' }), comp('FPGA', { ta_55: '100.3' }), comp('NEW', { ta_55: '50' })], [25, 55], { list_note: '補償後' }) },
+        3: { type: 'conclusion', order: 3, data: { summary: '', issues: [''], actions: [], compliance: [] } } }) } });
+      await openReport('A');
+      selectPage(2);
+      document.querySelector('.dropdown-item[data-type="compare"]').click();
+      await flushAllSaves();
+      const idx = state.pages.findIndex(p => p.type === 'compare');
+      const d = state.pages[idx].data;
+      const series = d.series.map(s => s.page_id).join();
+      const t = compareTable(d, false);
+      const deltas = t.rows.map(row => row.name + ':' + (isNaN(row.deltas[1]) ? '-' : row.deltas[1].toFixed(1)));
+      const summary = Array.from(document.querySelectorAll('.cmp-summary div')).map(x => x.textContent);
+      const sel = document.getElementById('cmp-sort');
+      sel.value = 'delta'; sel.dispatchEvent(new Event('change'));
+      await flushAllSaves();
+      const sortedNames = compareTable(state.pages[idx].data, false).rows.map(row => row.name).join();
+      const saved = Object.values(disk().thermal_reports.A.pages).find(p => p.type === 'compare').data;
+      const pdf = buildComparePagesHTML(state.pages[idx].data);
+      const tpl = templateFromPages(state.pages, { name: 'N', model: '', stage: 'PVT', date: '2026-02-02' });
+      const tplData = tpl.filter(p => p.type === 'data').map(p => p.id).join();
+      const tplSeries = tpl.find(p => p.type === 'compare').data.series.map(s => s.page_id).join();
+      const draft = buildConclusionDraft();
+      return { series, deltas, summary, sortedNames, savedSort: saved.sort, pdfPages: pdf.length, pdfSummary: pdf[0].includes('降溫最多 PA -5.0°C'), tplData, tplSeries,
+        draft: /【比較】數據頁 2 · 補償後 對比 數據頁 1 · 補償前：平均 ΔTc -1\.2°C/.test(draft), label: pageBaseLabel(idx), badge: pageBadge(state.pages[idx]) };
+    });
+    assert(r.series === 'd1,d2' && r.label === '比較頁 1', 'defaults to this report\'s data pages', r);
+    assert(r.deltas.join() === 'PA:-5.0,LNA:1.2,FPGA:0.3,NEW:-', 'ΔTc per component', r.deltas);
+    assert(r.summary.length === 1 && r.summary[0] === '■ 數據頁 2 · 補償後 對比 數據頁 1 · 補償前：平均 ΔTc -1.2°C（3 顆），降溫最多 PA -5.0°C，升溫最多 LNA +1.2°C。', 'summary', r.summary);
+    assert(r.sortedNames === 'PA,LNA,FPGA,NEW' && r.savedSort === 'delta', 'sorted by |ΔTc|', r);
+    assert(r.pdfPages === 1 && r.pdfSummary && r.draft, 'PDF + conclusion draft', r);
+    assert(r.tplSeries === r.tplData && r.tplSeries !== 'd1,d2', 'template re-points local series', r);
+  });
+
+  await T('比較頁：跨報告（EVT vs DVT）存快照，來源報告刪除後仍可顯示與匯出', async (page) => {
+    const r = await page.evaluate(async () => {
+      const evtCover = { ...cover('RRU-A'), data: { ...cover('RRU-A').data, stage: 'EVT' } };
+      await useDb({ thermal_reports: {
+        E: report('RRU-A', { 0: evtCover, 1: { id: 'ea', ...dataPage(1, [comp('PA', { ta_55: '95' }), comp('LNA', { ta_55: '72' })], [25, 55], { list_note: 'Full' }) } }),
+        D: report('RRU-A', { 0: cover('RRU-A'), 1: { id: 'db', ...dataPage(1, [comp('PA', { ta_55: '88' }), comp('LNA', { ta_55: '73' })], [25, 55], { list_note: 'Full' }) },
+          2: { id: 'cp', type: 'compare', order: 2, data: { title: 'EVT vs DVT', ta: null, sort: 'order', series: [] } } }) } });
+      await openReport('D');
+      selectPage(2);
+      const add = (v) => { const s = document.getElementById('cmp-add'); s.value = v; s.dispatchEvent(new Event('change')); };
+      const optText = Array.from(document.querySelectorAll('#cmp-add option')).map(o => o.textContent);
+      add('R|E|ea');
+      add('L|db');
+      await flushAllSaves();
+      const saved = disk().thermal_reports.D.pages['2'].data.series;
+      const before = compareTable(state.pages[2].data, false).rows.map(row => row.name + ':' + row.deltas[1].toFixed(1)).join();
+      const head = tds('.cmp-table th');
+      await dbAdapter.deleteReport('E');
+      await loadSpecMemory();
+      selectPage(1); selectPage(2);
+      const after = compareTable(state.pages[2].data, false).rows.map(row => row.name + ':' + row.deltas[1].toFixed(1)).join();
+      const snapTag = document.querySelector('.cmp-warn') ? document.querySelector('.cmp-warn').textContent : '';
+      const pdf = buildComparePagesHTML(state.pages[2].data).join('');
+      const check = runReportCheck().filter(x => x.idx === 2).map(x => x.level + ':' + x.text);
+      state.pages[2].data.series.push({ report_id: null, page_id: 'gone', label: '' });
+      const check2 = runReportCheck().filter(x => x.idx === 2).map(x => x.text);
+      return { optText, snap: saved[0].snapshot, src: saved.map(s => (s.report_id || 'local') + '/' + s.page_id).join(), before, head, after, snapTag,
+        pdfSnapNote: pdf.includes('使用加入時的數值快照'), pdfLabel: pdf.includes('EVT · RRU-A · 數據頁 1 · Full'), check, check2 };
+    });
+    assert(r.optText.includes('EVT · RRU-A · 數據頁 1 · Full'), 'other report offered with stage + name', r.optText);
+    assert(r.src === 'E/ea,local/db' && r.snap && r.snap.stage === 'EVT' && r.snap.components.length === 2 && r.snap.components[0].readings.ta_55 === '95', 'snapshot stored', r);
+    assert(r.before === 'PA:-7.0,LNA:1.0' && r.head.some(h => h.startsWith('EVT · RRU-A · 數據頁 1 · Full')), 'cross-report ΔTc', r);
+    assert(r.after === r.before && r.snapTag === '快照' && r.pdfSnapNote && r.pdfLabel, 'still works from the snapshot', r);
+    assert(r.check.join('|') === 'info:部分比較對象使用快照（來源報告不在目前資料庫）', 'report check info', r.check);
+    assert(r.check2.includes('1 個比較對象找不到來源'), 'missing source flagged', r.check2);
+  });
+
   console.log('New version → save, then reload');
 
   // Serve index.html stamped with `build.served` and version.json with `build.online`

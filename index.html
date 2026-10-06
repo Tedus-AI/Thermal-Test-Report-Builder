@@ -4240,6 +4240,25 @@
     tr.dt-row-flash td { animation: dtFlash 1.4s ease-out; }
     @keyframes dtFlash { 0%, 30% { background: rgba(250,204,21,0.45); } 100% { background: transparent; } }
     .dt-summary:empty { display: none; }
+    /* Comparison page */
+    .cmp-page { width: 100%; height: 100%; padding: 2.4% 2.8% 1.9%; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; color: var(--text-on-white); font-family: var(--font-ui); }
+    .cmp-top { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+    .cmp-title { flex: 1; min-width: 260px; font-family: var(--font-heading); font-size: 14px; font-weight: 700; color: #0B3D7A; border: none; border-bottom: 1px dashed rgba(15,23,42,0.2); padding: 4px 2px; background: transparent; outline: none; }
+    .cmp-ctl { font-size: 11px; font-weight: 600; color: #0B3D7A; display: inline-flex; align-items: center; gap: 6px; }
+    .tool-select-light { font-size: 11px; padding: 3px 6px; border: 1px solid rgba(15,23,42,0.2); border-radius: 4px; background: #fff; color: #0B3D7A; max-width: 360px; }
+    .cmp-series { display: flex; flex-direction: column; gap: 6px; padding: 8px 10px; background: #F3F6FA; border: 1px solid rgba(15,23,42,0.08); border-radius: 6px; }
+    .cmp-series-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .cmp-tag { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 10px; background: rgba(35,87,167,0.1); color: #2357A7; min-width: 44px; text-align: center; }
+    .cmp-tag.base { background: #0B3D7A; color: #fff; }
+    .cmp-label { font-size: 11px; padding: 3px 6px; border: 1px solid rgba(15,23,42,0.15); border-radius: 4px; width: 200px; }
+    .cmp-btn { font-size: 11px; width: 24px; height: 22px; border: 1px solid rgba(15,23,42,0.15); border-radius: 4px; background: #fff; color: #334155; cursor: pointer; }
+    .cmp-btn:disabled { opacity: 0.35; cursor: default; }
+    .cmp-warn { font-size: 10.5px; font-weight: 600; color: #b45309; }
+    .cmp-empty { font-size: 11.5px; color: #64748b; }
+    .cmp-note { font-size: 10px; color: #64748b; line-height: 1.6; }
+    .cmp-summary { font-size: 12px; color: #1e293b; line-height: 1.7; }
+    .toc-editor-bar { position: absolute; left: 50%; bottom: 26px; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; padding: 6px 12px; background: rgba(243,246,250,0.96); border: 1px solid rgba(15,23,42,0.12); border-radius: 6px; font-size: 11px; color: #475569; white-space: nowrap; }
+    .toc-editor-bar input { font-size: 12px; padding: 3px 8px; border: 1px solid rgba(15,23,42,0.2); border-radius: 4px; width: 220px; }
     .note-tool-btn.note-to-image { width: auto; padding: 0 8px; font-size: 11px; font-weight: 600; white-space: nowrap; }
     .sim-chart-box { margin-top: 4px; }
     .sim-chart-toggle { font-size: 11px; color: #475569; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
@@ -4376,6 +4395,8 @@
             <button class="dropdown-item" data-type="data">📊 數據頁</button>
             <button class="dropdown-item" data-type="sim_vs_meas">📉 比對頁</button>
             <button class="dropdown-item" data-type="conclusion">📝 結論頁</button>
+            <button class="dropdown-item" data-type="compare" title="比較本報告不同測試條件，或其他報告（例如上一個 Stage）的元件溫度">⚖ 比較頁</button>
+            <button class="dropdown-item" data-type="toc" title="自動列出各頁與頁碼，插在封面後">📑 目錄頁</button>
             <button class="dropdown-item" data-type="note">🗒 備註頁（不匯出）</button>
           </div>
         </div>
@@ -4430,6 +4451,8 @@
               <button class="dropdown-item" data-type="data">📊 數據頁</button>
               <button class="dropdown-item" data-type="sim_vs_meas">📉 比對頁</button>
               <button class="dropdown-item" data-type="conclusion">📝 結論頁</button>
+              <button class="dropdown-item" data-type="compare" title="比較本報告不同測試條件，或其他報告（例如上一個 Stage）的元件溫度">⚖ 比較頁</button>
+              <button class="dropdown-item" data-type="toc" title="自動列出各頁與頁碼，插在封面後">📑 目錄頁</button>
               <button class="dropdown-item" data-type="note">🗒 備註頁（不匯出）</button>
             </div>
           </div>
@@ -4828,6 +4851,8 @@
           else if (type === 'conclusion') addConclusionPage();
           else if (type === 'note') addNotePage();
           else if (type === 'image-batch') showBatchImageModal(state.activePage);
+          else if (type === 'compare') addPageOfType('compare');
+          else if (type === 'toc') addTocPage();
         });
       });
     }
@@ -4902,6 +4927,12 @@
         };
       } else if (type === 'note') {
         page.data = { title: '', blocks: [newNoteBlock()] };
+      } else if (type === 'compare') {
+        // start with this report's test conditions (data pages), first = baseline
+        const dps = state.pages.filter(p => p.type === 'data').slice(0, 4);
+        page.data = { title: '', ta: null, sort: 'order', series: dps.map(p => ({ report_id: null, page_id: p.id, label: '' })) };
+      } else if (type === 'toc') {
+        page.data = { title: '' };
       }
       return page;
     }
@@ -4917,6 +4948,16 @@
     }
 
     function addCoverPage() { return addPageOfType('cover'); }
+    function addTocPage() {
+      const page = makePage('toc');
+      const at = state.pages.findIndex(p => p.type === 'cover') + 1;   // right after the cover (or first)
+      state.pages.splice(at, 0, page);
+      initPageSnapshot(page);
+      saveStructure();
+      renderPageList();
+      selectPage(at);
+      return page;
+    }
 
     // Auto-generated base name for a page (some types carry a running count).
     function pageBaseLabel(idx) {
@@ -4927,10 +4968,11 @@
       if (t === 'annotation') return '標註頁';
       if (t === 'sim_vs_meas') return '比對頁';
       if (t === 'conclusion') return '結論頁';
-      if (t === 'image' || t === 'data' || t === 'note') {
+      if (t === 'toc') return '目錄頁';
+      if (t === 'image' || t === 'data' || t === 'note' || t === 'compare') {
         let n = 0;
         for (let j = 0; j <= idx; j++) if (state.pages[j].type === t) n++;
-        return (t === 'image' ? '圖片頁 ' : t === 'data' ? '數據頁 ' : '備註頁 ') + n;
+        return ({ image: '圖片頁 ', data: '數據頁 ', note: '備註頁 ', compare: '比較頁 ' })[t] + n;
       }
       return '未知頁面';
     }
@@ -5138,7 +5180,7 @@
 
       const page = state.pages[state.activePage];
       // Switch canvas orientation
-      if (page.type === 'image' || page.type === 'annotation' || page.type === 'sim_vs_meas' || page.type === 'data' || page.type === 'conclusion') {
+      if (page.type === 'image' || page.type === 'annotation' || page.type === 'sim_vs_meas' || page.type === 'data' || page.type === 'conclusion' || page.type === 'compare' || page.type === 'toc') {
         $canvas.classList.add('landscape');
         if (canvasTag) canvasTag.textContent = 'A4 LANDSCAPE';
       } else if (page.type === 'note') {
@@ -5164,6 +5206,10 @@
         renderConclusionPage(page);
       } else if (page.type === 'note') {
         renderNotePage(page);
+      } else if (page.type === 'compare') {
+        renderComparePage(page);
+      } else if (page.type === 'toc') {
+        renderTocPage(page);
       }
     }
 
@@ -10330,6 +10376,10 @@
           buildSimVsMeasPagesHTML(page.data).forEach(html => {
             list.push({ page, pageIdx, html, isLandscape: true });
           });
+        } else if (page.type === 'compare') {
+          buildComparePagesHTML(page.data).forEach(html => list.push({ page, pageIdx, html, isLandscape: true }));
+        } else if (page.type === 'toc') {
+          list.push({ page, pageIdx, html: '', isLandscape: true });   // filled in by numberVirtualPages
         } else if (page.type === 'conclusion') {
           // Long Compliance Summaries continue onto further pages.
           buildConclusionPagesHTML(page.data).forEach(html => {
@@ -10351,6 +10401,7 @@
     // the pages actually previewed / exported; the cover counts as page 1).
     function numberVirtualPages(list) {
       const n = list.length;
+      list = list.map(vp => vp.page.type === 'toc' ? { ...vp, html: buildTocHTML(list, vp.page) } : vp);
       return list.map((vp, i) => (vp.page.type === 'cover') ? vp : {
         ...vp,
         html: `<div style="position:relative;width:100%;height:100%;">${vp.html}<div style="position:absolute;left:0;right:0;bottom:14px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:8px;color:rgba(15,23,42,0.45);letter-spacing:0;z-index:3;">${i + 1} / ${n}</div></div>`,
@@ -11591,6 +11642,7 @@
       const map = new Map();
       try {
         const digests = await dbAdapter.getReportDigests();
+        reportDigestCache = digests.filter(r => r.id !== state.reportId);
         digests.filter(r => r.id !== state.reportId)
           .sort((a, b) => String(a.updated_at || '').localeCompare(String(b.updated_at || '')))   // newest last → wins
           .forEach(r => r.dataPages.forEach(dp => dp.components.forEach(c => addSpecEntry(map, c, r.project_name || ''))));
@@ -12174,9 +12226,12 @@
         lines.push(s);
       });
       state.pages.forEach(p => {
-        if (p.type !== 'sim_vs_meas') return;
-        const t = simSummaryText(p.data);
-        if (t) lines.push('【模擬比對】' + t);
+        if (p.type === 'sim_vs_meas') {
+          const t = simSummaryText(p.data);
+          if (t) lines.push('【模擬比對】' + t);
+        } else if (p.type === 'compare') {
+          compareSummaryLines(compareTable(p.data, false)).forEach(l => lines.push('【比較】' + l));
+        }
       });
       if (groups.length) {
         let s = `綜合判定：${overall.label}`;
@@ -12491,6 +12546,12 @@
           const noTa = vals.filter(v => v.noTa).length;
           if (noTa) add(idx, 'warn', `${noTa} 個元件的數據頁沒有 Ta = ${ta}°C`);
           if (!String(d.conclusion || '').trim()) add(idx, 'info', '比對頁未填結論敘述');
+        } else if (p.type === 'compare') {
+          const sd = (d.series || []).map(sr => compareSeriesData(sr, false));
+          if (sd.length < 2) add(idx, 'warn', '比較頁至少需要 2 個比較對象');
+          const missing = sd.filter(x => !x.ok).length;
+          if (missing) add(idx, 'warn', `${missing} 個比較對象找不到來源`);
+          if (sd.some(x => x.ok && !x.live)) add(idx, 'info', '部分比較對象使用快照（來源報告不在目前資料庫）');
         } else if (p.type === 'conclusion') {
           const text = String(d.summary || '').replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim();
           if (!text) add(idx, 'warn', '結論未填寫');
@@ -12531,6 +12592,7 @@
         return { cls: s.status === 'warning' ? 'warn' : s.status, text: s.status === 'fail' ? 'FAIL' : s.status === 'warning' ? 'COND' : 'PASS', title: s.label };
       }
       if (page.type === 'image' && !(d.images || []).some(im => im && im.url_or_base64)) return { cls: '', text: '空', title: '尚未放入圖片' };
+      if (page.type === 'compare' && (d.series || []).length < 2) return { cls: '', text: '空', title: '至少需要 2 個比較對象' };
       if (page.type === 'annotation' && !d.photo_url_or_base64) return { cls: '', text: '空', title: '尚未放入照片' };
       return null;
     }
@@ -12591,8 +12653,275 @@
       out.forEach(p => {
         if (p.type === 'sim_vs_meas') (p.data.items || []).forEach(it => { if (idMap[it.source_page]) it.source_page = idMap[it.source_page]; });
         if (p.type === 'annotation' && p.data.temp_src && idMap[p.data.temp_src.page_id]) p.data.temp_src.page_id = idMap[p.data.temp_src.page_id];
+        if (p.type === 'compare') (p.data.series || []).forEach(sr => { if (!sr.report_id && idMap[sr.page_id]) sr.page_id = idMap[sr.page_id]; });
       });
       return out;
+    }
+
+    // ━━━ 比較頁 (Comparison page) ━━━
+    // Compares component Tc between test conditions of this report and/or data
+    // pages of OTHER reports in the database (e.g. EVT vs DVT). Rows are matched
+    // by component name; the first series is the baseline and every other
+    // series gets a ΔTc column. A series from another report keeps a snapshot of
+    // its values, so the page (and the PDF) still works if that report is
+    // deleted or is not in a colleague's database.
+    //   d = { title, ta, sort: 'order'|'delta', series: [{ report_id|null, page_id, label, snapshot? }] }
+    const COMPARE_MAX_SERIES = 4;
+    let reportDigestCache = [];          // other reports' digests (filled by loadSpecMemory)
+
+    // Pages of reports not opened since page ids were introduced have no id yet → match by position.
+    const compareDigestPageKey = dp => dp.id || ('#' + dp.n);
+    function compareSourceLabel(reportName, pageN, note) {
+      return `${reportName ? reportName + ' · ' : ''}數據頁 ${pageN}${note ? ' · ' + note : ''}`;
+    }
+    // Live data of one series → { ok, live, label, tas, comps } (comps as stored on a data page).
+    function compareSeriesData(s, refreshSnapshot) {
+      if (!s) return { ok: false };
+      if (!s.report_id) {
+        const idx = state.pages.findIndex(p => p.id === s.page_id && p.type === 'data');
+        if (idx < 0) return { ok: false, label: s.label || '（已刪除的數據頁）' };
+        const p = state.pages[idx];
+        return { ok: true, live: true, label: s.label || (pageBaseLabel(idx) + (p.data.list_note ? ' · ' + p.data.list_note : '')), tas: p.data.ta_conditions || [], comps: p.data.components || [] };
+      }
+      const rep = reportDigestCache.find(r => r.id === s.report_id);
+      const dp = rep && rep.dataPages.find(x => compareDigestPageKey(x) === s.page_id || s.page_id === '#' + x.n);
+      if (dp) {
+        const snap = { report_name: rep.project_name || '', stage: rep.stage || '', page_label: compareSourceLabel('', dp.n, dp.note).trim(), ta_conditions: dp.ta_conditions, components: dp.components };
+        let changed = false;
+        if (refreshSnapshot && JSON.stringify(s.snapshot) !== JSON.stringify(snap)) { s.snapshot = snap; changed = true; }
+        return { ok: true, live: true, changed, label: s.label || `${rep.stage ? rep.stage + ' · ' : ''}${compareSourceLabel(rep.project_name, dp.n, dp.note)}`, tas: dp.ta_conditions, comps: dp.components };
+      }
+      if (s.snapshot) {
+        const sn = s.snapshot;
+        return { ok: true, live: false, label: s.label || `${sn.stage ? sn.stage + ' · ' : ''}${sn.report_name} · ${sn.page_label}`, tas: sn.ta_conditions || [], comps: sn.components || [] };
+      }
+      return { ok: false, label: s.label || '（找不到來源報告）' };
+    }
+    function compareTaOptions(seriesData) {
+      const ok = seriesData.filter(x => x.ok);
+      const union = Array.from(new Set(ok.flatMap(x => x.tas))).sort((a, b) => a - b);
+      const common = union.filter(t => ok.every(x => x.tas.includes(t)));
+      return { union, common };
+    }
+    function compareTable(d, refresh) {
+      const series = (d.series || []).slice(0, COMPARE_MAX_SERIES);
+      const sd = series.map(s => compareSeriesData(s, refresh));
+      const { union, common } = compareTaOptions(sd);
+      let ta = typeof d.ta === 'number' && union.includes(d.ta) ? d.ta
+        : common.includes(55) ? 55 : common.length ? common[common.length - 1] : union.length ? union[union.length - 1] : null;
+      const rows = [], byKey = new Map();
+      sd.forEach((x, si) => {
+        if (!x.ok) return;
+        x.comps.forEach(c => {
+          const k = specKey(c.name);
+          if (!k) return;
+          let row = byKey.get(k);
+          if (!row) { row = { name: String(c.name).trim(), category: c.category || 'RF', derated: NaN, cells: [] }; byKey.set(k, row); rows.push(row); }
+          const calc = computeComponent(c, x.tas);
+          const cell = calc.cells.find(z => z.ta === ta);
+          row.cells[si] = { tc: cell && !calc.disabled ? cell.tc : NaN, status: calc.disabled ? 'disabled' : cell ? cell.status : 'none', noTa: !x.tas.includes(ta) };
+          if (calc.derated > 0) { row.derated = calc.derated; row.category = c.category || row.category; }   // the latest series wins
+        });
+      });
+      rows.forEach(r => {
+        r.deltas = sd.map((x, si) => {
+          const a = r.cells[0], b = r.cells[si];
+          return si && a && b && !isNaN(a.tc) && !isNaN(b.tc) ? b.tc - a.tc : NaN;
+        });
+      });
+      if (d.sort === 'delta' && sd.length > 1) {
+        const last = sd.length - 1;
+        rows.sort((a, b) => (isNaN(b.deltas[last]) ? -Infinity : Math.abs(b.deltas[last])) - (isNaN(a.deltas[last]) ? -Infinity : Math.abs(a.deltas[last])));
+      }
+      return { series, sd, ta, union, common, rows, changed: sd.some(x => x.changed) };
+    }
+    // "B vs A：平均 ΔTc −2.3°C（8 顆），降溫最多 PA-1 −5.1°C，升溫最多 LNA +1.2°C"
+    function compareSummaryLines(t) {
+      const sign = v => (v >= 0 ? '+' : '') + v.toFixed(1);
+      return t.sd.slice(1).map((x, k) => {
+        const si = k + 1;
+        const ds = t.rows.map(r => ({ r, v: r.deltas[si] })).filter(z => !isNaN(z.v));
+        if (!ds.length || !x.ok || !t.sd[0].ok) return '';
+        const mean = ds.reduce((a, z) => a + z.v, 0) / ds.length;
+        const min = ds.reduce((a, z) => (z.v < a.v ? z : a)), max = ds.reduce((a, z) => (z.v > a.v ? z : a));
+        return `${x.label} 對比 ${t.sd[0].label}：平均 ΔTc ${sign(mean)}°C（${ds.length} 顆）`
+          + (min.v < 0 ? `，降溫最多 ${min.r.name} ${sign(min.v)}°C` : '')
+          + (max.v > 0 ? `，升溫最多 ${max.r.name} ${sign(max.v)}°C` : '') + '。';
+      }).filter(Boolean);
+    }
+    // Static table (editor preview + PDF). rows = a chunk of t.rows.
+    function compareTableHTML(t, rows) {
+      const th = 'text-align:center;font-family:&apos;JetBrains Mono&apos;,monospace;font-size:8px;font-weight:500;color:#fff;padding:4px 6px;background:#0B3D7A;border:1px solid rgba(255,255,255,0.3);white-space:normal;letter-spacing:0;';
+      const td = 'padding:3px 5px;border:1px solid rgba(15,23,42,0.08);font-size:10px;white-space:nowrap;letter-spacing:0;text-align:center;';
+      const stBg = { fail: 'background:rgba(231,76,60,0.10);color:#c0392b;font-weight:600;', warn: 'background:rgba(243,156,18,0.12);color:#b9770e;font-weight:600;', pass: '', none: '', disabled: 'color:rgba(15,23,42,0.4);' };
+      const head = t.sd.map((x, si) => `<th style="${th}">${escHtml(x.label || '—')}${si === 0 ? '<br><span style="opacity:0.75;">（基準）</span>' : ''}<br>Tc${t.ta !== null ? ` @ ${t.ta}°C` : ''}</th>${si ? `<th style="${th}">ΔTc (°C)</th>` : ''}`).join('');
+      const body = rows.map(r => {
+        const cells = t.sd.map((x, si) => {
+          const c = r.cells[si];
+          const tcTxt = !x.ok || !c ? '—' : c.status === 'disabled' ? '斷線' : c.noTa ? '無此 Ta' : fmt1(c.tc);
+          const dv = r.deltas[si];
+          const dTxt = isNaN(dv) ? '—' : (dv >= 0 ? '+' : '') + dv.toFixed(1);
+          const dStyle = isNaN(dv) || Math.abs(dv) < 0.5 ? 'color:rgba(15,23,42,0.6);' : dv < 0 ? 'color:#1e8449;font-weight:700;' : 'color:#c0392b;font-weight:700;';
+          return `<td style="${td}${c ? stBg[c.status] || '' : ''}">${tcTxt}</td>${si ? `<td style="${td}${dStyle}">${dTxt}</td>` : ''}`;
+        }).join('');
+        return `<tr><td style="${td}text-align:left;"><span style="display:inline-block;width:3px;height:14px;border-radius:2px;background:${catColorOf(r.category)};margin-right:3px;vertical-align:middle;"></span>${escHtml(r.category)}</td>
+          <td style="${td}white-space:normal;word-break:break-word;">${escHtml(r.name)}</td><td style="${td}">${fmt1(r.derated)}</td>${cells}</tr>`;
+      }).join('');
+      return `<div style="border:1px solid #C2DFF8;"><table style="width:100%;border-collapse:collapse;font-size:10px;">
+          <thead><tr><th style="${th}">類別</th><th style="${th}">元件名稱</th><th style="${th}">Derated Tc (°C)</th>${head}</tr></thead>
+          <tbody>${body || `<tr><td colspan="${3 + t.sd.length * 2}" style="${td}color:rgba(15,23,42,0.5);">尚無可比較的元件</td></tr>`}</tbody></table></div>`;
+    }
+    const COMPARE_NOTE = '※ 依元件名稱對應；ΔTc = 比較對象 Tc − 基準 Tc（負值 = 降溫，綠色；正值 = 升溫，紅色；|ΔTc| < 0.5°C 視為持平）。Tc 底色：紅 = Fail、黃 = Warning（依各自的 Derated Spec）。';
+    function buildComparePagesHTML(d) {
+      const t = compareTable(d, false);
+      const title = `<div style="font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:600;letter-spacing:0.02em;color:#0B3D7A;margin-bottom:8px;">${escHtml(d.title || 'COMPARISON')}${t.ta !== null ? ` — Ta = ${t.ta}°C` : ''}</div>`;
+      const stale = t.sd.filter(x => x.ok && !x.live).length ? `<div style="font-size:8.5px;color:#b45309;margin-top:4px;">※ 部分比較對象的報告不在目前資料庫，使用加入時的數值快照。</div>` : '';
+      const extras = `<div style="font-size:9px;color:rgba(15,23,42,0.6);padding-top:6px;line-height:1.6;">${escHtml(COMPARE_NOTE)}</div>${stale}
+        ${compareSummaryLines(t).map(l => `<div style="font-size:10.5px;color:rgba(15,23,42,0.85);margin-top:6px;">■ ${escHtml(l)}</div>`).join('')}`;
+      const shell = body => wrapPageHTML(`<div style="width:100%;height:100%;padding:22px 28px 28px;color:rgba(15,23,42,0.9);overflow:hidden;letter-spacing:0;">${title}${body}</div>`);
+      const PER = 18;
+      if (t.rows.length <= PER) return [shell(compareTableHTML(t, t.rows) + extras)];
+      const pages = [];
+      for (let i = 0; i < t.rows.length; i += PER) {
+        const last = i + PER >= t.rows.length;
+        pages.push(shell(compareTableHTML(t, t.rows.slice(i, i + PER)) + (last ? extras : '')));
+      }
+      return pages;
+    }
+
+    function renderComparePage(page) {
+      const d = page.data;
+      if (!Array.isArray(d.series)) d.series = [];
+      const pageIdx = state.activePage;
+      const t = compareTable(d, true);
+      if (t.changed) scheduleSave(pageIdx, { undo: false });           // refreshed snapshot of another report
+      // source options: this report's data pages + every data page of other reports
+      const localOpts = state.pages.map((p, i) => ({ p, i })).filter(x => x.p.type === 'data')
+        .map(x => `<option value="L|${escapeAttr(x.p.id)}">${escHtml(pageBaseLabel(x.i) + (x.p.data.list_note ? ' · ' + x.p.data.list_note : ''))}</option>`).join('');
+      const otherGroups = reportDigestCache.filter(r => r.dataPages.length).map(r =>
+        `<optgroup label="${escapeAttr([r.project_name || '未命名報告', r.model, r.stage].filter(Boolean).join(' · '))}">${r.dataPages.map(dp =>
+          `<option value="R|${escapeAttr(r.id)}|${escapeAttr(compareDigestPageKey(dp))}">${escHtml((r.stage ? r.stage + ' · ' : '') + compareSourceLabel(r.project_name || '未命名報告', dp.n, dp.note))}</option>`).join('')}</optgroup>`).join('');
+      const srcOptions = `<optgroup label="本報告">${localOpts}</optgroup>${otherGroups}`;
+      const valueOf = s => s.report_id ? `R|${s.report_id}|${s.page_id}` : `L|${s.page_id}`;
+      const seriesRows = d.series.slice(0, COMPARE_MAX_SERIES).map((s, i) => {
+        const x = t.sd[i];
+        const known = (s.report_id ? reportDigestCache.some(r => r.id === s.report_id) : true);
+        return `<div class="cmp-series-row">
+          <span class="cmp-tag${i === 0 ? ' base' : ''}">${i === 0 ? '基準' : '比較 ' + i}</span>
+          <select class="tool-select-light" data-cmp-src="${i}">${known ? '' : `<option value="${escapeAttr(valueOf(s))}" selected>（快照）${escHtml(x.label || '')}</option>`}${srcOptions.replace(`value="${escapeAttr(valueOf(s))}"`, `value="${escapeAttr(valueOf(s))}" selected`)}</select>
+          <input type="text" class="cmp-label" data-cmp-label="${i}" placeholder="${escapeAttr(x.label || '欄位名稱')}" value="${escapeAttr(s.label || '')}" title="表頭顯示名稱（空白 = 自動）">
+          ${!x.ok ? '<span class="cmp-warn">⚠ 找不到來源</span>' : !x.live ? '<span class="cmp-warn" title="來源報告不在目前資料庫，使用加入時的快照">快照</span>' : ''}
+          <button type="button" class="cmp-btn" data-cmp-up="${i}" title="上移"${i === 0 ? ' disabled' : ''}>↑</button>
+          <button type="button" class="cmp-btn" data-cmp-del="${i}" title="移除">✕</button>
+        </div>`;
+      }).join('');
+      const taSel = t.union.length ? `<label class="cmp-ctl">比較 Ta <select class="tool-select-light" id="cmp-ta">${t.union.map(v => `<option value="${v}"${v === t.ta ? ' selected' : ''}>${v}°C${t.common.includes(v) ? '' : '（部分對象沒有）'}</option>`).join('')}</select></label>` : '';
+      $canvas.innerHTML = editorPageWrapHTML(`
+        <div class="cmp-page">
+          <div class="cmp-top">
+            <input type="text" class="cmp-title" id="cmp-title" placeholder="比較標題（例：RF 補償前後 / EVT vs DVT）" value="${escapeAttr(d.title || '')}">
+            ${taSel}
+            <label class="cmp-ctl">排序 <select class="tool-select-light" id="cmp-sort"><option value="order"${d.sort !== 'delta' ? ' selected' : ''}>依基準順序</option><option value="delta"${d.sort === 'delta' ? ' selected' : ''}>依 |ΔTc| 大 → 小</option></select></label>
+          </div>
+          <div class="cmp-series">
+            ${seriesRows || '<div class="cmp-empty">選擇要比較的數據頁：本報告的不同測試條件，或其他報告（例如上一個 Stage）。第一個是基準。</div>'}
+            ${d.series.length < COMPARE_MAX_SERIES ? `<div class="cmp-series-row"><select class="tool-select-light" id="cmp-add"><option value="">＋ 加入比較對象…</option>${srcOptions}</select></div>` : ''}
+          </div>
+          <div class="cmp-table">${compareTableHTML(t, t.rows)}</div>
+          <div class="cmp-note">${escHtml(COMPARE_NOTE)}</div>
+          <div class="cmp-summary">${compareSummaryLines(t).map(l => `<div>■ ${escHtml(l)}</div>`).join('')}</div>
+        </div>`);
+      $canvas.classList.add('scrollable-edit');
+
+      const parseSrc = v => {
+        const [kind, a, b] = v.split('|');
+        if (kind === 'L') return { report_id: null, page_id: a };
+        if (kind === 'R') return { report_id: a, page_id: b };
+        return null;
+      };
+      const commit = () => { scheduleSave(pageIdx); renderComparePage(page); };
+      document.getElementById('cmp-title').addEventListener('input', (e) => { d.title = e.target.value; scheduleSave(pageIdx); });
+      document.getElementById('cmp-ta')?.addEventListener('change', (e) => { d.ta = parseFloat(e.target.value); commit(); });
+      document.getElementById('cmp-sort').addEventListener('change', (e) => { d.sort = e.target.value; commit(); });
+      document.getElementById('cmp-add')?.addEventListener('change', (e) => {
+        const s = parseSrc(e.target.value);
+        if (!s) return;
+        d.series.push(s);
+        compareSeriesData(s, true);       // take the snapshot right away
+        commit();
+      });
+      $canvas.querySelectorAll('[data-cmp-src]').forEach(sel => sel.addEventListener('change', () => {
+        const i = parseInt(sel.dataset.cmpSrc);
+        const s = parseSrc(sel.value);
+        if (!s) return;
+        d.series[i] = Object.assign({ label: d.series[i].label || '' }, s);
+        compareSeriesData(d.series[i], true);
+        commit();
+      }));
+      $canvas.querySelectorAll('[data-cmp-label]').forEach(inp => inp.addEventListener('change', () => {
+        d.series[parseInt(inp.dataset.cmpLabel)].label = inp.value.trim();
+        commit();
+      }));
+      $canvas.querySelectorAll('[data-cmp-up]').forEach(btn => btn.addEventListener('click', () => {
+        const i = parseInt(btn.dataset.cmpUp);
+        if (i < 1) return;
+        [d.series[i - 1], d.series[i]] = [d.series[i], d.series[i - 1]];
+        commit();
+      }));
+      $canvas.querySelectorAll('[data-cmp-del]').forEach(btn => btn.addEventListener('click', () => {
+        d.series.splice(parseInt(btn.dataset.cmpDel), 1);
+        commit();
+      }));
+    }
+
+    // ━━━ 目錄頁 (Table of contents) ━━━
+    // One line per report page in the PDF, with the page number it starts on.
+    // Numbers come from the pages actually previewed / exported (filled in by
+    // numberVirtualPages), so a data page spanning several PDF pages, or an
+    // export of selected pages only, is always numbered right.
+    function tocEntryLabel(page, pageIdx) {
+      const d = page.data || {};
+      if (page.type === 'image') return d.title || pageBaseLabel(pageIdx);
+      if (page.type === 'annotation') return d.title || 'Thermocouple Location';
+      if (page.type === 'data') return 'Thermal Test Data' + (d.list_note ? ' — ' + d.list_note : '');
+      if (page.type === 'sim_vs_meas') { const ta = simCompareTa(d); return 'Simulation vs Measurement' + (ta !== null ? ` — Ta = ${ta}°C` : ''); }
+      if (page.type === 'conclusion') return 'Test Conclusion';
+      if (page.type === 'compare') return d.title || 'Comparison';
+      return pageBaseLabel(pageIdx);
+    }
+    function buildTocHTML(list, tocPage) {
+      const seen = new Set();
+      const entries = [];
+      list.forEach((vp, i) => {
+        if (vp.page === tocPage || vp.page.type === 'cover' || seen.has(vp.page)) return;
+        seen.add(vp.page);
+        entries.push({ label: tocEntryLabel(vp.page, vp.pageIdx), num: i + 1 });
+      });
+      const two = entries.length > 16;
+      const row = e => `<div style="display:flex;align-items:baseline;gap:6px;padding:5px 0;font-size:${two ? 11 : 12.5}px;color:rgba(15,23,42,0.88);">
+          <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:${two ? 300 : 620}px;">${escHtml(e.label)}</span>
+          <span style="flex:1;border-bottom:1px dotted rgba(15,23,42,0.35);transform:translateY(-3px);"></span>
+          <span style="font-family:'JetBrains Mono',monospace;color:#0B3D7A;font-weight:600;">${e.num}</span></div>`;
+      const half = Math.ceil(entries.length / 2);
+      const cols = two
+        ? `<div style="display:grid;grid-template-columns:1fr 1fr;gap:0 36px;"><div>${entries.slice(0, half).map(row).join('')}</div><div>${entries.slice(half).map(row).join('')}</div></div>`
+        : entries.map(row).join('');
+      return wrapPageHTML(`<div style="width:100%;height:100%;padding:34px 60px 40px;letter-spacing:0;">
+          <div style="font-family:'Space Grotesk',sans-serif;font-size:20px;font-weight:700;color:#0B3D7A;letter-spacing:0.04em;">${escHtml((tocPage.data && tocPage.data.title) || 'CONTENTS')}</div>
+          <div style="width:48px;height:2px;background:#2357A7;margin:8px 0 18px;"></div>
+          ${cols || '<div style="color:rgba(15,23,42,0.5);font-size:12px;">（沒有其他頁面）</div>'}
+        </div>`);
+    }
+    function renderTocPage(page) {
+      const d = page.data;
+      const list = numberVirtualPages(buildVirtualPages());
+      const vp = list.find(v => v.page === page);
+      $canvas.innerHTML = `<div style="position:relative;width:100%;height:100%;">${vp ? vp.html : ''}
+        <div class="toc-editor-bar">
+          <input type="text" id="toc-title" value="${escapeAttr(d.title || '')}" placeholder="標題（預設 CONTENTS）">
+          <span>頁碼依匯出時實際的頁數自動計算（只匯出部分頁面時也會重算）</span>
+        </div></div>`;
+      document.getElementById('toc-title').addEventListener('change', (e) => { d.title = e.target.value.trim(); scheduleSave(state.activePage); renderTocPage(page); });
     }
 
     // ━━━ Utility ━━━

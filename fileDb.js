@@ -227,6 +227,28 @@ const fileDb = {
     })).sort((a, b) => (b.created_at ?? '').localeCompare(a.created_at ?? ''));
   },
 
+  // Lightweight per-report digest (no images): page count + the data pages'
+  // components, for the homepage result badges and the component-spec memory.
+  async getReportDigests() {
+    this._assertReady();
+    const reports = dbCache['thermal_reports'] ?? {};
+    const pick = c => ({
+      name: c.name, category: c.category, spec_type: c.spec_type, tc_spec: c.tc_spec,
+      derating: c.derating, tim_type: c.tim_type, disabled: !!c.disabled, readings: clone(c.readings || {}),
+    });
+    return Object.entries(reports).map(([id, r]) => {
+      const pages = Object.values(r.pages || {}).filter(Boolean).sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+      return {
+        id, project_name: r.project_name, updated_at: r.updated_at, created_at: r.created_at,
+        pageCount: pages.length,
+        dataPages: pages.filter(p => p.type === 'data').map(p => ({
+          ta_conditions: clone(p.data?.ta_conditions || []),
+          components: (p.data?.components || []).map(pick),
+        })),
+      };
+    });
+  },
+
   async createReport(reportId, meta) {
     this._assertReady();
     if (!dbCache['thermal_reports']) dbCache['thermal_reports'] = {};

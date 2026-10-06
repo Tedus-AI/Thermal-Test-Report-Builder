@@ -78,8 +78,17 @@
   }
 
   // ───────── MSAL ─────────
-  /** auth.html next to the tool (registered as an SPA redirect URI in the Azure app). */
-  function redirectUri() { return location.origin + location.pathname.replace(/[^/]*$/, '') + 'auth.html'; }
+  // Sign-in redirect page. Azure only accepts redirect URIs registered in the
+  // app, and the shared app registers the TIM tool's blank auth.html. On the same
+  // GitHub Pages origin that page is reused (same origin → MSAL here can still
+  // read the popup / silent-renewal iframe result), so no Azure change is needed.
+  // Anywhere else (e.g. http://localhost) auth.html next to the tool is used and
+  // must be registered as an SPA redirect URI.
+  const SHARED_REDIRECT_URI = 'https://tedus-ai.github.io/Project-TIM-management-tool/auth.html';
+  function redirectUri() {
+    if (location.origin === new URL(SHARED_REDIRECT_URI).origin) return SHARED_REDIRECT_URI;
+    return location.origin + location.pathname.replace(/[^/]*$/, '') + 'auth.html';
+  }
 
   function loadScript(url, integrity, ms) {
     return new Promise((resolve, reject) => {

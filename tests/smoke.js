@@ -477,9 +477,11 @@ const assert = (cond, msg, detail) => { if (!cond) throw new Error(msg + (detail
       await useDb({ thermal_reports: { A: report('A', { 0: cover('A') }), B: report('B', { 0: cover('B') }) }, tim_library: { grease: [], pad: [{ name: 'PadA' }], putty: [] } });
       const res = await spSync.enable();
       const st = fileDb.sync.state();
-      return { res, chip: document.querySelector('[data-sp-chip]').textContent, etags: Object.keys(st.etags).sort(), dirty: Object.keys(st.dirty), onDiskEtags: Object.keys(disk().sp_sync.etags).length };
+      return { res, chip: document.querySelector('[data-sp-chip]').textContent, etags: Object.keys(st.etags).sort(), dirty: Object.keys(st.dirty), onDiskEtags: Object.keys(disk().sp_sync.etags).length,
+               redirect: window.__msalConfig.auth.redirectUri === location.origin + '/auth.html' };
     });
     assert(r.res.ok && r.chip.includes('✓'), 'enabled + synced', r);
+    assert(r.redirect, 'off GitHub Pages: auth.html next to the tool', r);
     assert(g.reportIds().sort().join() === 'A,B' && g.report('A').project_name === 'A', 'reports uploaded', g.reportIds());
     assert(g.json('Thermal_Report_Builder/Database/tim_library.json').tim_library.pad[0].name === 'PadA', 'TIM uploaded');
     assert(r.etags.join() === 'A,B' && r.dirty.length === 0 && r.onDiskEtags === 2, 'sync state persisted locally', r);
@@ -641,6 +643,341 @@ const assert = (cond, msg, detail) => { if (!cond) throw new Error(msg + (detail
       return Object.keys(disk().thermal_reports);
     });
     assert(r.join() === 'X', 'downloaded', r);
+  });
+
+  console.log('Efficiency tools');
+
+  // Logger CSV: Keysight-style header (channel tags in <>), 30 s scans, ambient channel.
+  const loggerCsvText = (tags, fn, n = 60) => {
+    const rows = ['Scan,Time,' + tags.map((t, i) => `${101 + i} <${t}> (C)`).join(',')];
+    for (let i = 0; i < n; i++) {
+      const t = 13 * 3600 + i * 30;
+      const hh = Math.floor(t / 3600), mm = String(Math.floor(t / 60) % 60).padStart(2, '0'), ss = String(t % 60).padStart(2, '0');
+      rows.push(`${i + 1},2026/10/06 ${hh}:${mm}:${ss},` + tags.map((tag, k) => fn(tag, k, i).toFixed(2)).join(','));
+    }
+    return rows.join('\n');
+  };
+
+  await T('記錄器 CSV：依通道名稱對應、環溫選 Ta、取最後 10 分鐘平均、穩態檢查', async (page) => {
+    const csv = loggerCsvText(['FPGA', 'PA-1', 'PA-10', 'Ambient'], (tag, k, i) =>
+      tag === 'Ambient' ? 54.6 + (i % 2 ? 0.1 : -0.1)
+      : tag === 'PA-10' ? 60 + i * 0.2                       // still rising → not stable
+      : (tag === 'FPGA' ? 90 : 80) + (i % 2 ? 0.2 : -0.2));
+    const r = await page.evaluate(async (csv) => {
+      await useDb({ thermal_reports: { A: report('A', { 0: dataPage(0, [comp('PA-1', {}), comp('PA-10', { ta_55: '1' }), comp('FPGA', {})]) }) } });
+      await openReport('A');
+      showLoggerImportModal(state.pages[0], new File([csv], 'run55.csv', { type: 'text/csv' }));
+      await sleep(300);
+      const maps = Array.from(document.querySelectorAll('[data-lg-map]')).map(s => s.selectedOptions[0].textContent);
+      const ta = document.getElementById('lg-ta').value;
+      const amb = document.getElementById('lg-amb').selectedOptions[0].textContent;
+      const foot = document.getElementById('lg-foot').textContent;
+      document.getElementById('lg-apply').click();
+      await flushAllSaves();
+      const d = disk().thermal_reports.A.pages['0'].data;
+      return { maps, ta, amb, foot, readings: d.components.map(c => c.readings.ta_55), map: Object.values(d.logger_map), last: d.logger_last.ta_55,
+               summary: document.getElementById('dt-summary').textContent };
+    }, csv);
+    assert(r.maps.join() === '102 <PA-1> (C),103 <PA-10> (C),101 <FPGA> (C)' && r.amb.includes('Ambient') && r.ta === 'ta_55', 'auto mapping + Ta from ambient', r);
+    assert(r.readings[0] === '80' && r.readings[2] === '90' && parseFloat(r.readings[1]) > 67 && parseFloat(r.readings[1]) < 72, 'last-10-min averages', r.readings);
+    assert(/1 顆未達穩態/.test(r.foot) && r.last.unstable.join() === 'PA-10' && r.last.ambient === 54.6 && r.last.file === 'run55.csv', 'stability + log', r);
+    assert(r.map.length === 3 && /run55\.csv/.test(r.summary), 'mapping remembered, import shown on the page', r);
+  });
+
+  await T('記錄器 CSV：名稱對不到就依順序；空白數據頁可直接由通道建立元件（修正到目標 Ta）', async (page) => {
+    const csv = ['Time;CH1;CH2;Ta'].concat(Array.from({ length: 40 }, (_, i) => `13:${String(i).padStart(2, '0')}:00;70,0;75,5;53,0`)).join('\n');
+    const r = await page.evaluate(async (csv) => {
+      await useDb({ thermal_reports: { A: report('A', { 0: dataPage(0, [comp('U1', {}), comp('U2', {})]), 1: dataPage(1, [], [55]) }) } });
+      await openReport('A');
+      showLoggerImportModal(state.pages[0], new File([csv], 'a.csv'));
+      await sleep(300);
+      const order = Array.from(document.querySelectorAll('[data-lg-map]')).map(s => s.selectedOptions[0].textContent);
+      document.querySelector('.tool-modal-overlay').remove();
+      selectPage(1);
+      showLoggerImportModal(state.pages[1], new File([csv], 'b.csv'));
+      await sleep(300);
+      const addChecked = document.getElementById('lg-add').checked;
+      document.getElementById('lg-correct').click();
+      document.getElementById('lg-apply').click();
+      await flushAllSaves();
+      return { order, addChecked, comps: disk().thermal_reports.A.pages['1'].data.components.map(c => [c.name, c.readings.ta_55]) };
+    }, csv);
+    assert(r.order.join() === 'CH1,CH2', 'order mapping (ambient excluded)', r);
+    assert(r.addChecked && JSON.stringify(r.comps) === JSON.stringify([['CH1', '72'], ['CH2', '77.5']]), 'components created, corrected by +2°C', r);
+  });
+
+  await T('loggerCsv.parse：分號 / 逗號小數、跨午夜、錯誤值', async (page) => {
+    const r = await page.evaluate(() => {
+      const semi = loggerCsv.parse('Zeit;A;B\n23:59:30;25,5;OVER\n00:00:00;25,7;30,1\n00:00:30;25,9;30,3');
+      const a = loggerCsv.analyze(semi, { minutes: 10 });
+      return { delim: semi.delimiter, mode: semi.timeMode, span: a.info.totalMinutes, avgA: a.stats[0].avg, nB: a.stats[1].n,
+               score: [loggerCsv.nameScore('PA-1', '101 <PA-1> (C)'), loggerCsv.nameScore('PA-1', '102 <PA-10> (C)')] };
+    });
+    assert(r.delim === ';' && r.mode === 'time' && r.span === 1 && Math.abs(r.avgA - 25.7) < 1e-9 && r.nB === 2, 'parse', r);
+    assert(r.score[0] > 0 && r.score[1] === 0, 'token-aware name match', r);
+  });
+
+  await T('規格記憶：輸入其他報告用過的元件名稱，自動帶入規格；摘要列一鍵帶入', async (page) => {
+    const r = await page.evaluate(async () => {
+      await useDb({ thermal_reports: {
+        OLD: report('OLD', { 0: dataPage(0, [comp('ADMV1013', {}, 105, '0.85', { spec_type: 'Rec.', category: 'PWR', tim_type: 'PadA' })]) }),
+        A: report('A', { 0: dataPage(0, [comp('X', {}, ''), comp('ADMV1013', {}, '')]) }) } });
+      await openReport('A');
+      const dl = Array.from(document.querySelectorAll('#dt-name-memory option')).map(o => o.value);
+      const btn = document.querySelector('[data-sum-fill-spec]');
+      const inp = document.querySelector('input[data-comp="0"][data-comp-field="name"]');
+      inp.value = 'ADMV1013'; inp.dispatchEvent(new Event('input')); inp.dispatchEvent(new Event('change'));
+      await sleep(50);
+      const c0 = state.pages[0].data.components[0];
+      const before1 = state.pages[0].data.components[1].tc_spec;
+      document.querySelector('[data-sum-fill-spec]').click();
+      const c1 = state.pages[0].data.components[1];
+      return { dl, btn: btn && btn.textContent, c0: [c0.tc_spec, c0.spec_type, c0.derating, c0.category, c0.tim_type], before1, c1: [c1.tc_spec, c1.derating],
+               derated: document.querySelector('#dt-tbody tr[data-row-idx="0"]').querySelectorAll('td')[6].textContent };
+    });
+    assert(r.dl.includes('ADMV1013') && /1 顆/.test(r.btn), 'datalist + bulk button', r);
+    assert(r.c0.join() === '105,Rec.,0.85,PWR,PadA' && r.derated === '89.3', 'filled on name commit + row recomputed', r);
+    assert(r.before1 === '' && r.c1.join() === '105,0.85', 'bulk fill', r);
+  });
+
+  await T('數據頁摘要列：Pass / Warning / Fail 數、最小 Margin，輸入即更新', async (page) => {
+    const r = await page.evaluate(async () => {
+      await useDb({ thermal_reports: { A: report('A', { 0: dataPage(0, [comp('P', { ta_55: '60' }), comp('W', { ta_55: '108' }), comp('N', {})]) }) } });
+      await openReport('A');
+      const s1 = document.getElementById('dt-summary').textContent.replace(/\s+/g, ' ');
+      const inp = document.querySelector('input[data-comp="0"][data-ta-key="ta_55"]');
+      inp.value = '120'; inp.dispatchEvent(new Event('input'));
+      const s2 = document.getElementById('dt-summary').textContent.replace(/\s+/g, ' ');
+      return { s1, s2 };
+    });
+    assert(/共 3 顆/.test(r.s1) && /1 Pass/.test(r.s1) && /1 Warning/.test(r.s1) && /未量測 1/.test(r.s1) && /最小 Margin：W 4\.0%/.test(r.s1), 'summary', r.s1);
+    assert(/1 Fail/.test(r.s2) && /最小 Margin：P -6\.7%/.test(r.s2), 'live update', r.s2);
+  });
+
+  await T('數據頁「複製為新測試條件」：同元件、清空量測值，並直接命名', async (page) => {
+    const r = await page.evaluate(async () => {
+      await useDb({ thermal_reports: { A: report('A', { 0: dataPage(0, [comp('PA', { ta_55: '90' })], [25, 55], { list_note: 'RF 無補償', machine_power: { ta_55: { v: '48', i: '9' } }, frozen: true }) }) } });
+      await openReport('A');
+      showContextMenu({ clientX: 10, clientY: 10 }, 0);
+      const shown = getComputedStyle(document.getElementById('context-dup-clear')).display !== 'none';
+      document.getElementById('context-dup-clear').click();
+      const editing = !!document.querySelector('.page-note-input');
+      document.querySelector('.page-note-input').value = 'RF 有補償';
+      document.querySelector('.page-note-input').dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+      await flushAllSaves();
+      const p = disk().thermal_reports.A.pages;
+      return { shown, editing, n: Object.keys(p).length, src: p['0'].data.components[0].readings.ta_55, copy: p['1'].data,
+               uidSame: p['0'].data.components[0].uid === p['1'].data.components[0].uid };
+    });
+    assert(r.shown && r.editing && r.n === 2 && r.src === '90', 'copied after source', r);
+    assert(JSON.stringify(r.copy.components[0].readings) === '{}' && r.copy.list_note === 'RF 有補償' && !r.copy.frozen && JSON.stringify(r.copy.machine_power) === '{}' && r.copy.ta_conditions.join() === '25,55', 'values cleared, named', r.copy);
+  });
+
+  await T('比對頁「貼上模擬結果」：依名稱對應，數據頁有的元件自動加入', async (page) => {
+    const r = await page.evaluate(async () => {
+      await useDb({ thermal_reports: { A: report('A', {
+        0: dataPage(0, [comp('PA-1', { ta_55: '80' }), comp('PA-10', { ta_55: '70' }), comp('FPGA', { ta_55: '90' })]),
+        1: { type: 'sim_vs_meas', order: 1, data: { compare_ta: 55, items: [] } } }) } });
+      await openReport('A');
+      const all = getDataPageComponents();
+      state.pages[1].data.items = [all[1]].map(c => ({ category: c.category, component_name: c.component_name, sim_tc: '', source_page: c.source_page, source_uid: c.source_uid }));
+      selectPage(1);
+      document.getElementById('sim-paste-names').click();
+      const ta = document.getElementById('sp-text');
+      ta.value = 'Name\tTemp (C)\nPA-10\t72.5\nFPGA 95.1\nPA-1\t83\nNope\t1';
+      ta.dispatchEvent(new Event('input'));
+      const foot = document.getElementById('sp-foot').textContent;
+      document.getElementById('sp-apply').click();
+      await flushAllSaves();
+      const items = disk().thermal_reports.A.pages['1'].data.items;
+      return { foot, items: items.map(it => [it.component_name, it.sim_tc]), judge: tds('#sim-tbody .sim-judge') };
+    });
+    assert(/更新 1 顆、新增 2 顆/.test(r.foot) && /1 列找不到/.test(r.foot), 'preview', r.foot);
+    assert(JSON.stringify(r.items) === JSON.stringify([['PA-10', '72.5'], ['FPGA', '95.1'], ['PA-1', '83']]), 'applied by name', r.items);
+  });
+
+  await T('結論頁：產生結論草稿、由 Fail / Warning 產生 Issues（不重複）', async (page) => {
+    const r = await page.evaluate(async () => {
+      await useDb({ thermal_reports: { A: report('A', {
+        0: dataPage(0, [comp('F1', { ta_25: '90', ta_55: '120' }), comp('W1', { ta_55: '105' }), comp('P1', { ta_55: '60' })], [25, 55], { list_note: 'Full load', machine_power: { ta_55: { v: '48', i: '10' } } }),
+        1: { type: 'conclusion', order: 1, data: { summary: '', issues: [''], actions: [], compliance: [] } } }) } });
+      await openReport('A');
+      selectPage(1);
+      document.getElementById('concl-draft-btn').click();
+      const summary = state.pages[1].data.summary;
+      document.getElementById('concl-issues-btn').click();
+      document.getElementById('concl-issues-btn').click();
+      await flushAllSaves();
+      return { summary, issues: disk().thermal_reports.A.pages['1'].data.issues, editor: document.getElementById('concl-summary-editor').innerText };
+    });
+    assert(/【數據頁 1 · Full load】Ta = 25 \/ 55°C，量測 3 顆元件：1 Pass、1 Warning、1 Fail/.test(r.summary) && /最小 Margin 為 F1 -6\.7%/.test(r.summary) && /整機功耗 480\.0 W @ Ta 55°C/.test(r.summary), 'per-condition line', r.summary);
+    assert(/綜合判定：❌ FAIL；F1 超過 Derated Spec.*；W1 Margin 低於 10%/.test(r.summary) && r.editor.includes('綜合判定'), 'overall line', r.summary);
+    assert(r.issues.length === 2 && /^F1：Tc 120\.0°C @ Ta 55°C 超過 Derated Spec 112\.5°C/.test(r.issues[0]) && /^W1：Margin 6\.7%/.test(r.issues[1]), 'issues once', r.issues);
+  });
+
+  await T('批次圖片頁：依檔名自然排序、每頁 N 張、檔名當說明；多張拖放自動續頁', async (page) => {
+    const r = await page.evaluate(async () => {
+      const png = await (await fetch('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==')).blob();
+      const f = n => new File([png], n, { type: 'image/png' });
+      await useDb({ thermal_reports: { A: report('A', { 0: cover('A'), 1: { type: 'conclusion', order: 1, data: {} } }) } });
+      await openReport('A');
+      selectPage(0);
+      await insertImagePagesFromFiles([f('IR_10.png'), f('IR_2.png'), f('IR_1.png'), f('Top.jpg.png'), new File(['x'], 'note.txt', { type: 'text/plain' })], { perPage: 2, captions: true, title: 'IR', afterIdx: 0 });
+      const types = state.pages.map(p => p.type);
+      const caps = state.pages.filter(p => p.type === 'image').map(p => p.data.images.map(im => im.caption).join('+'));
+      // drop 6 files on a fresh image page → fills 4, continues on a new page
+      selectPage(1);
+      const pg = state.pages[1];
+      pg.data.images = [];
+      await dropImagesOnImagePage(pg, [1, 2, 3, 4, 5, 6].map(i => f('S' + i + '.png')));
+      await flushAllSaves();
+      const after = disk().thermal_reports.A.pages;
+      return { types, caps, title: state.pages[1].data.title, n1: after['1'].data.images.length, n2: after['2'].data.images.map(im => im.caption).join(), total: Object.keys(after).length };
+    });
+    assert(r.types.join() === 'cover,image,image,conclusion' && r.caps.join('|') === 'IR_1+IR_2|IR_10+Top.jpg' && r.title === 'IR', 'batch pages', r);
+    assert(r.n1 === 4 && r.n2 === 'S5,S6' && r.total === 5, 'multi-drop overflow', r);
+  });
+
+  await T('標註頁批次命名：每行一個名稱依序套用', async (page) => {
+    const r = await page.evaluate(async () => {
+      const mk = (i) => ({ id: 'm' + i, x: 10 * i, y: 10, label: 'TC' + i, label_x: 10 * i, label_y: 20 });
+      await useDb({ thermal_reports: { A: report('A', { 0: { type: 'annotation', order: 0, data: { tc_category: 'RF', photo_url_or_base64: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', markers: [mk(1), mk(2), mk(3)] } } }) } });
+      await openReport('A');
+      document.getElementById('anno-batch-name').click();
+      document.getElementById('ab-text').value = 'PA-1\n\nFPGA\nextra';
+      document.getElementById('ab-ok').click();
+      await flushAllSaves();
+      return { labels: disk().thermal_reports.A.pages['0'].data.markers.map(m => m.label), list: tds('.anno-comp-name') };
+    });
+    assert(r.labels.join() === 'PA-1,TC2,FPGA' && r.list.join() === 'PA-1,TC2,FPGA', 'renamed in order, blank keeps', r);
+  });
+
+  await T('匯出前報告檢查：列出漏填項目，點項目跳到該頁；頁面清單徽章', async (page) => {
+    const r = await page.evaluate(async () => {
+      await useDb({ thermal_reports: { A: report('A', {
+        0: cover('A'),
+        1: dataPage(1, [comp('F1', { ta_55: '120' }), comp('', { ta_55: '50' }), comp('NS', { ta_55: '50' }, '')], [55]),
+        2: { type: 'sim_vs_meas', order: 2, data: { compare_ta: 55, items: [] } },
+        3: { type: 'conclusion', order: 3, data: { summary: '', issues: [''], actions: [], compliance: [] } } }) } });
+      await openReport('A');
+      const badges = Array.from(document.querySelectorAll('.page-item')).map(el => (el.querySelector('.page-badge') || {}).textContent || '');
+      const checks = runReportCheck().map(c => c.idx + ':' + c.text);
+      document.getElementById('btn-export-pdf').click();
+      const head = document.getElementById('exp-check-head').textContent.replace(/\s+/g, ' ');
+      document.querySelector('.exp-check-item[data-goto="2"]').click();
+      const active = state.activePage, modalGone = !document.getElementById('exp-check');
+      // fixing the data → badge refreshes shortly after the edit
+      selectPage(1);
+      const inp = document.querySelector('input[data-comp="0"][data-ta-key="ta_55"]');
+      inp.value = '60'; inp.dispatchEvent(new Event('input'));
+      await sleep(600);
+      const badgeAfter = document.querySelector('.page-item[data-index="1"] .page-badge').textContent;
+      return { badges, checks, head, active, modalGone, badgeAfter };
+    });
+    assert(r.badges.join('|') === '|❌1|空|FAIL', 'badges', r.badges);
+    const want = ['1:1 顆元件未命名', '1:1 顆元件未填 Tc Spec，無法判定', '2:比對頁尚未選取元件', '3:結論未填寫', '3:1 顆 Fail / Warning 元件未列入 Compliance Summary', '0:封面沒有產品圖片'];
+    assert(want.every(w => r.checks.includes(w)), 'check items', r.checks);
+    assert(/報告檢查：\d+ 項待確認/.test(r.head) && r.active === 2 && r.modalGone, 'picker + jump', r);
+    assert(r.badgeAfter === '✓', 'badge refreshed', r.badgeAfter);
+  });
+
+  await T('新增報告：標準架構 / 以既有報告為範本（清空量測值、連結指向新頁）', async (page) => {
+    const r = await page.evaluate(async () => {
+      await useDb({ thermal_reports: { SRC: { model: 'M', ...report('SRC', {
+        0: { id: 'c0', ...cover('SRC'), data: { ...cover('SRC').data, cover_image: 'data:image/png;base64,AAA', tested_by: 'Tedus' } },
+        1: { id: 'd1', ...dataPage(1, [comp('PA', { ta_55: '90' }, 125, '0.90', { uid: 'u1', highlight: 'y' })], [25, 55], { machine_power: { ta_55: { v: '1', i: '2' } }, logger_map: { u1: '101 <PA> (C)' }, list_note: 'Full' }) },
+        2: { id: 's2', type: 'sim_vs_meas', order: 2, data: { compare_ta: 55, items: [{ component_name: 'PA', sim_tc: '88', source_page: 'd1', source_uid: 'u1' }], conclusion: 'old' } },
+        3: { id: 'k3', type: 'conclusion', order: 3, data: { summary: 'old', issues: ['x'], actions: [{ description: 'a' }], compliance: [{ component: 'PA', source_page: 'd1', source_uid: 'u1' }] } },
+        4: { id: 'n4', type: 'note', order: 4, data: { title: 'scratch', blocks: [] } } }) } } });
+      await renderHomepage();
+      document.querySelector('[data-action="template"]').click();
+      document.getElementById('hp-new-name').value = 'NEW';
+      const model = document.getElementById('hp-new-model').value;
+      document.getElementById('hp-tpl-img').checked = false;
+      document.getElementById('hp-new-stage').value = 'PVT';
+      document.getElementById('hp-new-date').value = '2026-10-06';
+      document.getElementById('hp-new-confirm').click();
+      await sleep(200);
+      await flushAllSaves();
+      const id = Object.keys(disk().thermal_reports).find(k => k !== 'SRC');
+      const p = disk().thermal_reports[id].pages;
+      const simRef = resolveComponentRef(state.pages[2].data.items[0]);
+      await leaveEditor();
+      await createNewReport('STD', 'M', 'EVT', '2026-10-06', { mode: 'standard' });
+      await flushAllSaves();
+      const std = Object.values(disk().thermal_reports).find(x => x.project_name === 'STD');
+      return { model, types: Object.values(p).map(x => x.type), cover: p['0'].data, data: p['1'].data, sim: p['2'].data, concl: p['3'].data,
+               simRefOk: !!simRef && simRef.component_name === 'PA', newIds: Object.values(p).every(x => !['c0', 'd1', 's2', 'k3'].includes(x.id)),
+               stdTypes: Object.values(std.pages).sort((a, b) => a.order - b.order).map(x => x.type) };
+    });
+    assert(r.model === 'M' && r.types.join() === 'cover,data,sim_vs_meas,conclusion' && r.newIds, 'structure (note dropped, new ids)', r);
+    assert(r.cover.project_name === 'NEW' && r.cover.stage === 'PVT' && r.cover.cover_image === '' && r.cover.tested_by === 'Tedus', 'cover', r.cover);
+    const c = r.data.components[0];
+    assert(JSON.stringify(c.readings) === '{}' && c.tc_spec === '125' && !c.highlight && JSON.stringify(r.data.machine_power) === '{}' && r.data.logger_map.u1 && r.data.header.stage === 'PVT' && r.data.header.test_date === '2026-10-06', 'data cleared, specs kept', r.data);
+    assert(r.sim.items[0].sim_tc === '' && r.sim.conclusion === '' && r.simRefOk, 'sim cleared + relinked', r.sim);
+    assert(r.concl.summary === '' && r.concl.compliance.length === 0 && r.concl.actions.length === 0, 'conclusion cleared', r.concl);
+    assert(r.stdTypes.join() === 'cover,image,annotation,data,sim_vs_meas,conclusion', 'standard set', r.stdTypes);
+  });
+
+  await T('首頁：搜尋、Stage 篩選、結果徽章；點卡片開啟', async (page) => {
+    const r = await page.evaluate(async () => {
+      await useDb({ thermal_reports: {
+        A: { ...report('RRU-B41', { 0: dataPage(0, [comp('X', { ta_55: '120' })]) }), model: 'RRU4419', stage: 'DVT' },
+        B: { ...report('AAU-n78', { 0: dataPage(0, [comp('X', { ta_55: '50' })]) }), model: 'AAU64', stage: 'EVT' },
+        C: { ...report('RRU-n41', {}), model: 'RRU8820', stage: 'EVT' } } });
+      await renderHomepage();
+      const titles = () => Array.from(document.querySelectorAll('.hp-card-title')).map(e => e.textContent.trim()).sort().join();
+      const results = Array.from(document.querySelectorAll('.hp-card')).map(c => c.querySelector('.hp-card-title').textContent.trim() + ':' + ((c.querySelector('.hp-result') || {}).textContent || '')).sort();
+      const s = document.getElementById('hp-search');
+      s.value = 'rru'; s.dispatchEvent(new Event('input'));
+      const q = titles();
+      document.querySelector('.hp-stage-btn[data-stage="EVT"]').click();
+      const both = titles(), count = document.getElementById('hp-count').textContent;
+      document.querySelector('.hp-card').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await sleep(100);
+      return { results, q, both, count, opened: state.reportId };
+    });
+    assert(r.results.join() === 'AAU-n78:✓ PASS,RRU-B41:✕ FAIL,RRU-n41:', 'result badges', r.results);
+    assert(r.q === 'RRU-B41,RRU-n41' && r.both === 'RRU-n41' && r.count === '顯示 1 / 3 份' && r.opened === 'C', 'filter + open', r);
+  });
+
+  await T('Ctrl+S 立即存檔；封面的部門 / Tested by 會成為下一份報告的預設', async (page) => {
+    const r = await page.evaluate(async () => {
+      await useDb({ thermal_reports: { A: report('A', { 0: cover('A') }) } });
+      await openReport('A');
+      const dept = document.querySelector('[data-field="dept"]');
+      dept.value = 'Thermal Team'; dept.dispatchEvent(new Event('input'));
+      const tb = document.querySelector('[data-field="tested_by"]');
+      tb.value = 'Tedus'; tb.dispatchEvent(new Event('input'));
+      const pendingBefore = hasPendingSaves();
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 's', ctrlKey: true, bubbles: true, cancelable: true }));
+      await sleep(100);
+      const saved = disk().thermal_reports.A.pages['0'].data.dept;
+      const toast = Array.from(document.querySelectorAll('.toast')).map(t => t.textContent).join('|');
+      addCoverPage();
+      return { pendingBefore, saved, toast, next: [state.pages[1].data.dept, state.pages[1].data.tested_by] };
+    });
+    assert(r.pendingBefore && r.saved === 'Thermal Team' && /已儲存/.test(r.toast), 'Ctrl+S', r);
+    assert(r.next.join() === 'Thermal Team,Tedus', 'defaults remembered', r.next);
+  });
+
+  await SP('匯出 PDF 可同時上傳到 SharePoint Reports/<案名>_<Stage>/', async (page, g) => {
+    const r = await page.evaluate(async () => {
+      await useDb({ thermal_reports: { A: report('A', { 0: cover('A') }) } });
+      await spSync.enable();
+      await openReport('A');
+      document.getElementById('btn-export-pdf').click();
+      const cb = document.getElementById('exp-sp-upload');
+      const shown = !!cb && cb.checked;
+      document.querySelector('.sim-modal-overlay').remove();
+      const Orig = jspdf.jsPDF;
+      window.jspdf = { jsPDF: function (...a) { const inst = new Orig(...a); inst.save = () => {}; return inst; } };
+      await exportPDF(new Set([0]), { upload: true, folder: 'A_DVT' });
+      return { shown, toast: Array.from(document.querySelectorAll('.toast')).map(t => t.textContent).join('|') };
+    });
+    const key = Array.from(g.files.keys()).find(k => k.startsWith('Thermal_Report_Builder/Reports/A_DVT/'));
+    assert(r.shown && key && key.endsWith('_ThermalReport.pdf') && g.files.get(key).content.length > 1000, 'uploaded', { r, key });
+    assert(/已上傳到 SharePoint/.test(r.toast), 'toast', r.toast);
   });
 
   console.log('Stability');

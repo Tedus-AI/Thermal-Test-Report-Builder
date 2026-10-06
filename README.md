@@ -28,14 +28,29 @@ Thermal_Report_Builder/
 
 ### SharePoint 設定（一次性）
 
-1. Azure 應用程式（與 Project-TIM-management-tool 共用同一個）：**Microsoft Entra ID → 應用程式註冊 → 驗證 →
-   單頁應用程式（SPA）的重新導向 URI** 加上
-   `https://tedus-ai.github.io/Thermal-Test-Report-Builder/auth.html`
-   （若在本機用 `http://localhost:<port>/` 開啟，另外加上 `http://localhost:<port>/auth.html`）。
-   權限沿用 `Files.ReadWrite.All`、`Sites.Read.All`、`Sites.ReadWrite.All`。
+1. **不需要改 Azure**：與 Project-TIM-management-tool 共用同一個 Azure 應用程式。工具放在 `https://tedus-ai.github.io/` 時，
+   登入直接沿用 TIM 工具已登記的 `https://tedus-ai.github.io/Project-TIM-management-tool/auth.html`（同一個網域，所以可以共用；
+   在 TIM 工具登入過，這裡通常就不用再登入）。權限沿用 `Files.ReadWrite.All`、`Sites.Read.All`、`Sites.ReadWrite.All`。
+   只有在別的網址開啟（例如 `http://localhost:<port>/`）時，才要到 **Microsoft Entra ID → 應用程式註冊 → 驗證 →
+   單頁應用程式（SPA）的重新導向 URI** 加上該網址旁的 `auth.html`。
 2. 使用者需要 `Thermal-Spec-DB` 網站的編輯權限。網站與資料夾路徑在 `spSync.js` 的 `CONFIG`。
 
 > ⚠️ 請不要把資料庫 JSON、匯出的 PDF 或任何實際專案資料 commit 進來（CI 會擋 `*.json`）。
+
+## 用最少步驟做完一份報告
+
+| 步驟 | 省時的做法 |
+|---|---|
+| 開新報告 | 「+ 新增報告」選 **標準架構**（封面、圖片、標註、數據、比對、結論一次建好），或 **以既有報告為範本**：沿用頁面、元件清單、規格、Ta 條件與記錄器通道對應，只清空量測值、功耗、模擬值與結論（首頁卡片的「當範本新增」也可以）。部門 / Tested by 會記住上次填的 |
+| 放照片 | 「新增頁面 → 🖼 批次圖片頁…」一次選多張，依檔名排序、每頁 1 / 2 / 4 張、檔名當說明；在圖片頁一次拖多張也會自動續頁 |
+| 標註 | 標註頁「✎ 批次命名」：從 Excel 貼一欄名稱，依序套用到所有標註點 |
+| 填元件 | 「⇩ 帶入標註頁元件」後，**規格記憶**會自動帶入其他報告填過的同名元件規格（Spec Type / Tc Spec / Derating / TIM）；元件名稱欄也有下拉提示 |
+| 填實測值 | 「📥 匯入記錄器 CSV」或直接把 CSV 拖到數據頁：每個通道取**最後 N 分鐘平均**，檢查**穩態**（區間溫差 ≤ 1°C，可改），依通道名稱 / 上次的對應 / 順序自動配對元件；有環溫通道時自動選最接近的 Ta，可選擇修正到目標 Ta。支援 Keysight、Graphtec、Yokogawa、Hioki 等 CSV / TXT |
+| 下一個測試條件 | 頁面清單右鍵「複製為新測試條件（清空量測值）」，直接輸入條件名稱 |
+| 模擬比對 | 比對頁「貼上模擬結果」：從 FloTHERM / Icepak / Excel 複製「元件名稱 + 溫度」兩欄貼上，依名稱對應，比對表還沒有的元件自動加入 |
+| 結論 | 「✨ 產生結論草稿」依各測試條件的 Pass / Warning / Fail、最小 Margin、功耗與模擬偏差寫出草稿；「⇩ 由 Fail / Warning 產生」把問題元件寫進 Issues Found |
+| 匯出前 | 匯出視窗的**報告檢查**列出漏填（未填實測值、未命名、缺 Sim Tc、Fail 未列入 Compliance…），點一下跳到該頁；可勾選同時上傳 PDF 到 SharePoint |
+| 隨時 | 數據頁上方摘要列（Pass / Warning / Fail 數、最小 Margin、最高 Tc，點名稱跳到該列）；頁面清單的狀態徽章（❌ / ⚠ / ✓ / 已量測數 / 空）；Ctrl+S 立即存檔並同步；首頁搜尋（按 /）、Stage 篩選、排序 |
 
 ## 開發
 
@@ -44,6 +59,7 @@ index.html     UI 與報告邏輯
 fileDb.js      本機資料庫檔（File System Access API、寫入佇列、衝突偵測、每日備份、SharePoint 同步標記）
 dbAdapter.js   報告 / 頁面 CRUD
 spSync.js      SharePoint 雙存檔（MSAL.js + Microsoft Graph，eTag）
+loggerCsv.js   記錄器 CSV / TXT 解析（分隔符號、標題列、時間欄、穩態統計）
 auth.html      Microsoft 登入重新導向頁
 tests/         Playwright 回歸測試（tests/fake-sharepoint.js 為假的 Graph / MSAL）
 ```

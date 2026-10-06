@@ -8,6 +8,7 @@
   <script src="fileDb.js"></script>
   <script src="dbAdapter.js"></script>
   <script src="spSync.js"></script>
+  <script src="loggerCsv.js"></script>
 
   <!-- Google Fonts: Space Grotesk + DM Sans + JetBrains Mono -->
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Noto+Sans+TC:wght@400;500;700&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -393,6 +394,7 @@
       color: var(--d-300);
       text-overflow: ellipsis;
       overflow: hidden;
+      min-width: 0;
     }
     .page-item.active .page-label .page-note {
       color: rgba(255,255,255,0.82);
@@ -3894,6 +3896,7 @@
     }
 
     .hp-card {
+      cursor: pointer;
       background: rgba(4,41,82,0.25);
       border: 1px solid rgba(91,163,230,0.12);
       border-top: 1px solid rgba(91,163,230,0.20);
@@ -4148,6 +4151,117 @@
     .sp-menu button:hover { background: rgba(91,163,230,0.18); }
     .sp-menu button.danger { color: #fca5a5; }
     /* ━━━ Toasts ━━━ */
+    /* ━━━ Efficiency tools (page badges, tool modals, summary bar, homepage filter) ━━━ */
+    .page-badge { flex-shrink: 0; font-family: var(--font-mono); font-size: 9px; line-height: 1; padding: 2px 5px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.14); color: var(--d-300); white-space: nowrap; }
+    .page-badge-fail { color: #fca5a5; background: rgba(239,68,68,0.16); border-color: rgba(239,68,68,0.45); }
+    .page-badge-warn { color: #fcd34d; background: rgba(245,158,11,0.14); border-color: rgba(245,158,11,0.45); }
+    .page-badge-pass { color: #86efac; background: rgba(34,197,94,0.10); border-color: rgba(34,197,94,0.35); }
+
+    .tool-modal { width: 560px; max-width: calc(100vw - 32px); max-height: 88vh; }
+    .tool-modal .sim-modal-footer { align-items: center; }
+    .tool-modal-body { padding: 12px 16px; font-size: 12.5px; line-height: 1.6; }
+    .tool-foot-info { margin-right: auto; font-size: 11.5px; color: rgba(226,232,240,0.7); }
+    .tool-hint { color: rgba(226,232,240,0.62); font-size: 11.5px; line-height: 1.6; }
+    .tool-textarea { width: 100%; min-height: 170px; resize: vertical; background: rgba(0,0,0,0.28); color: #e2e8f0; border: 1px solid rgba(255,255,255,0.14); border-radius: 6px; padding: 8px 10px; font: 12px/1.6 var(--font-mono); outline: none; }
+    .tool-textarea:focus { border-color: rgba(56,189,248,0.55); }
+    .tool-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-bottom: 10px; }
+    .tool-row label { display: inline-flex; align-items: center; gap: 6px; }
+    .tool-input, .tool-select { background: rgba(0,0,0,0.28); color: #e2e8f0; border: 1px solid rgba(255,255,255,0.16); border-radius: 4px; padding: 3px 6px; font-size: 12px; font-family: var(--font-ui); }
+    .tool-input[type="number"] { width: 64px; text-align: center; }
+    .tool-select option { background: #0f172a; }
+    .tool-table-wrap { max-height: 46vh; overflow: auto; border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; }
+    .tool-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .tool-table th { position: sticky; top: 0; z-index: 1; background: #16233d; color: rgba(226,232,240,0.7); font-weight: 600; font-size: 11px; text-align: left; padding: 6px 8px; white-space: nowrap; }
+    .tool-table td { padding: 4px 8px; border-top: 1px solid rgba(255,255,255,0.06); white-space: nowrap; }
+    .tool-table td.num { font-family: var(--font-mono); text-align: right; }
+    .tool-table tr.is-off td { opacity: 0.45; }
+    .tool-ok { color: #86efac; } .tool-warn { color: #fcd34d; } .tool-bad { color: #fca5a5; } .tool-muted { color: rgba(226,232,240,0.45); }
+    .tool-drop { border: 2px dashed rgba(56,189,248,0.35); border-radius: 10px; padding: 34px 20px; text-align: center; color: rgba(226,232,240,0.78); transition: background 0.12s, border-color 0.12s; }
+    .tool-drop.dragover { background: rgba(56,189,248,0.10); border-color: #38bdf8; }
+    .tool-drop .tool-drop-icon { font-size: 30px; opacity: 0.6; display: block; margin-bottom: 6px; }
+    .tool-chip { display: inline-block; font-size: 11px; padding: 1px 8px; margin: 2px 4px 2px 0; border-radius: 10px; border: 1px solid rgba(255,255,255,0.14); color: rgba(226,232,240,0.75); }
+    .tool-choice { display: flex; gap: 10px; align-items: flex-start; padding: 8px 10px; border: 1px solid rgba(255,255,255,0.10); border-radius: 6px; cursor: pointer; margin-bottom: 6px; }
+    .tool-choice:has(input:checked) { border-color: rgba(56,189,248,0.6); background: rgba(56,189,248,0.08); }
+    .tool-choice input { margin-top: 3px; accent-color: #38bdf8; }
+    .tool-choice b { display: block; font-size: 12.5px; color: #f1f5f9; }
+    .tool-choice span { font-size: 11.5px; color: rgba(226,232,240,0.62); }
+
+    /* New-report modal: starting content */
+    .hp-modal.hp-modal-wide { width: 480px; max-width: calc(100vw - 32px); }
+    .hp-modal-wide .hp-modal-body { max-height: calc(100vh - 150px); overflow-y: auto; }
+    .hp-modal-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .hp-modal-field label.hp-start-choice, .hp-start-tpl label { text-transform: none; letter-spacing: 0; font-weight: 400; }
+    .hp-start-choice { display: flex; gap: 10px; align-items: flex-start; padding: 8px 10px; border: 1px solid rgba(255,255,255,0.10); cursor: pointer; transition: background var(--transition-fast); }
+    .hp-start-choice:has(input:checked) { border-color: rgba(91,163,230,0.55); background: rgba(91,163,230,0.10); }
+    .hp-start-choice input { margin-top: 3px; accent-color: var(--d-300); }
+    .hp-start-choice b { display: block; font-size: 12.5px; color: #f1f5f9; font-weight: 600; }
+    .hp-start-choice span { font-size: 11px; color: rgba(255,255,255,0.5); line-height: 1.5; }
+    .hp-start-tpl { display: none; flex-direction: column; gap: 6px; margin: 2px 0 0 26px; }
+    .hp-start-tpl.open { display: flex; }
+    .hp-start-tpl select { padding: 7px 10px; font-size: 12.5px; color: #e2e8f0; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.12); }
+    .hp-start-tpl select option { background: var(--d-800); }
+    .hp-start-tpl label { font-size: 11.5px; color: rgba(255,255,255,0.65); display: flex; align-items: center; gap: 6px; }
+
+    /* Homepage search / filter / sort */
+    .hp-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin: 4px 0 16px; }
+    .hp-search { width: 280px; max-width: 100%; padding: 7px 12px; font-size: 13px; font-family: var(--font-ui); color: #e2e8f0; background: rgba(255,255,255,0.04); border: 1px solid rgba(91,163,230,0.18); outline: none; }
+    .hp-search:focus { border-color: rgba(91,163,230,0.5); }
+    .hp-stage-filter { display: flex; gap: 4px; flex-wrap: wrap; }
+    .hp-stage-btn { font-size: 11px; font-family: var(--font-mono); padding: 4px 10px; color: var(--d-300); background: transparent; border: 1px solid rgba(91,163,230,0.2); cursor: pointer; }
+    .hp-stage-btn.active { background: rgba(91,163,230,0.22); color: #fff; border-color: rgba(91,163,230,0.5); }
+    .hp-sort { font-size: 12px; padding: 5px 8px; color: #e2e8f0; background: rgba(255,255,255,0.04); border: 1px solid rgba(91,163,230,0.18); }
+    .hp-sort option { background: var(--d-800); }
+    .hp-count { font-size: 11px; color: var(--text-placeholder); margin-left: auto; }
+    .hp-result { display: inline-block; font-size: 10px; font-weight: 700; font-family: var(--font-mono); padding: 2px 8px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.15); color: var(--d-300); }
+    .hp-result-fail { color: #fca5a5; background: rgba(239,68,68,0.14); border-color: rgba(239,68,68,0.4); }
+    .hp-result-warning { color: #fcd34d; background: rgba(245,158,11,0.12); border-color: rgba(245,158,11,0.4); }
+    .hp-result-pass { color: #86efac; background: rgba(34,197,94,0.10); border-color: rgba(34,197,94,0.35); }
+    .hp-conflict { display: inline-block; font-size: 10px; padding: 2px 8px; border-radius: 10px; color: #fdba74; background: rgba(249,115,22,0.12); border: 1px solid rgba(249,115,22,0.4); }
+    .hp-card-pages { font-size: 11px; color: var(--text-placeholder); }
+    .hp-no-match { color: var(--text-secondary); font-size: 13px; padding: 30px 0; }
+
+    /* Data page: summary bar + quick actions */
+    .dt-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 0 0 8px; padding: 7px 10px; font-size: 11px; color: #334155; background: #F3F6FA; border: 1px solid rgba(15,23,42,0.08); border-radius: 6px; }
+    .dt-sum-chip { display: inline-flex; align-items: center; gap: 4px; font-weight: 600; padding: 1px 8px; border-radius: 10px; border: 1px solid rgba(15,23,42,0.12); background: #fff; color: #334155; font-size: 11px; font-family: var(--font-ui); }
+    button.dt-sum-chip { cursor: pointer; }
+    button.dt-sum-chip:hover { border-color: rgba(35,87,167,0.5); }
+    .dt-sum-fail { color: #b91c1c; border-color: rgba(220,38,38,0.35); background: #fef2f2; }
+    .dt-sum-warn { color: #92400e; border-color: rgba(217,119,6,0.35); background: #fffbeb; }
+    .dt-sum-pass { color: #166534; border-color: rgba(22,163,74,0.3); background: #f0fdf4; }
+    .dt-sum-sep { width: 1px; height: 14px; background: rgba(15,23,42,0.12); }
+    .dt-sum-item { color: #475569; }
+    .dt-sum-item b { color: #0B3D7A; }
+    .dt-sum-link { cursor: pointer; text-decoration: underline dotted; text-underline-offset: 2px; }
+    .dt-sum-log { flex-basis: 100%; font-size: 10.5px; color: #64748b; }
+    .dt-sum-act { margin-left: auto; font-size: 11px; font-family: var(--font-ui); color: #2357A7; background: rgba(35,87,167,0.07); border: 1px solid rgba(35,87,167,0.25); border-radius: 4px; padding: 2px 10px; cursor: pointer; }
+    .dt-sum-act:hover { background: rgba(35,87,167,0.14); }
+    tr.dt-row-flash td { animation: dtFlash 1.4s ease-out; }
+    @keyframes dtFlash { 0%, 30% { background: rgba(250,204,21,0.45); } 100% { background: transparent; } }
+    .dt-summary:empty { display: none; }
+    .data-page.csv-dragover { outline: 3px dashed rgba(35,87,167,0.45); outline-offset: -6px; }
+
+    /* Small action buttons inside page section titles */
+    .sec-tool-btn { margin-left: 10px; font-size: 10.5px; font-weight: 600; font-family: var(--font-ui); letter-spacing: 0; text-transform: none; color: #2357A7; background: rgba(35,87,167,0.07); border: 1px solid rgba(35,87,167,0.25); border-radius: 4px; padding: 1px 9px; cursor: pointer; vertical-align: middle; }
+    .sec-tool-btn:hover { background: rgba(35,87,167,0.15); }
+    .anno-batch-btn { margin-top: 6px; width: 100%; font-size: 11px; color: #2357A7; background: rgba(35,87,167,0.06); border: 1px dashed rgba(35,87,167,0.35); border-radius: 4px; padding: 4px 0; cursor: pointer; }
+    .anno-batch-btn:hover { background: rgba(35,87,167,0.12); }
+
+    /* Export picker: report check + SharePoint upload */
+    .exp-check { margin: 8px 14px 0; border: 1px solid rgba(255,255,255,0.10); border-radius: 6px; overflow: hidden; }
+    .exp-check-head { display: flex; align-items: center; gap: 8px; padding: 7px 10px; font-size: 12px; font-weight: 600; background: rgba(255,255,255,0.04); cursor: pointer; user-select: none; }
+    .exp-check-head.ok { color: #86efac; }
+    .exp-check-head.warn { color: #fcd34d; }
+    .exp-check-head .exp-check-toggle { margin-left: auto; font-size: 10px; color: rgba(226,232,240,0.5); }
+    .exp-check-list { max-height: 28vh; overflow-y: auto; display: none; }
+    .exp-check.open .exp-check-list { display: block; }
+    .exp-check-item { display: flex; gap: 8px; width: 100%; text-align: left; padding: 6px 10px; font-size: 12px; color: #e2e8f0; background: transparent; border: none; border-top: 1px solid rgba(255,255,255,0.06); cursor: pointer; font-family: var(--font-ui); }
+    .exp-check-item:hover { background: rgba(56,189,248,0.10); }
+    .exp-check-item .lv { flex-shrink: 0; width: 16px; }
+    .exp-check-item .pg { flex-shrink: 0; min-width: 92px; color: rgba(226,232,240,0.55); font-size: 11px; }
+    .exp-sp { margin-right: auto; font-size: 11.5px; color: rgba(226,232,240,0.8); display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+    .exp-sp input { accent-color: #38bdf8; }
+    .toast a { color: #2357A7; font-weight: 600; }
+
     #toast-wrap { position: fixed; right: 18px; bottom: 18px; z-index: 4000; display: flex; flex-direction: column; gap: 8px; max-width: 420px; pointer-events: none; }
     .toast { pointer-events: auto; font-size: 12.5px; line-height: 1.55; color: #0f172a; background: #fff; border-left: 4px solid #3A7AD4; border-radius: 6px; padding: 9px 30px 9px 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.35); position: relative; animation: toastIn 0.18s ease-out; }
     .toast.ok { border-left-color: #22c55e; }
@@ -4198,6 +4312,16 @@
       </div>
     </div>
     <div class="hp-body" id="hp-body">
+      <div class="hp-tools" id="hp-tools" style="display:none;">
+        <input type="search" class="hp-search" id="hp-search" placeholder="搜尋案名 / 型號…（按 / 快速搜尋）" autocomplete="off">
+        <div class="hp-stage-filter" id="hp-stage-filter"></div>
+        <select class="hp-sort" id="hp-sort" title="排序">
+          <option value="updated">最近編輯</option>
+          <option value="created">建立日期</option>
+          <option value="name">案名</option>
+        </select>
+        <span class="hp-count" id="hp-count"></span>
+      </div>
       <div class="hp-empty" id="hp-empty">
         <div class="icon">📋</div>
         <div class="text">尚無報告，點擊右上方「+ 新增報告」開始</div>
@@ -4224,6 +4348,7 @@
           <div class="dropdown-menu" id="toolbar-add-menu">
             <button class="dropdown-item" data-type="cover">🏠 封面頁</button>
             <button class="dropdown-item" data-type="image">🖼 圖片頁</button>
+            <button class="dropdown-item" data-type="image-batch" title="一次選多張圖片，自動建立多頁圖片頁">🖼 批次圖片頁…</button>
             <button class="dropdown-item" data-type="annotation">📍 標註頁</button>
             <button class="dropdown-item" data-type="data">📊 數據頁</button>
             <button class="dropdown-item" data-type="sim_vs_meas">📉 比對頁</button>
@@ -4238,7 +4363,7 @@
       </div>
       <div class="toolbar-right" id="status-bar">
         <span class="status-dot" id="status-dot"></span>
-        <span id="status-text">就緒</span>
+        <span id="status-text" title="修改後約 1 秒自動存檔；Ctrl+S 立即存檔並同步 SharePoint">就緒</span>
         <span id="db-status-text"
           style="font-size:12px; color:#aaa; margin-right:8px; vertical-align:middle;">
           未選擇資料庫
@@ -4277,6 +4402,7 @@
             <div class="dropdown-menu" id="sidebar-add-menu">
               <button class="dropdown-item" data-type="cover">🏠 封面頁</button>
               <button class="dropdown-item" data-type="image">🖼 圖片頁</button>
+              <button class="dropdown-item" data-type="image-batch" title="一次選多張圖片，自動建立多頁圖片頁">🖼 批次圖片頁…</button>
               <button class="dropdown-item" data-type="annotation">📍 標註頁</button>
               <button class="dropdown-item" data-type="data">📊 數據頁</button>
               <button class="dropdown-item" data-type="sim_vs_meas">📉 比對頁</button>
@@ -4303,6 +4429,7 @@
   <!-- Context Menu -->
   <div class="context-menu" id="context-menu">
     <button class="context-item" id="context-duplicate" style="color: var(--text-primary);">📋 複製此頁</button>
+    <button class="context-item" id="context-dup-clear" style="color: var(--text-primary);" title="同樣的元件、規格與 Ta 條件，清空實測值與功耗，用於下一個測試條件">📋 複製為新測試條件（清空量測值）</button>
     <button class="context-item" id="context-delete">🗑 刪除此頁面</button>
   </div>
 
@@ -4502,6 +4629,7 @@
       }
       if (saveTimers[id]) clearTimeout(saveTimers[id].timer);
       saveTimers[id] = { page, reportId: state.reportId, timer: setTimeout(() => runPageSave(id), 1000) };
+      schedulePageBadgeRefresh();
     }
 
     function runPageSave(id) {
@@ -4672,6 +4800,7 @@
           else if (type === 'sim_vs_meas') addSimVsMeasPage();
           else if (type === 'conclusion') addConclusionPage();
           else if (type === 'note') addNotePage();
+          else if (type === 'image-batch') showBatchImageModal(state.activePage);
         });
       });
     }
@@ -4683,31 +4812,84 @@
     });
 
     // ━━━ Page management ━━━
-    function addCoverPage() {
+    // New page object of a type with its default data (not yet in the report).
+    function makePage(type) {
+      const page = { id: newPageId(), type, order: state.pages.length, data: {} };
       const today = todayStr();
-      const page = {
-        id: newPageId(),
-        type: 'cover',
-        order: state.pages.length,
-        data: {
+      if (type === 'cover') {
+        const prefs = userPrefs();
+        page.data = {
           project_name: '',
           model: '',
           stage: 'DVT',
-          tested_by: '',
+          tested_by: defaultTestedBy(),
           date: today,
-          dept: '',
+          dept: prefs.dept || '',
           report_version: 'v1.0',
           cover_image: '',
           cover_image_w: 460,
           cover_image_h: 345, // 4:3 橫式
-        }
-      };
+        };
+      } else if (type === 'image') {
+        page.data = {
+          title: '',
+          images: [] // [{position: 0-3, url_or_base64: '', caption: ''}]
+        };
+      } else if (type === 'annotation') {
+        page.data = {
+          title: '',
+          photo_url_or_base64: '',
+          markers: [] // { id, x, y, label, label_x, label_y }
+        };
+      } else if (type === 'data') {
+        // Sync stage from cover page if exists
+        const coverPage = state.pages.find(p => p.type === 'cover');
+        page.data = {
+          header: {
+            test_date: today,
+            stage: coverPage ? coverPage.data.stage : 'DVT',
+            sw_version: '',
+            waveform_ver: '',
+            eq_time_min: '120',
+            mounting: 'Pole Mount',
+            location: 'Chamber',
+          },
+          ta_conditions: [25, 55],
+          components: [],
+          sensors: [],
+        };
+      } else if (type === 'sim_vs_meas') {
+        page.data = {
+          title: '',
+          sim_image: '',
+          meas_image: '',
+          sim_note: '',
+          items: [],
+        };
+      } else if (type === 'conclusion') {
+        page.data = {
+          summary: '',
+          compliance: [],
+          issues: [''],
+          actions: [],
+        };
+      } else if (type === 'note') {
+        page.data = { title: '', blocks: [newNoteBlock()] };
+      }
+      return page;
+    }
+    // Append a new page of `type` and select it.
+    function addPageOfType(type) {
+      const page = makePage(type);
       state.pages.push(page);
       initPageSnapshot(page);
       renderPageList();
       selectPage(state.pages.length - 1);
       scheduleSave(state.pages.length - 1);
+      return page;
     }
+
+    function addCoverPage() { return addPageOfType('cover'); }
 
     // Auto-generated base name for a page (some types carry a running count).
     function pageBaseLabel(idx) {
@@ -4799,6 +4981,8 @@
         noteSpan.textContent = page.data.list_note || '';
         labelSpan.appendChild(noteSpan);
         el.appendChild(labelSpan);
+        const badge = pageBadgeHTML(page);
+        if (badge) el.insertAdjacentHTML('beforeend', badge);
 
         // Hover pencil to add/edit the note
         const editBtn = document.createElement('button');
@@ -4833,6 +5017,8 @@
 
     function showContextMenu(e, pageIdx) {
       contextTarget = pageIdx;
+      const dupClear = document.getElementById('context-dup-clear');
+      if (dupClear) dupClear.style.display = state.pages[pageIdx] && state.pages[pageIdx].type === 'data' ? '' : 'none';
       $contextMenu.style.left = e.clientX + 'px';
       $contextMenu.style.top = e.clientY + 'px';
       $contextMenu.classList.add('open');
@@ -4884,6 +5070,27 @@
       saveStructure();
       renderPageList();
       selectPage(srcIdx + 1);
+    });
+
+    // Data page → a new test condition: same components / specs / Ta conditions /
+    // logger mapping, readings and machine power cleared; the new page's label is
+    // opened for editing right away so the condition gets a name.
+    document.getElementById('context-dup-clear').addEventListener('click', () => {
+      $contextMenu.classList.remove('open');
+      if (contextTarget === null) return;
+      const srcIdx = contextTarget;
+      contextTarget = null;
+      const src = state.pages[srcIdx];
+      if (!src || src.type !== 'data') return;
+      const data = clearDataPageValues(JSON.parse(JSON.stringify(src.data)));
+      data.list_note = '';
+      const copy = { id: newPageId(), type: 'data', order: srcIdx + 1, data };
+      state.pages.splice(srcIdx + 1, 0, copy);
+      initPageSnapshot(copy);
+      saveStructure();
+      renderPageList();
+      selectPage(srcIdx + 1);
+      startPageNoteEdit(srcIdx + 1);
     });
 
     // ━━━ Canvas rendering ━━━
@@ -5013,6 +5220,8 @@
         el.addEventListener(eventType, (e) => {
           page.data[el.dataset.field] = el.value;
           scheduleSave(state.activePage);
+          // the next new report starts with the same department / engineer
+          if (el.dataset.field === 'dept' || el.dataset.field === 'tested_by') setUserPref(el.dataset.field, el.value.trim());
         });
       });
 
@@ -5223,22 +5432,7 @@
     }
 
     // ━━━ Image Page Module ━━━
-    function addImagePage() {
-      const page = {
-        id: newPageId(),
-        type: 'image',
-        order: state.pages.length,
-        data: {
-          title: '',
-          images: [] // [{position: 0-3, url_or_base64: '', caption: ''}]
-        }
-      };
-      state.pages.push(page);
-      initPageSnapshot(page);
-      renderPageList();
-      selectPage(state.pages.length - 1);
-      scheduleSave(state.pages.length - 1);
-    }
+    function addImagePage() { return addPageOfType('image'); }
 
     function renderImagePage(page) {
       const d = page.data;
@@ -5484,8 +5678,10 @@
         zone.addEventListener('drop', async (e) => {
           e.preventDefault();
           zone.classList.remove('dragover');
-          const file = e.dataTransfer.files[0];
-          if (file && file.type.startsWith('image/')) {
+          const files = Array.from(e.dataTransfer.files || []).filter(f => f.type.startsWith('image/'));
+          if (files.length > 1) { await dropImagesOnImagePage(page, files); return; }
+          const file = files[0];
+          if (file) {
             await handleImagePageImage(page, pos, file);
           }
         });
@@ -5943,6 +6139,28 @@
       scheduleSave(state.activePage);
     }
 
+    // Several images dropped on an image page: fill this page's free slots, then
+    // continue on new image pages (4 per page) right after it.
+    async function dropImagesOnImagePage(page, files) {
+      if (!page.data.images) page.data.images = [];
+      const list = files.slice().sort((a, b) => naturalCompare(a.name, b.name));
+      const captions = userPrefs().batch_captions !== false;
+      const free = Math.max(0, 4 - (page.data.images || []).length);
+      for (const f of list.slice(0, free)) {
+        const url = await processImageCompressed(f, PHOTO_JPEG_QUALITY);
+        page.data.images.push({ position: page.data.images.length, url_or_base64: url, caption: captions ? fileStem(f.name) : '' });
+      }
+      const pageIdx = state.pages.indexOf(page);
+      if (list.length > free) {
+        scheduleSave(pageIdx);
+        await insertImagePagesFromFiles(list.slice(free), { perPage: 4, captions, title: page.data.title || '', afterIdx: pageIdx });
+      } else {
+        renderImagePage(page);
+        scheduleSave(pageIdx);
+        renderPageList();
+      }
+    }
+
     async function handleImagePagePaste(page, file) {
       const imgs = page.data.images || [];
       // If a specific zone is selected (paste-target), use that position
@@ -6119,23 +6337,7 @@
       baseImg.src = src;
     }
 
-    function addAnnotationPage() {
-      const page = {
-        id: newPageId(),
-        type: 'annotation',
-        order: state.pages.length,
-        data: {
-          title: '',
-          photo_url_or_base64: '',
-          markers: [] // { id, x, y, label, label_x, label_y }
-        }
-      };
-      state.pages.push(page);
-      initPageSnapshot(page);
-      renderPageList();
-      selectPage(state.pages.length - 1);
-      scheduleSave(state.pages.length - 1);
-    }
+    function addAnnotationPage() { return addPageOfType('annotation'); }
 
     function renderAnnotationPage(page) {
       const d = page.data;
@@ -6211,6 +6413,7 @@
             <aside class="annotation-side">
               <div class="anno-side-title">元件列表</div>
               <ol class="anno-comp-list" id="anno-comp-list"></ol>
+              ${(d.markers || []).length ? '<button type="button" class="anno-batch-btn" id="anno-batch-name" title="一次輸入所有標註點名稱（可從 Excel 貼上一欄）">✎ 批次命名</button>' : ''}
               <div class="anno-comp-count" id="anno-comp-count">標註數量：0</div>
             </aside>
           </div>
@@ -6225,6 +6428,7 @@
 
       sizeAnnotationWorkspace(page);
       updateAnnoCompList(page);
+      document.getElementById('anno-batch-name')?.addEventListener('click', () => showAnnoBatchNameModal(page));
 
       // Category dropdown binding (updates the composed title)
       const catSel = $canvas.querySelector('[data-field="tc_category"]');
@@ -7202,37 +7406,7 @@
     }
 
     // ━━━ Data Page Module ━━━
-    function addDataPage() {
-      const today = todayStr();
-      // Sync stage from cover page if exists
-      const coverPage = state.pages.find(p => p.type === 'cover');
-      const defaultStage = coverPage ? coverPage.data.stage : 'DVT';
-
-      const page = {
-        id: newPageId(),
-        type: 'data',
-        order: state.pages.length,
-        data: {
-          header: {
-            test_date: today,
-            stage: defaultStage,
-            sw_version: '',
-            waveform_ver: '',
-            eq_time_min: '120',
-            mounting: 'Pole Mount',
-            location: 'Chamber',
-          },
-          ta_conditions: [25, 55],
-          components: [],
-          sensors: [],
-        }
-      };
-      state.pages.push(page);
-      initPageSnapshot(page);
-      renderPageList();
-      selectPage(state.pages.length - 1);
-      scheduleSave(state.pages.length - 1);
-    }
+    function addDataPage() { return addPageOfType('data'); }
 
     // Excel-style drag-to-fill for the data page. A small square handle appears
     // on the focused text/number cell; pressing it and dragging up/down over the
@@ -7621,6 +7795,7 @@
       const deratingOptions = ['0.80', '0.85', '0.90', '0.95', '1.00'];
       const sensorTypeOptions = ['Local', 'Remote'];
 
+      const specMem = specMemory();
       const timLib = state.timLibrary || { grease: [], pad: [], putty: [] };
       const allTimNames = [
         ...timLib.grease.map(t => t.name),
@@ -7678,7 +7853,7 @@
               `<option value="${escapeAttr(c)}" ${cat === c ? 'selected' : ''}>${escHtml(c)}</option>`).join('')}
             </select></td>
           <td class="dt-readonly">${autoNum}</td>
-          <td class="dt-name-col"><input type="text" class="dt-name-input" placeholder="元件名稱" value="${escapeAttr(comp.name || '')}" data-comp="${ri}" data-comp-field="name" data-fill-col="c:name"></td>
+          <td class="dt-name-col"><input type="text" class="dt-name-input" placeholder="元件名稱" list="dt-name-memory" autocomplete="off" value="${escapeAttr(comp.name || '')}" data-comp="${ri}" data-comp-field="name" data-fill-col="c:name"></td>
           <td><select data-comp="${ri}" data-comp-field="spec_type">${specTypeOptions.map(s =>
               `<option value="${s}" ${comp.spec_type === s ? 'selected' : ''}>${s}</option>`).join('')}
             </select></td>
@@ -7884,6 +8059,8 @@
           </div>
 
           <!-- Data Table -->
+          <div class="dt-summary" id="dt-summary">${dataSummaryHTML(d)}</div>
+          ${specMemoryDatalistHTML(specMem)}
           <div class="data-table-wrap">
             <table class="data-table">
               <thead>
@@ -7911,6 +8088,7 @@
           <div class="dt-def-note">※ ${MARGIN_DEFINITION_TEXT}</div>
           <button class="dt-add-row-btn" id="dt-add-row">+ 新增元件</button>
           <button class="dt-add-row-btn" id="dt-import-anno" style="margin-left:8px;">⇩ 帶入標註頁元件</button>
+          <button class="dt-add-row-btn" id="dt-import-csv" style="margin-left:8px;" title="讀取記錄器匯出的 CSV / TXT，取最後一段時間平均填入實測 Tc（也可以直接把檔案拖到此頁）">📥 匯入記錄器 CSV</button>
 
           <!-- Embedded Sensor Section -->
           <div class="sensor-section">
@@ -8129,6 +8307,12 @@
 
         // Update auto-number and category boundary (only for category change)
         updateAutoNumbers();
+        refreshDataSummary();
+      }
+
+      function refreshDataSummary() {
+        const el = document.getElementById('dt-summary');
+        if (el) el.innerHTML = dataSummaryHTML(d);
       }
 
       function updateAutoNumbers() {
@@ -8174,9 +8358,66 @@
           // Update computed cells in-place without re-render
           if (['category', 'tc_spec', 'derating', 'spec_type'].includes(field)) {
             updateRowComputed(ri);
+          } else if (field === 'name') {
+            refreshDataSummary();
           }
         });
       });
+
+      // ── Spec memory: a committed name that is known elsewhere fills an empty spec ──
+      $canvas.querySelectorAll('input[data-comp-field="name"]').forEach(el => {
+        el.addEventListener('change', () => {
+          const comp = d.components[parseInt(el.dataset.comp)];
+          const e = fillSpecFromMemory(comp);
+          if (!e) return;
+          scheduleSave(state.activePage);
+          // after the click / Tab that committed the name has moved focus
+          setTimeout(() => { if (state.pages[state.activePage] === page) rerenderKeepFocus(renderDataPage, page); }, 0);
+          showToast(`已帶入「${e.name}」的規格：${e.spec_type} ${e.tc_spec}°C × ${e.derating || '—'}${e.from ? '（' + e.from + '）' : ''}`, 'ok', 3500);
+        });
+      });
+
+      // ── Summary bar: jump to rows, bulk-fill specs from memory ──
+      const summaryEl = document.getElementById('dt-summary');
+      if (summaryEl) {
+        summaryEl.addEventListener('click', (e) => {
+          const rowLink = e.target.closest('[data-sum-row]');
+          if (rowLink) { flashDataRow(parseInt(rowLink.dataset.sumRow)); return; }
+          const jump = e.target.closest('[data-sum-jump]');
+          if (jump) {
+            const kind = jump.dataset.sumJump;
+            const hit = dataPageStats(d).rows.find(x => !x.calc.disabled && (
+              kind === 'nospec' ? !(x.calc.derated > 0) : x.calc.derated > 0 && x.calc.status === kind));
+            if (hit) flashDataRow(hit.ri);
+            return;
+          }
+          if (e.target.closest('[data-sum-fill-spec]')) {
+            const mem = specMemory();
+            const n = d.components.filter(c => fillSpecFromMemory(c, mem)).length;
+            if (!n) return;
+            scheduleSave(state.activePage);
+            renderDataPage(page);
+            showToast(`已依規格記憶帶入 ${n} 顆元件的規格，請確認`, 'ok');
+          }
+        });
+      }
+
+      // ── Data-logger CSV import (button or drop a file on the page) ──
+      document.getElementById('dt-import-csv')?.addEventListener('click', () => showLoggerImportModal(page));
+      const dataPageEl = $canvas.querySelector('.data-page');
+      if (dataPageEl && !d.frozen) {
+        const isFileDrag = e => Array.from((e.dataTransfer && e.dataTransfer.types) || []).includes('Files');
+        dataPageEl.addEventListener('dragover', (e) => { if (!isFileDrag(e)) return; e.preventDefault(); dataPageEl.classList.add('csv-dragover'); });
+        dataPageEl.addEventListener('dragleave', (e) => { if (!dataPageEl.contains(e.relatedTarget)) dataPageEl.classList.remove('csv-dragover'); });
+        dataPageEl.addEventListener('drop', (e) => {
+          if (!isFileDrag(e)) return;
+          e.preventDefault();
+          dataPageEl.classList.remove('csv-dragover');
+          const f = Array.from(e.dataTransfer.files || []).find(x => /\.(csv|txt|tsv|dat)$/i.test(x.name));
+          if (f) showLoggerImportModal(page, f);
+          else showToast('請拖入記錄器匯出的 CSV / TXT 檔', 'warn');
+        });
+      }
 
       // ── Tc measured input bindings ──
       // (↑/↓/Enter row navigation is handled generically by setupGridSelection.)
@@ -8218,8 +8459,10 @@
       if (importBtn) {
         importBtn.addEventListener('click', () => {
           showAnnotationImportModal((selectedComps) => {
+            const mem = specMemory();
+            let filled = 0;
             selectedComps.forEach(c => {
-              d.components.push({
+              const comp = {
                 uid: newCompUid(),
                 category: c.category,
                 name: c.name,
@@ -8229,11 +8472,14 @@
                 tim_type: '',
                 readings: {},
                 note: '',
-              });
+              };
+              if (fillSpecFromMemory(comp, mem)) filled++;
+              d.components.push(comp);
             });
             if (selectedComps.length > 0) {
               scheduleSave(state.activePage);
               renderDataPage(page);
+              if (filled) showToast(`已帶入 ${selectedComps.length} 顆元件，其中 ${filled} 顆依規格記憶填好規格`, 'ok');
             }
           });
         });
@@ -8508,25 +8754,7 @@
     }
 
     // ━━━ Sim vs Meas Comparison Page Module ━━━
-    function addSimVsMeasPage() {
-      const page = {
-        id: newPageId(),
-        type: 'sim_vs_meas',
-        order: state.pages.length,
-        data: {
-          title: '',
-          sim_image: '',
-          meas_image: '',
-          sim_note: '',
-          items: [],
-        }
-      };
-      state.pages.push(page);
-      initPageSnapshot(page);
-      renderPageList();
-      selectPage(state.pages.length - 1);
-      scheduleSave(state.pages.length - 1);
-    }
+    function addSimVsMeasPage() { return addPageOfType('sim_vs_meas'); }
 
     // ── Component category colours (kept clearly distinct across all 4) ──
     // RF = blue, Digital = green, PWR = orange, Other = purple. Same values are
@@ -9044,6 +9272,7 @@
             <div class="sim-page-title">Simulation vs Measurement Comparison${compareTa === null ? '' : ` — Ta = ${compareTa}°C`}</div>
             <div class="sim-page-actions">
               ${taSelect}
+              <button class="sim-select-btn" id="sim-paste-names" title="從模擬結果表複製「元件名稱 + 溫度」貼上，依名稱自動對應">貼上模擬結果</button>
               <button class="sim-select-btn" id="sim-select-comp">從數據頁選取元件</button>
             </div>
           </div>
@@ -9114,6 +9343,8 @@
           saveConcl
         );
       }
+
+      document.getElementById('sim-paste-names').addEventListener('click', () => showSimPasteModal(page));
 
       // ── Select components button ──
       document.getElementById('sim-select-comp').addEventListener('click', () => {
@@ -9211,24 +9442,7 @@
     }
 
     // ━━━ Conclusion Page Module ━━━
-    function addConclusionPage() {
-      const page = {
-        id: newPageId(),
-        type: 'conclusion',
-        order: state.pages.length,
-        data: {
-          summary: '',
-          compliance: [],
-          issues: [''],
-          actions: [],
-        }
-      };
-      state.pages.push(page);
-      initPageSnapshot(page);
-      renderPageList();
-      selectPage(state.pages.length - 1);
-      scheduleSave(state.pages.length - 1);
-    }
+    function addConclusionPage() { return addPageOfType('conclusion'); }
 
     // ━━━ Notes Page Module (備註頁) ━━━
     // Editor-only scratchpad for experiment jottings (commands, process notes)
@@ -9243,19 +9457,7 @@
       return { id: 'nb_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6), time: noteTimestamp(), text: '', images: [] };
     }
 
-    function addNotePage() {
-      const page = {
-        id: newPageId(),
-        type: 'note',
-        order: state.pages.length,
-        data: { title: '', blocks: [newNoteBlock()] }
-      };
-      state.pages.push(page);
-      initPageSnapshot(page);
-      renderPageList();
-      selectPage(state.pages.length - 1);
-      scheduleSave(state.pages.length - 1);
-    }
+    function addNotePage() { return addPageOfType('note'); }
 
     function renderNotePage(page) {
       $canvas.classList.add('scrollable-edit');
@@ -9614,7 +9816,7 @@
 
           <!-- 1. Summary -->
           <div class="concl-section">
-            <div class="concl-section-title">Conclusion</div>
+            <div class="concl-section-title">Conclusion<button type="button" class="sec-tool-btn" id="concl-draft-btn" title="依數據頁、比對頁的結果產生結論草稿（可再修改）">✨ 產生結論草稿</button></div>
             ${conclHlToolbarHTML()}
             <div class="concl-summary" contenteditable="true" data-placeholder="請輸入實驗結論..."
                  id="concl-summary-editor">${sanitizeRichHtml(d.summary || '')}</div>
@@ -9650,7 +9852,7 @@
           <!-- 3 + 4. Issues / Next Action side by side -->
           <div class="concl-columns">
             <div class="concl-section">
-              <div class="concl-section-title">Issues Found</div>
+              <div class="concl-section-title">Issues Found<button type="button" class="sec-tool-btn" id="concl-issues-btn" title="把 Fail / Warning 元件寫成問題條列（已存在的不重複加入）">⇩ 由 Fail / Warning 產生</button></div>
               <ul class="concl-issues-list" id="issues-list">${issuesHtml}</ul>
             </div>
             <div class="concl-section">
@@ -9701,6 +9903,45 @@
           () => { d.summary = sanitizeRichHtml(summaryEl.innerHTML); scheduleSave(pageIdx); }
         );
       }
+
+      // ✨ Draft the conclusion text from the data (replace or append).
+      document.getElementById('concl-draft-btn')?.addEventListener('click', () => {
+        const lines = buildConclusionDraft();
+        if (!lines.length) { alert('還沒有數據頁可以產生結論。'); return; }
+        const html = lines.map(escHtml).join('<br>');
+        const put = (mode) => {
+          d.summary = sanitizeRichHtml(mode === 'append' && d.summary ? d.summary + '<br>' + html : html);
+          scheduleSave(pageIdx);
+          renderConclusionPage(page);
+          showToast('已產生結論草稿，請再依實際情況修改', 'ok');
+        };
+        const current = String(d.summary || '').replace(/<[^>]*>/g, '').trim();
+        if (!current) { put('replace'); return; }
+        const m = openToolModal({
+          title: '產生結論草稿',
+          width: 520,
+          body: `<div class="tool-hint" style="margin-bottom:8px;">結論已有內容。要用草稿取代，還是加在最後？</div>
+            <div class="tool-textarea" style="min-height:0;white-space:normal;">${html}</div>`,
+          footer: `<button class="sim-modal-btn" id="cd-cancel">取消</button>
+            <button class="sim-modal-btn" id="cd-append">加在最後</button>
+            <button class="sim-modal-btn primary" id="cd-replace">取代</button>`,
+        });
+        m.$('#cd-cancel').addEventListener('click', m.close);
+        m.$('#cd-append').addEventListener('click', () => { m.close(); put('append'); });
+        m.$('#cd-replace').addEventListener('click', () => { m.close(); put('replace'); });
+      });
+      // ⇩ Issues from Fail / Warning components (skips ones already listed).
+      document.getElementById('concl-issues-btn')?.addEventListener('click', () => {
+        const lines = flaggedIssueLines();
+        if (!lines.length) { showToast('目前沒有 Fail / Warning 元件', 'ok'); return; }
+        const existing = (d.issues || []).filter(t => String(t || '').trim());
+        const fresh = lines.filter(x => !existing.some(t => String(t).startsWith(x.prefix)));
+        if (!fresh.length) { showToast('Fail / Warning 元件都已列在 Issues Found', 'ok'); return; }
+        d.issues = existing.concat(fresh.map(x => x.line));
+        scheduleSave(pageIdx);
+        renderConclusionPage(page);
+        showToast(`已加入 ${fresh.length} 條問題${lines.length > fresh.length ? `（略過已存在 ${lines.length - fresh.length} 條）` : ''}`, 'ok');
+      });
 
       // (Compliance Component / Tc / Spec / Margin / Verdict are all auto-filled
       //  and read-only — Verdict follows the Margin — so there are no inputs here.)
@@ -10804,6 +11045,28 @@
       });
       if (items.length === 0) { alert('沒有可匯出的頁面（備註頁不會匯出）。'); return; }
 
+      // Report check: things that are probably unfinished, each a link to its page.
+      const checks = runReportCheck();
+      const nWarn = checks.filter(c => c.level === 'warn').length, nInfo = checks.length - nWarn;
+      const pageName = idx => idx === null ? '整份報告' : String(idx + 1).padStart(2, '0') + ' ' + pageBaseLabel(idx);
+      const checkHTML = `
+        <div class="exp-check${nWarn ? ' open' : ''}" id="exp-check">
+          <div class="exp-check-head ${checks.length ? 'warn' : 'ok'}" id="exp-check-head">
+            ${checks.length ? `⚠ 報告檢查：${nWarn ? nWarn + ' 項待確認' : ''}${nWarn && nInfo ? '、' : ''}${nInfo ? nInfo + ' 項提醒' : ''}` : '✔ 報告檢查：沒有發現漏填'}
+            ${checks.length ? '<span class="exp-check-toggle">點此展開 / 收合 · 點項目跳到該頁</span>' : ''}
+          </div>
+          <div class="exp-check-list">${checks.map(c => `
+            <button type="button" class="exp-check-item" data-goto="${c.idx === null ? '' : c.idx}">
+              <span class="lv">${c.level === 'warn' ? '⚠️' : 'ℹ️'}</span><span class="pg">${escHtml(pageName(c.idx))}</span><span>${escHtml(c.text)}</span>
+            </button>`).join('')}</div>
+        </div>`;
+      const spOn = !!(window.spSync && spSync.isEnabled());
+      const spChecked = spOn && userPrefs().export_sp !== false;
+      const spFolder = (() => {
+        const cv = state.pages.find(p => p.type === 'cover');
+        return cv ? [cv.data.project_name, cv.data.stage].filter(Boolean).join('_') : '';
+      })() || 'Report';
+
       const overlay = document.createElement('div');
       overlay.className = 'sim-modal-overlay';
       const rowsHTML = items.map(it =>
@@ -10813,11 +11076,13 @@
            <span class="exp-label">${escHtml(it.label)}${it.note ? `<span class="exp-note">${escHtml(it.note)}</span>` : ''}</span>
          </label>`).join('');
       overlay.innerHTML = `
-        <div class="sim-modal">
+        <div class="sim-modal" style="width:580px;max-width:calc(100vw - 32px);max-height:88vh;">
           <div class="sim-modal-header">選擇要匯出的頁面</div>
+          ${checkHTML}
           <div class="exp-toolbar"><button type="button" class="exp-toggle-all" id="exp-toggle-all">全不選</button></div>
           <div class="sim-modal-body">${rowsHTML}</div>
           <div class="sim-modal-footer">
+            ${spOn ? `<label class="exp-sp" title="上傳到 SharePoint：Thermal_Report_Builder/Reports/${escapeAttr(spFolder)}/"><input type="checkbox" id="exp-sp-upload"${spChecked ? ' checked' : ''}> 同時上傳到 SharePoint</label>` : ''}
             <button class="sim-modal-btn" id="exp-cancel">取消</button>
             <button class="sim-modal-btn primary" id="exp-confirm">匯出所選</button>
           </div>
@@ -10826,6 +11091,11 @@
       const close = () => document.body.removeChild(overlay);
       overlay.querySelector('#exp-cancel').addEventListener('click', close);
       overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+      overlay.querySelector('#exp-check-head').addEventListener('click', () => overlay.querySelector('#exp-check').classList.toggle('open'));
+      overlay.querySelectorAll('[data-goto]').forEach(b => b.addEventListener('click', () => {
+        close();
+        if (b.dataset.goto !== '') selectPage(parseInt(b.dataset.goto));
+      }));
       const toggleBtn = overlay.querySelector('#exp-toggle-all');
       toggleBtn.addEventListener('click', () => {
         const cbs = Array.from(overlay.querySelectorAll('.exp-cb'));
@@ -10836,12 +11106,14 @@
       overlay.querySelector('#exp-confirm').addEventListener('click', () => {
         const sel = new Set(Array.from(overlay.querySelectorAll('.exp-cb:checked')).map(c => parseInt(c.value)));
         if (sel.size === 0) { alert('請至少選取一個頁面。'); return; }
+        const spCb = overlay.querySelector('#exp-sp-upload');
+        if (spCb) setUserPref('export_sp', spCb.checked);
         close();
-        onConfirm(sel);
+        onConfirm(sel, { upload: !!(spCb && spCb.checked), folder: spFolder });
       });
     }
 
-    async function exportPDF(selectedPageIdxs) {
+    async function exportPDF(selectedPageIdxs, opts = {}) {
       if (state.pages.length === 0) return;
       if (typeof html2canvas === 'undefined' || typeof jspdf === 'undefined') {
         alert('PDF 匯出函式庫載入中，請稍後再試');
@@ -10968,11 +11240,981 @@
         pdf.save(filename + '.pdf');
         setStatus('saved', 'PDF 已匯出');
         console.log('✅ PDF exported:', filename + '.pdf');
+        if (opts.upload) {
+          try {
+            const url = await spSync.uploadExport(opts.folder || 'Report', filename + '.pdf', pdf.output('blob'));
+            showToast(`PDF 已上傳到 SharePoint：Reports/${opts.folder || 'Report'}/`, 'ok', 8000, url ? { href: url, label: '開啟' } : null);
+          } catch (e) {
+            showToast('PDF 已下載，但上傳 SharePoint 失敗：' + (e.message || e), 'err', 9000);
+          }
+        }
       } catch (err) {
         console.error('PDF export error:', err);
         setStatus('saved', '匯出失敗');
         alert('PDF 匯出失敗：' + err.message);
       }
+    }
+
+    // ━━━ Efficiency tools (效率小工具) ━━━
+    // Shared helpers for the "fewer clicks" features: tool modal, remembered
+    // defaults, component-spec memory, data-page summary, data-logger import,
+    // Sim Tc paste by name, conclusion draft, batch images, report check and
+    // page-list badges.
+
+    // Dark tool modal (same look as the pickers). `title` is HTML (escape it).
+    function openToolModal({ title, body, footer, width, onClose }) {
+      const overlay = document.createElement('div');
+      overlay.className = 'sim-modal-overlay tool-modal-overlay';
+      overlay.innerHTML = `<div class="sim-modal tool-modal"${width ? ` style="width:${width}px"` : ''}>
+          <div class="sim-modal-header">${title}</div>
+          <div class="sim-modal-body tool-modal-body">${body}</div>
+          <div class="sim-modal-footer">${footer}</div>
+        </div>`;
+      document.body.appendChild(overlay);
+      let closed = false;
+      const onKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); close(); } };
+      function close() {
+        if (closed) return;
+        closed = true;
+        document.removeEventListener('keydown', onKey, true);
+        overlay.remove();
+        if (onClose) onClose();
+      }
+      document.addEventListener('keydown', onKey, true);
+      overlay.addEventListener('mousedown', (e) => { if (e.target === overlay) close(); });
+      const $ = sel => overlay.querySelector(sel);
+      const $$ = sel => Array.from(overlay.querySelectorAll(sel));
+      return { overlay, close, $, $$ };
+    }
+
+    // Small per-user preferences kept in this browser (not report data).
+    const LS_PREFS = 'thermal_user_prefs';
+    function userPrefs() {
+      try { return JSON.parse(localStorage.getItem(LS_PREFS)) || {}; } catch (e) { return {}; }
+    }
+    function setUserPref(key, value) {
+      try { const p = userPrefs(); p[key] = value; localStorage.setItem(LS_PREFS, JSON.stringify(p)); } catch (e) { /* private mode */ }
+    }
+    // Default Tested by: last one typed on a cover, else the Microsoft account name.
+    function defaultTestedBy() {
+      const p = userPrefs();
+      if (p.tested_by) return p.tested_by;
+      try { const acc = window.spSync && spSync.account(); return (acc && acc.name) || ''; } catch (e) { return ''; }
+    }
+
+    const round1 = v => Math.round(v * 10) / 10;
+    const naturalCompare = (a, b) => String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' });
+
+    // ── Component spec memory ──
+    // Specs entered for a component name in ANY report are remembered: the name
+    // field offers them (datalist) and an empty-spec component with that name is
+    // filled in (category / spec type / Tc spec / derating / TIM).
+    let specMemoryOthers = new Map();      // other reports of this database
+    const specKey = n => String(n || '').trim().toLowerCase().replace(/\s+/g, ' ');
+    function addSpecEntry(map, c, from) {
+      const k = specKey(c && c.name);
+      if (!k || !(parseTemp(c.tc_spec) > 0)) return;
+      map.set(k, {
+        name: String(c.name).trim(), category: c.category || 'RF', spec_type: c.spec_type || 'Rec.',
+        tc_spec: numStr(c.tc_spec), derating: c.derating || '', tim_type: c.tim_type || '', from: from || '',
+      });
+    }
+    async function loadSpecMemory() {
+      const map = new Map();
+      try {
+        const digests = await dbAdapter.getReportDigests();
+        digests.filter(r => r.id !== state.reportId)
+          .sort((a, b) => String(a.updated_at || '').localeCompare(String(b.updated_at || '')))   // newest last → wins
+          .forEach(r => r.dataPages.forEach(dp => dp.components.forEach(c => addSpecEntry(map, c, r.project_name || ''))));
+      } catch (e) { /* no database / old file: memory stays empty */ }
+      specMemoryOthers = map;
+    }
+    // Other reports + this report's data pages (this report wins).
+    function specMemory() {
+      const map = new Map(specMemoryOthers);
+      state.pages.forEach(p => {
+        if (p.type === 'data') (p.data.components || []).forEach(c => addSpecEntry(map, c, '本報告'));
+      });
+      return map;
+    }
+    // Fill an empty-spec component from memory. Returns the entry used, or null.
+    function fillSpecFromMemory(comp, mem) {
+      if (!comp || parseTemp(comp.tc_spec) > 0) return null;
+      const e = (mem || specMemory()).get(specKey(comp.name));
+      if (!e) return null;
+      comp.category = e.category;
+      comp.spec_type = e.spec_type;
+      comp.tc_spec = e.tc_spec;
+      if (e.derating) comp.derating = e.derating;
+      if (e.tim_type && !comp.tim_type) comp.tim_type = e.tim_type;
+      return e;
+    }
+    function specMemoryDatalistHTML(mem) {
+      const opts = Array.from(mem.values()).sort((a, b) => naturalCompare(a.name, b.name)).map(e =>
+        `<option value="${escapeAttr(e.name)}">${escHtml(`${e.category} · ${e.spec_type} ${e.tc_spec}°C × ${e.derating || '—'}${e.from ? ' · ' + e.from : ''}`)}</option>`);
+      return `<datalist id="dt-name-memory">${opts.join('')}</datalist>`;
+    }
+
+    // ── Data page: summary bar ──
+    function dataPageStats(d) {
+      const tas = d.ta_conditions || [];
+      const rows = (d.components || []).map((c, ri) => ({ c, ri, calc: computeComponent(c, tas) }));
+      const n = { total: rows.length, pass: 0, warn: 0, fail: 0, unmeasured: 0, noSpec: 0, off: 0 };
+      let worst = null, hottest = null;
+      rows.forEach(x => {
+        if (x.calc.disabled) { n.off++; return; }
+        if (!(x.calc.derated > 0)) n.noSpec++;
+        else if (x.calc.status === 'none') n.unmeasured++;
+        else n[x.calc.status]++;
+        const w = x.calc.worst;
+        if (w && (!worst || w.marginPct < worst.cell.marginPct)) worst = { x, cell: w };
+        const m = x.calc.maxCell;
+        if (m && (!hottest || m.tc > hottest.cell.tc)) hottest = { x, cell: m };
+      });
+      const memFillable = (d.components || []).filter(c => !(parseTemp(c.tc_spec) > 0) && String(c.name || '').trim()).length;
+      return { rows, n, worst, hottest, memFillable };
+    }
+    function dataSummaryHTML(d) {
+      const s = dataPageStats(d);
+      if (!s.n.total) return '';
+      const nm = x => escHtml(x.c.name || '(未命名)');
+      const chip = (cls, label, jump) => jump
+        ? `<button type="button" class="dt-sum-chip ${cls}" data-sum-jump="${jump}" title="跳到第一顆">${label}</button>`
+        : `<span class="dt-sum-chip ${cls}">${label}</span>`;
+      const parts = [chip('', `共 ${s.n.total} 顆`)];
+      if (s.n.pass) parts.push(chip('dt-sum-pass', `✔ ${s.n.pass} Pass`));
+      if (s.n.warn) parts.push(chip('dt-sum-warn', `⚠ ${s.n.warn} Warning`, 'warn'));
+      if (s.n.fail) parts.push(chip('dt-sum-fail', `❌ ${s.n.fail} Fail`, 'fail'));
+      if (s.n.unmeasured) parts.push(chip('', `未量測 ${s.n.unmeasured}`, 'none'));
+      if (s.n.noSpec) parts.push(chip('', `未填規格 ${s.n.noSpec}`, 'nospec'));
+      if (s.n.off) parts.push(chip('', `斷線 ${s.n.off}`));
+      if (s.worst) {
+        const w = s.worst.cell;
+        parts.push('<span class="dt-sum-sep"></span>',
+          `<span class="dt-sum-item">最小 Margin：<b class="dt-sum-link" data-sum-row="${s.worst.x.ri}">${nm(s.worst.x)}</b> ${fmtPct(w.marginPct)}（${fmtDeltaC(w.marginC)} @ ${w.ta}°C）</span>`);
+      }
+      if (s.hottest) {
+        const h = s.hottest.cell;
+        parts.push(`<span class="dt-sum-item">最高 Tc：<b class="dt-sum-link" data-sum-row="${s.hottest.x.ri}">${nm(s.hottest.x)}</b> ${fmt1(h.tc)}°C @ ${h.ta}°C</span>`);
+      }
+      if (s.memFillable && !d.frozen) {
+        const mem = specMemory();
+        const k = (d.components || []).filter(c => !(parseTemp(c.tc_spec) > 0) && mem.has(specKey(c.name))).length;
+        if (k) parts.push(`<button type="button" class="dt-sum-act" data-sum-fill-spec title="以其他報告 / 數據頁填過的同名元件規格帶入">⚡ 帶入規格記憶（${k} 顆）</button>`);
+      }
+      const logs = Object.entries(d.logger_last || {}).filter(([key]) => (d.ta_conditions || []).some(t => 'ta_' + t === key));
+      logs.forEach(([key, lg]) => {
+        const ta = key.replace(/^ta_/, '');
+        const amb = (typeof lg.ambient === 'number') ? `，實測環溫 ${lg.ambient.toFixed(1)}°C${lg.corrected ? '（已修正到目標 Ta）' : ''}` : '';
+        const uns = (lg.unstable || []).length ? `，⚠ ${lg.unstable.length} 顆未達穩態` : '';
+        parts.push(`<span class="dt-sum-log">📥 Ta ${escHtml(ta)}°C：${escHtml(lg.file || '')}（${escHtml(lg.window || '')}${escHtml(amb)}${escHtml(uns)}）</span>`);
+      });
+      return parts.join('');
+    }
+    // Scroll a data-page row into view and flash it.
+    function flashDataRow(ri) {
+      const tr = $canvas.querySelector(`#dt-tbody tr[data-row-idx="${ri}"]`);
+      if (!tr) return;
+      tr.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      tr.classList.remove('dt-row-flash');
+      void tr.offsetWidth;
+      tr.classList.add('dt-row-flash');
+    }
+
+    // Re-render a page but keep the caret in the field the user is typing in.
+    function focusSelectorOf(el) {
+      if (!el || !$canvas.contains(el)) return null;
+      const attrs = ['data-comp', 'data-comp-field', 'data-ta-key', 'data-sensor', 'data-sensor-field', 'data-sensor-ta', 'data-header', 'data-mp-ta', 'data-field', 'data-sim-idx', 'data-sim-field'];
+      const parts = attrs.filter(a => el.hasAttribute(a)).map(a => `[${a}="${CSS.escape(el.getAttribute(a))}"]`);
+      if (!parts.length) return null;
+      const cls = ['mp-v', 'mp-i'].find(c => el.classList.contains(c));
+      return el.tagName.toLowerCase() + parts.join('') + (cls ? '.' + cls : '');
+    }
+    function rerenderKeepFocus(renderFn, page) {
+      const sel = focusSelectorOf(document.activeElement);
+      renderFn(page);
+      if (sel) { const el = $canvas.querySelector(sel); if (el) el.focus(); }
+    }
+
+    // ── Data page: data-logger CSV import ──
+    const LOGGER_DEFAULTS = { minutes: 10, rowsN: 30, stableRange: 1, correct: false };
+    function loggerPrefs() { return Object.assign({}, LOGGER_DEFAULTS, userPrefs().logger || {}); }
+    const AMBIENT_RE = /amb|ambient|環溫|環境|chamber|room|\bair\b|^\s*ta\s*$|\bta\b/i;
+    // "101 <PA-1> (C)" → "PA-1"; "CH3: FPGA [°C]" → "FPGA".
+    function cleanChannelName(name) {
+      const s = String(name || '');
+      const tag = s.match(/<([^>]+)>/);
+      if (tag) return tag[1].trim();
+      const t = s.replace(/[([][^)\]]*[)\]]/g, '').replace(/^\s*(?:ch(?:annel)?\s*\d+|\d{3,4})\s*[:_\-.]?\s*/i, '').trim();
+      return t || s.trim();
+    }
+    async function readTextFile(file) {
+      const buf = await file.arrayBuffer();
+      let best = new TextDecoder('utf-8').decode(buf);
+      const bad = t => (t.match(/�/g) || []).length;
+      if (bad(best)) {
+        ['big5', 'shift_jis', 'gb18030'].forEach(enc => {
+          try { const t = new TextDecoder(enc).decode(buf); if (bad(t) < bad(best)) best = t; } catch (e) { /* unsupported */ }
+        });
+      }
+      return best;
+    }
+
+    function showLoggerImportModal(page, initialFile) {
+      const d = page.data;
+      if (d.frozen) { alert('此數據頁已凍結，請先解除凍結再匯入。'); return; }
+      if (!(d.ta_conditions || []).length) { alert('請先新增至少一個 Ta 條件。'); return; }
+      if (!d.components) d.components = [];
+      d.components.forEach(c => { if (!c.uid) c.uid = newCompUid(); });   // mapping is keyed by uid
+      const pageIdx = state.pages.indexOf(page);
+      const prefs = loggerPrefs();
+      const st = {
+        parsed: null, fileName: '', analysis: null,
+        map: {},                         // component uid → channel index (-1 = none)
+        ambient: -1, taKey: null, addUnmapped: false, matchedBy: '',
+      };
+      const m = openToolModal({
+        title: `📥 匯入記錄器 CSV <span class="tool-muted" style="font-weight:400;font-size:12px;">— ${escHtml(pageBaseLabel(pageIdx))}${d.list_note ? ' · ' + escHtml(d.list_note) : ''}</span>`,
+        width: 940,
+        body: '<div id="lg-root"></div>',
+        footer: `<span class="tool-foot-info" id="lg-foot"></span>
+          <button class="sim-modal-btn" id="lg-cancel">取消</button>
+          <button class="sim-modal-btn primary" id="lg-apply" disabled>填入</button>`,
+      });
+      const root = m.$('#lg-root');
+      m.$('#lg-cancel').addEventListener('click', m.close);
+      m.$('#lg-apply').addEventListener('click', apply);
+
+      const channels = () => (st.parsed ? st.parsed.channels : []);
+      const statOf = ci => (st.analysis && ci >= 0) ? st.analysis.stats[ci] : null;
+      const ambientAvg = () => { const s = statOf(st.ambient); return s && !isNaN(s.avg) ? s.avg : NaN; };
+      const targetTa = () => parseFloat(String(st.taKey).replace(/^ta_/, ''));
+      const correction = () => (prefs.correct && !isNaN(ambientAvg())) ? targetTa() - ambientAvg() : 0;
+
+      function analyze() {
+        st.analysis = loggerCsv.analyze(st.parsed, { minutes: prefs.minutes, rowsN: prefs.rowsN, stableRange: prefs.stableRange });
+      }
+      function autoMap(mode) {
+        const chs = channels();
+        st.map = {};
+        const used = new Set(st.ambient >= 0 ? [st.ambient] : []);
+        const comps = d.components;
+        let matched = 0;
+        if (mode !== 'order') {
+          // 1) the channel this component was read from last time (same file layout)
+          comps.forEach(c => {
+            const prev = d.logger_map && d.logger_map[c.uid];
+            const ci = prev ? chs.findIndex((ch, i) => ch.name === prev && !used.has(i)) : -1;
+            if (ci >= 0) { st.map[c.uid] = ci; used.add(ci); matched++; }
+          });
+          // 2) channel named after the component (best score first)
+          const cands = [];
+          comps.forEach(c => {
+            if (st.map[c.uid] !== undefined || !String(c.name || '').trim()) return;
+            chs.forEach((ch, ci) => { const sc = loggerCsv.nameScore(c.name, ch.name); if (sc) cands.push({ uid: c.uid, ci, sc }); });
+          });
+          cands.sort((a, b) => b.sc - a.sc).forEach(x => {
+            if (st.map[x.uid] !== undefined || used.has(x.ci)) return;
+            st.map[x.uid] = x.ci; used.add(x.ci); matched++;
+          });
+        }
+        st.matchedBy = matched ? 'name' : '';
+        // 3) nothing matched by name → in order (TC1 → first channel …)
+        if (mode === 'order' || (mode !== 'name' && !matched)) {
+          st.map = {};
+          const free = chs.map((_, i) => i).filter(i => i !== st.ambient);
+          comps.forEach((c, k) => { st.map[c.uid] = k < free.length ? free[k] : -1; });
+          st.matchedBy = 'order';
+        }
+        comps.forEach(c => { if (st.map[c.uid] === undefined) st.map[c.uid] = -1; });
+        st.addUnmapped = !comps.length;
+      }
+      function pickDefaults() {
+        const chs = channels();
+        const prevAmb = d.logger_ambient ? chs.findIndex(ch => ch.name === d.logger_ambient) : -1;
+        st.ambient = prevAmb >= 0 ? prevAmb : chs.findIndex(ch => AMBIENT_RE.test(cleanChannelName(ch.name)) || AMBIENT_RE.test(ch.name));
+        analyze();
+        // Ta: the condition closest to the measured ambient (within 5°C), else the
+        // first Ta still empty, else the last one.
+        const tas = d.ta_conditions;
+        const amb = ambientAvg();
+        let ta = null;
+        if (!isNaN(amb)) {
+          const best = tas.slice().sort((a, b) => Math.abs(a - amb) - Math.abs(b - amb))[0];
+          if (Math.abs(best - amb) <= 5) ta = best;
+        }
+        if (ta === null) ta = tas.find(t => !d.components.some(c => !isNaN(parseTemp((c.readings || {})['ta_' + t])))) ?? tas[tas.length - 1];
+        st.taKey = 'ta_' + ta;
+        autoMap('auto');
+      }
+
+      async function loadFile(file) {
+        if (!file) return;
+        try {
+          const text = await readTextFile(file);
+          const parsed = loggerCsv.parse(text);
+          if (parsed.error) { alert('無法讀取「' + file.name + '」：' + parsed.error); return; }
+          st.parsed = parsed;
+          st.fileName = file.name;
+          pickDefaults();
+          render();
+        } catch (e) {
+          alert('讀取檔案失敗：' + e.message);
+        }
+      }
+
+      function windowText() {
+        const info = st.analysis.info;
+        return info.mode === 'time' ? `最後 ${prefs.minutes} 分鐘平均` : `最後 ${info.rows} 筆平均`;
+      }
+
+      function render() {
+        if (!st.parsed) {
+          root.innerHTML = `
+            <div class="tool-drop" id="lg-drop">
+              <span class="tool-drop-icon">📄</span>
+              把記錄器匯出的 CSV / TXT 拖到這裡，或 <button type="button" class="sim-modal-tool-btn" id="lg-browse">選擇檔案</button>
+              <div class="tool-hint" style="margin-top:10px;">支援 Keysight / Graphtec / Yokogawa / Hioki 等格式（逗號、分號、Tab 分隔皆可）。<br>
+                每個通道取最後一段時間的平均值當實測 Tc，並檢查是否已達穩態；通道會依名稱自動對應元件，對不到就依順序。</div>
+              <input type="file" id="lg-file" accept=".csv,.txt,.tsv,.dat,text/csv,text/plain" style="display:none">
+            </div>`;
+          const drop = root.querySelector('#lg-drop');
+          const input = root.querySelector('#lg-file');
+          root.querySelector('#lg-browse').addEventListener('click', () => input.click());
+          input.addEventListener('change', () => loadFile(input.files[0]));
+          drop.addEventListener('dragover', (e) => { e.preventDefault(); drop.classList.add('dragover'); });
+          drop.addEventListener('dragleave', () => drop.classList.remove('dragover'));
+          drop.addEventListener('drop', (e) => { e.preventDefault(); drop.classList.remove('dragover'); loadFile(e.dataTransfer.files[0]); });
+          updateFoot();
+          return;
+        }
+        const chs = channels();
+        const info = st.analysis.info;
+        const amb = ambientAvg();
+        const tas = d.ta_conditions;
+        const existing = d.components.filter(c => !isNaN(parseTemp((c.readings || {})[st.taKey]))).length;
+        const span = info.mode === 'time' ? `記錄 ${round1(info.totalMinutes)} 分鐘` : `${info.totalRows} 筆（無時間欄，依筆數取樣）`;
+        const chOpts = (sel, withNone) => (withNone ? `<option value="-1"${sel < 0 ? ' selected' : ''}>— 不使用 —</option>` : '') +
+          chs.map((ch, i) => `<option value="${i}"${i === sel ? ' selected' : ''}>${escHtml(ch.name)}</option>`).join('');
+        const usedBy = new Map();
+        Object.entries(st.map).forEach(([uid, ci]) => { if (ci >= 0) usedBy.set(ci, (usedBy.get(ci) || 0) + 1); });
+        const corr = correction();
+        const rows = d.components.map((c, k) => {
+          const ci = st.map[c.uid] ?? -1;
+          const s = statOf(ci);
+          const cur = parseTemp((c.readings || {})[st.taKey]);
+          const nv = s && !isNaN(s.avg) ? round1(s.avg + corr) : NaN;
+          const state = !s ? '<span class="tool-muted">—</span>'
+            : isNaN(s.avg) ? '<span class="tool-bad">無數值</span>'
+            : s.stable ? '<span class="tool-ok">✓ 穩定</span>' : '<span class="tool-warn">⚠ 未穩定</span>';
+          const dup = ci >= 0 && usedBy.get(ci) > 1 ? ' <span class="tool-warn" title="多顆元件對應到同一個通道">重複</span>' : '';
+          return `<tr class="${c.disabled ? 'is-off' : ''}">
+            <td class="tool-muted">${k + 1}</td>
+            <td>${escHtml(c.name || '(未命名)')}${c.disabled ? ' <span class="tool-muted">斷線</span>' : ''}</td>
+            <td><select class="tool-select" data-lg-map="${escapeAttr(c.uid)}">${chOpts(ci, true)}</select>${dup}</td>
+            <td class="num">${s ? fmt1(s.avg) : '—'}</td>
+            <td class="num">${s ? fmt1(s.range) : '—'}</td>
+            <td class="num">${s && !isNaN(s.slope) ? (s.slope >= 0 ? '+' : '') + s.slope.toFixed(2) : '—'}</td>
+            <td>${state}</td>
+            <td class="num">${isNaN(cur) ? '<span class="tool-muted">空</span>' : fmt1(cur)} → <b>${isNaN(nv) ? '—' : nv.toFixed(1)}</b></td>
+          </tr>`;
+        }).join('');
+        const mapped = new Set(Object.values(st.map).filter(ci => ci >= 0));
+        const unmapped = chs.map((ch, i) => i).filter(i => i !== st.ambient && !mapped.has(i));
+        root.innerHTML = `
+          <div class="tool-row">
+            <span>📄 <b>${escHtml(st.fileName)}</b></span>
+            <span class="tool-muted">${st.parsed.rows.length} 筆 · ${chs.length} 個通道 · ${span}${st.parsed.timeHeader ? ` · 時間欄「${escHtml(st.parsed.timeHeader)}」` : ''}</span>
+            <button type="button" class="sim-modal-tool-btn" id="lg-change">更換檔案</button>
+            <input type="file" id="lg-file" accept=".csv,.txt,.tsv,.dat,text/csv,text/plain" style="display:none">
+          </div>
+          <div class="tool-row">
+            <label>填入 <select class="tool-select" id="lg-ta">${tas.map(t => `<option value="ta_${t}"${'ta_' + t === st.taKey ? ' selected' : ''}>Ta = ${t}°C</option>`).join('')}</select></label>
+            ${existing ? `<span class="tool-warn">此 Ta 已有 ${existing} 筆數值，將被覆蓋</span>` : ''}
+            ${info.mode === 'time'
+              ? `<label>取最後 <input type="number" min="1" step="1" class="tool-input" id="lg-min" value="${prefs.minutes}"> 分鐘平均</label>`
+              : `<label>取最後 <input type="number" min="1" step="1" class="tool-input" id="lg-rows" value="${prefs.rowsN}"> 筆平均</label>`}
+            <label title="平均區間內 最高 − 最低 不超過此值視為已達穩態">穩態判定：區間溫差 ≤ <input type="number" min="0" step="0.1" class="tool-input" id="lg-range" value="${prefs.stableRange}"> °C</label>
+          </div>
+          <div class="tool-row">
+            <label>環溫通道 <select class="tool-select" id="lg-amb">${chOpts(st.ambient, true)}</select></label>
+            ${!isNaN(amb) ? `<span>實測環溫 <b>${amb.toFixed(1)}°C</b>（目標 ${targetTa()}°C，差 ${(amb - targetTa() >= 0 ? '+' : '') + (amb - targetTa()).toFixed(1)}°C）</span>
+              <label title="Tc 修正 = Tc 實測 + (Ta 目標 − Ta 實測)，假設溫升不隨環溫改變"><input type="checkbox" id="lg-correct"${prefs.correct ? ' checked' : ''}> 依環溫差修正到目標 Ta</label>` : ''}
+          </div>
+          <div class="tool-table-wrap">
+            <table class="tool-table">
+              <thead><tr><th>#</th><th>元件</th><th>對應通道</th><th style="text-align:right">平均 °C</th><th style="text-align:right" title="平均區間內 最高 − 最低">區間溫差</th><th style="text-align:right" title="平均區間內的溫度變化率">趨勢 °C/min</th><th>穩態</th><th style="text-align:right">目前 → 填入</th></tr></thead>
+              <tbody>${rows || `<tr><td colspan="8" class="tool-muted" style="text-align:center;padding:14px;">此數據頁還沒有元件 — 勾選下方「未對應的通道新增為元件」即可直接建立</td></tr>`}</tbody>
+            </table>
+          </div>
+          <div class="tool-row" style="margin-top:10px;">
+            <button type="button" class="sim-modal-tool-btn" id="lg-by-name">依名稱對應</button>
+            <button type="button" class="sim-modal-tool-btn" id="lg-by-order">依順序對應</button>
+            <button type="button" class="sim-modal-tool-btn" id="lg-clear">清除對應</button>
+            <span class="tool-muted">${st.matchedBy === 'name' ? '已依通道名稱 / 上次的對應自動配對' : st.matchedBy === 'order' ? '通道名稱對不到元件，已依順序配對 — 請確認' : ''}</span>
+          </div>
+          ${unmapped.length ? `<div class="tool-row">
+            <label><input type="checkbox" id="lg-add"${st.addUnmapped ? ' checked' : ''}> 未對應的通道新增為元件（${unmapped.length}）</label>
+            <span>${unmapped.slice(0, 12).map(i => `<span class="tool-chip">${escHtml(cleanChannelName(chs[i].name))}</span>`).join('')}${unmapped.length > 12 ? '…' : ''}</span>
+          </div>` : ''}`;
+        const input = root.querySelector('#lg-file');
+        root.querySelector('#lg-change').addEventListener('click', () => input.click());
+        input.addEventListener('change', () => loadFile(input.files[0]));
+        root.querySelector('#lg-ta').addEventListener('change', (e) => { st.taKey = e.target.value; render(); });
+        const num = (id, key, min) => {
+          const el = root.querySelector(id);
+          if (!el) return;
+          el.addEventListener('change', () => {
+            const v = parseFloat(el.value);
+            if (!(v >= min)) { el.value = prefs[key]; return; }
+            prefs[key] = v; setUserPref('logger', prefs); analyze(); render();
+          });
+        };
+        num('#lg-min', 'minutes', 0.1); num('#lg-rows', 'rowsN', 1); num('#lg-range', 'stableRange', 0);
+        root.querySelector('#lg-amb').addEventListener('change', (e) => {
+          st.ambient = parseInt(e.target.value);
+          Object.keys(st.map).forEach(uid => { if (st.map[uid] === st.ambient) st.map[uid] = -1; });
+          render();
+        });
+        const corrEl = root.querySelector('#lg-correct');
+        if (corrEl) corrEl.addEventListener('change', () => { prefs.correct = corrEl.checked; setUserPref('logger', prefs); render(); });
+        root.querySelectorAll('[data-lg-map]').forEach(sel => sel.addEventListener('change', () => {
+          st.map[sel.dataset.lgMap] = parseInt(sel.value); render();
+        }));
+        root.querySelector('#lg-by-name').addEventListener('click', () => { autoMap('name'); render(); });
+        root.querySelector('#lg-by-order').addEventListener('click', () => { autoMap('order'); render(); });
+        root.querySelector('#lg-clear').addEventListener('click', () => { d.components.forEach(c => { st.map[c.uid] = -1; }); st.matchedBy = ''; render(); });
+        const addEl = root.querySelector('#lg-add');
+        if (addEl) addEl.addEventListener('change', () => { st.addUnmapped = addEl.checked; updateFoot(); });
+        updateFoot();
+      }
+
+      function plan() {
+        const chs = channels();
+        const fills = [];
+        d.components.forEach(c => {
+          const ci = st.map[c.uid] ?? -1;
+          const s = statOf(ci);
+          if (s && !isNaN(s.avg)) fills.push({ comp: c, ci, s });
+        });
+        const mapped = new Set(Object.values(st.map).filter(ci => ci >= 0));
+        const adds = st.addUnmapped
+          ? chs.map((ch, i) => i).filter(i => i !== st.ambient && !mapped.has(i) && statOf(i) && !isNaN(statOf(i).avg))
+          : [];
+        return { fills, adds };
+      }
+      function updateFoot() {
+        const foot = m.$('#lg-foot');
+        const btn = m.$('#lg-apply');
+        if (!st.parsed) { foot.textContent = ''; btn.disabled = true; return; }
+        const p = plan();
+        const n = p.fills.length + p.adds.length;
+        const unstable = p.fills.filter(f => !f.s.stable).length + p.adds.filter(ci => !statOf(ci).stable).length;
+        foot.innerHTML = n ? `將填入 <b>${n}</b> 顆（Ta = ${escHtml(String(targetTa()))}°C，${escHtml(windowText())}）${unstable ? ` · <span class="tool-warn">⚠ ${unstable} 顆未達穩態</span>` : ''}` : '沒有可填入的元件';
+        btn.disabled = !n;
+        btn.textContent = n ? `填入 ${n} 顆` : '填入';
+      }
+
+      function apply() {
+        const p = plan();
+        if (!p.fills.length && !p.adds.length) return;
+        const chs = channels();
+        const corr = correction();
+        const unstable = [];
+        p.fills.forEach(f => {
+          if (!f.comp.readings) f.comp.readings = {};
+          f.comp.readings[st.taKey] = String(round1(f.s.avg + corr));
+          if (!f.s.stable) unstable.push(f.comp.name || cleanChannelName(chs[f.ci].name));
+        });
+        const mem = specMemory();
+        const lastCat = d.components.length ? d.components[d.components.length - 1].category : 'RF';
+        p.adds.forEach(ci => {
+          const s = statOf(ci);
+          const comp = { uid: newCompUid(), category: lastCat, name: cleanChannelName(chs[ci].name), spec_type: 'Rec.', tc_spec: '', derating: '0.90', tim_type: '', readings: {}, note: '' };
+          fillSpecFromMemory(comp, mem);
+          comp.readings[st.taKey] = String(round1(s.avg + corr));
+          d.components.push(comp);
+          st.map[comp.uid] = ci;
+          if (!s.stable) unstable.push(comp.name);
+        });
+        // Remember the layout so the next file (another Ta) maps by itself.
+        d.logger_map = Object.assign({}, d.logger_map || {});
+        d.components.forEach(c => { const ci = st.map[c.uid]; if (ci >= 0 && chs[ci]) d.logger_map[c.uid] = chs[ci].name; });
+        d.logger_ambient = st.ambient >= 0 ? chs[st.ambient].name : '';
+        const amb = ambientAvg();
+        d.logger_last = Object.assign({}, d.logger_last || {});
+        d.logger_last[st.taKey] = {
+          file: st.fileName, at: new Date().toISOString(), window: windowText(),
+          ambient: isNaN(amb) ? null : round1(amb), corrected: !!corr, unstable: unstable.slice(0, 50),
+          n: p.fills.length + p.adds.length,
+        };
+        m.close();
+        scheduleSave(pageIdx);
+        if (state.pages[state.activePage] === page) renderDataPage(page);
+        renderPageList();
+        showToast(`已填入 ${p.fills.length + p.adds.length} 顆元件（Ta = ${targetTa()}°C）${p.adds.length ? `，其中新增 ${p.adds.length} 顆` : ''}${unstable.length ? `；⚠ ${unstable.length} 顆未達穩態：${unstable.slice(0, 5).join('、')}${unstable.length > 5 ? '…' : ''}` : ''}`,
+          unstable.length ? 'warn' : 'ok', unstable.length ? 9000 : 4500);
+      }
+
+      render();
+      if (initialFile) loadFile(initialFile);
+    }
+
+    // ── Data page: copy as a new test condition (same components, values cleared) ──
+    function clearDataPageValues(data) {
+      (data.components || []).forEach(c => { c.readings = {}; });
+      (data.sensors || []).forEach(s => { s.readings = {}; });
+      data.machine_power = {};
+      data.frozen = false;
+      data.logger_last = {};
+      return data;
+    }
+
+    // ── 比對頁: paste Sim Tc by component name ──
+    function parseNameValueLines(text) {
+      const out = [];
+      String(text || '').split(/\r?\n/).forEach(line => {
+        if (!line.trim()) return;
+        let cells = line.split(/\t|,|;|\s{2,}/).map(c => c.trim()).filter(Boolean);
+        if (cells.length === 1) {                                  // "PA-1 85.2" (single space)
+          const mm = line.trim().match(/^(.*\S)\s+([-+]?\d+(?:\.\d+)?)\s*(?:°?C|℃)?$/i);
+          if (mm) cells = [mm[1], mm[2]];
+        }
+        let vi = -1;
+        for (let i = cells.length - 1; i >= 0; i--) { if (!isNaN(parseTemp(cells[i]))) { vi = i; break; } }
+        if (vi < 0) return;                                        // header / text line
+        const name = cells.slice(0, vi).filter(c => isNaN(parseTemp(c))).join(' ');
+        if (!name) return;
+        out.push({ name, value: String(parseTemp(cells[vi])) });
+      });
+      return out;
+    }
+    // Best unique match of `name` among `cands` (objects with .component_name).
+    function matchByName(name, cands) {
+      let best = null, bestSc = 0, tie = false;
+      cands.forEach(c => {
+        const sc = loggerCsv.nameScore(name, c.component_name) || loggerCsv.nameScore(c.component_name, name);
+        if (sc > bestSc) { best = c; bestSc = sc; tie = false; }
+        else if (sc && sc === bestSc) tie = true;
+      });
+      return best && !tie ? best : null;
+    }
+    function showSimPasteModal(page) {
+      const d = page.data;
+      const pageIdx = state.pages.indexOf(page);
+      const compareTa = simCompareTa(d);
+      let addMissing = true;
+      const m = openToolModal({
+        title: '貼上模擬結果（依元件名稱）',
+        width: 720,
+        body: `<div class="tool-hint" style="margin-bottom:8px;">從 Excel / FloTHERM / Icepak 的結果表複製「元件名稱 + 溫度」兩欄貼上，每列一顆。順序不用一樣，依名稱自動對應。</div>
+          <textarea class="tool-textarea" id="sp-text" placeholder="PA-1&#9;85.2&#10;PA-2&#9;86.0&#10;FPGA&#9;92.4"></textarea>
+          <div class="tool-row" style="margin:8px 0;"><label><input type="checkbox" id="sp-add" checked> 比對表還沒有、但數據頁有的元件 → 自動加入</label></div>
+          <div id="sp-preview"></div>`,
+        footer: `<span class="tool-foot-info" id="sp-foot"></span>
+          <button class="sim-modal-btn" id="sp-cancel">取消</button>
+          <button class="sim-modal-btn primary" id="sp-apply" disabled>套用</button>`,
+      });
+      const ta = m.$('#sp-text');
+      setTimeout(() => ta.focus(), 30);
+      m.$('#sp-cancel').addEventListener('click', m.close);
+      m.$('#sp-add').addEventListener('change', (e) => { addMissing = e.target.checked; preview(); });
+      ta.addEventListener('input', preview);
+      let result = [];
+      function candidates() {
+        const all = getDataPageComponents();
+        const items = (d.items || []).map((it, i) => {
+          const r = resolveComponentRef(it, all);
+          return { component_name: r ? r.component_name : (it.component_name || ''), itemIdx: i, ref: r };
+        });
+        // Data-page components not in the table yet — prefer the data page the
+        // table already uses, else any page that has the comparison Ta.
+        const pageCount = {};
+        items.forEach(x => { if (x.ref) pageCount[x.ref.source_page] = (pageCount[x.ref.source_page] || 0) + 1; });
+        const mainPage = Object.keys(pageCount).sort((a, b) => pageCount[b] - pageCount[a])[0];
+        const inTable = new Set(items.filter(x => x.ref).map(x => compRefKey(x.ref)));
+        const byName = new Map();
+        all.filter(c => !inTable.has(compRefKey(c))).forEach(c => {
+          const k = specKey(c.component_name);
+          const prev = byName.get(k);
+          const rank = c2 => (c2.source_page === mainPage ? 2 : 0) + (compareTa !== null && c2.tas.includes(compareTa) ? 1 : 0);
+          if (!prev || rank(c) > rank(prev)) byName.set(k, c);
+        });
+        return { items, extras: Array.from(byName.values()) };
+      }
+      function preview() {
+        const lines = parseNameValueLines(ta.value);
+        const { items, extras } = candidates();
+        const usedItems = new Set(), usedExtras = new Set();
+        result = lines.map(l => {
+          const hit = matchByName(l.name, items.filter(x => !usedItems.has(x.itemIdx)));
+          if (hit) { usedItems.add(hit.itemIdx); return { ...l, kind: 'item', itemIdx: hit.itemIdx, target: hit.component_name }; }
+          const ex = addMissing ? matchByName(l.name, extras.filter(x => !usedExtras.has(compRefKey(x)))) : null;
+          if (ex) { usedExtras.add(compRefKey(ex)); return { ...l, kind: 'add', comp: ex, target: ex.component_name }; }
+          return { ...l, kind: 'none' };
+        });
+        const nItem = result.filter(r => r.kind === 'item').length, nAdd = result.filter(r => r.kind === 'add').length;
+        const nNone = result.length - nItem - nAdd;
+        m.$('#sp-preview').innerHTML = result.length ? `<div class="tool-table-wrap" style="max-height:34vh;"><table class="tool-table">
+            <thead><tr><th>貼上的名稱</th><th style="text-align:right">Sim Tc</th><th>對應</th></tr></thead>
+            <tbody>${result.map(r => `<tr><td>${escHtml(r.name)}</td><td class="num">${escHtml(r.value)}</td><td>${
+              r.kind === 'item' ? `<span class="tool-ok">✓ ${escHtml(r.target)}</span>`
+              : r.kind === 'add' ? `<span class="tool-ok">＋ ${escHtml(r.target)}</span> <span class="tool-muted">（從數據頁加入）</span>`
+              : '<span class="tool-bad">✗ 找不到</span>'}</td></tr>`).join('')}</tbody></table></div>` : '';
+        m.$('#sp-foot').innerHTML = result.length ? `更新 ${nItem} 顆${nAdd ? `、新增 ${nAdd} 顆` : ''}${nNone ? ` · <span class="tool-warn">${nNone} 列找不到</span>` : ''}` : '';
+        m.$('#sp-apply').disabled = !(nItem + nAdd);
+      }
+      m.$('#sp-apply').addEventListener('click', () => {
+        let n = 0;
+        result.forEach(r => {
+          if (r.kind === 'item') { d.items[r.itemIdx].sim_tc = r.value; n++; }
+          else if (r.kind === 'add') {
+            d.items.push({ category: r.comp.category, component_name: r.comp.component_name, sim_tc: r.value, note: '', source_page: r.comp.source_page, source_uid: r.comp.source_uid });
+            n++;
+          }
+        });
+        m.close();
+        scheduleSave(pageIdx);
+        renderSimVsMeasPage(page);
+        showToast(`已套用 ${n} 顆元件的 Sim Tc`, 'ok');
+      });
+    }
+
+    // ── 結論頁: draft text + issues from the data ──
+    function machinePowerText(pageData, ta) {
+      const mp = (pageData.machine_power || {})['ta_' + ta] || {};
+      const w = parseTemp(mp.v) * parseTemp(mp.i);
+      return isFinite(w) && w > 0 ? `${w.toFixed(1)} W` : '';
+    }
+    function buildConclusionDraft() {
+      const groups = getDataPageComponentGroups();
+      const overall = computeOverallResult(groups);
+      const all = groups.flatMap(g => g.components);
+      const lines = [];
+      groups.forEach((g, i) => {
+        const pp = overall.perPage[i];
+        const pageData = state.pages[g.pageIdx].data;
+        const pass = pp.nEvaluated - pp.nFail - pp.nWarn;
+        const counts = [`${pass} Pass`];
+        if (pp.nWarn) counts.push(`${pp.nWarn} Warning`);
+        if (pp.nFail) counts.push(`${pp.nFail} Fail`);
+        if (pp.unmeasured) counts.push(`${pp.unmeasured} 顆未量測`);
+        let s = `【${pp.name}】Ta = ${g.tas.join(' / ')}°C，量測 ${pp.total} 顆元件：${counts.join('、')}。`;
+        let worst = null;
+        g.components.forEach(c => { const w = c.calc.worst; if (!c.disabled && w && (!worst || w.marginPct < worst.w.marginPct)) worst = { c, w }; });
+        if (worst) s += `最小 Margin 為 ${worst.c.component_name} ${fmtPct(worst.w.marginPct)}（${fmtDeltaC(worst.w.marginC)} @ Ta ${worst.w.ta}°C）。`;
+        const maxTa = g.tas.length ? Math.max(...g.tas) : null;
+        const pw = maxTa !== null ? machinePowerText(pageData, maxTa) : '';
+        if (pw) s += `整機功耗 ${pw} @ Ta ${maxTa}°C。`;
+        s += `判定：${pp.label}。`;
+        lines.push(s);
+      });
+      state.pages.forEach(p => {
+        if (p.type !== 'sim_vs_meas' || !(p.data.items || []).length) return;
+        const ta = simCompareTa(p.data);
+        const vals = p.data.items.map(it => simRowValues(it, all, ta)).filter(v => v.judge !== 'none');
+        if (!vals.length) return;
+        const cnt = j => vals.filter(v => v.judge === j).length;
+        const avgAbs = vals.reduce((a, v) => a + Math.abs(v.devC), 0) / vals.length;
+        const worst = vals.reduce((a, v) => (Math.abs(v.devC) > Math.abs(a.devC) ? v : a), vals[0]);
+        lines.push(`【模擬比對 @ Ta ${ta}°C】${vals.length} 顆中 ✅ ${cnt('good')}、⚠️ ${cnt('warn')}、❌ ${cnt('bad')}；平均偏差 ${avgAbs.toFixed(1)}°C，最大偏差 ${worst.name} ${(worst.devC >= 0 ? '+' : '') + worst.devC.toFixed(1)}°C（${fmtPct(worst.devPct)}）。`);
+      });
+      if (groups.length) {
+        let s = `綜合判定：${overall.label}`;
+        const fails = overall.flagged.filter(c => c.calc.status === 'fail').map(c => c.component_name);
+        const warns = overall.flagged.filter(c => c.calc.status === 'warn').map(c => c.component_name);
+        const uniq = a => Array.from(new Set(a));
+        const warnOnly = uniq(warns).filter(n => !fails.includes(n));
+        if (fails.length) s += `；${uniq(fails).join('、')} 超過 Derated Spec，需改善散熱設計後重測`;
+        if (warnOnly.length) s += `；${warnOnly.join('、')} Margin 低於 ${MARGIN_PASS_PCT}%，建議持續追蹤`;
+        lines.push(s + '。');
+      }
+      return lines;
+    }
+    function flaggedIssueLines() {
+      const groups = getDataPageComponentGroups();
+      const out = [];
+      groups.forEach(g => {
+        summarizeComponents(g.components).flagged.forEach(c => {
+          const w = c.calc.worst;
+          const prefix = c.component_name + (groups.length > 1 ? `（${conditionName(g)}）` : '') + '：';
+          const text = c.calc.status === 'fail'
+            ? `Tc ${fmt1(w.tc)}°C @ Ta ${w.ta}°C 超過 Derated Spec ${fmt1(c.tc_derated)}°C（Margin ${fmtPct(w.marginPct)}，${fmtDeltaC(w.marginC)}）`
+            : `Margin ${fmtPct(w.marginPct)}（${fmtDeltaC(w.marginC)} @ Ta ${w.ta}°C），低於 ${MARGIN_PASS_PCT}% 建議值`;
+          out.push({ prefix, line: prefix + text });
+        });
+      });
+      return out;
+    }
+
+    // ── 圖片頁: many images at once (one image page per 1 / 2 / 4 images) ──
+    const fileStem = name => String(name || '').replace(/\.[^.]+$/, '');
+    async function insertImagePagesFromFiles(files, opts) {
+      const list = Array.from(files || []).filter(f => f && (f.type || '').startsWith('image/')).sort((a, b) => naturalCompare(a.name, b.name));
+      if (!list.length) return 0;
+      const per = [1, 2, 4].includes(opts.perPage) ? opts.perPage : 4;
+      let at = opts.afterIdx === undefined || opts.afterIdx === null ? state.pages.length : opts.afterIdx + 1;
+      const firstNew = at;
+      const t = showToast(`處理圖片中 0 / ${list.length}…`, '', 0);
+      const created = [];
+      for (let i = 0; i < list.length; i += per) {
+        const images = [];
+        for (const f of list.slice(i, i + per)) {
+          const url = await processImageCompressed(f, PHOTO_JPEG_QUALITY);
+          images.push({ position: images.length, url_or_base64: url, caption: opts.captions ? fileStem(f.name) : '' });
+          t.firstChild.textContent = `處理圖片中 ${i + images.length} / ${list.length}…`;
+        }
+        const page = makePage('image');
+        if (opts.title) page.data.title = opts.title;
+        page.data.images = images;
+        state.pages.splice(at++, 0, page);
+        initPageSnapshot(page);
+        created.push(page);
+      }
+      t.remove();
+      saveStructure();
+      renderPageList();
+      selectPage(firstNew);
+      showToast(`已加入 ${list.length} 張圖片（${created.length} 頁圖片頁）`, 'ok');
+      return created.length;
+    }
+    function showBatchImageModal(afterIdx) {
+      const p = userPrefs();
+      let files = [];
+      const per = p.batch_per || 2;
+      const m = openToolModal({
+        title: '🖼 批次建立圖片頁',
+        width: 560,
+        body: `<div class="tool-drop" id="bi-drop"><span class="tool-drop-icon">🖼</span>
+              把多張圖片拖到這裡，或 <button type="button" class="sim-modal-tool-btn" id="bi-browse">選擇圖片</button>
+              <input type="file" id="bi-file" accept="image/*" multiple style="display:none">
+              <div class="tool-hint" style="margin-top:8px;">依檔名排序（IR_2 在 IR_10 前面），每頁放 1 / 2 / 4 張。${state.pages[afterIdx] ? `新頁面插在「${escHtml(pageBaseLabel(afterIdx))}」之後。` : ''}</div>
+            </div>
+            <div id="bi-list" class="tool-hint" style="margin:8px 0;"></div>
+            <div class="tool-row">
+              <span>每頁</span>${[1, 2, 4].map(n => `<label><input type="radio" name="bi-per" value="${n}"${n === per ? ' checked' : ''}> ${n} 張</label>`).join('')}
+            </div>
+            <div class="tool-row">
+              <label><input type="checkbox" id="bi-cap"${p.batch_captions !== false ? ' checked' : ''}> 以檔名當圖片說明</label>
+              <label>頁面標題 <input type="text" class="tool-input" id="bi-title" style="width:220px;" placeholder="（選填）例：IR Image @ 55°C"></label>
+            </div>`,
+        footer: `<button class="sim-modal-btn" id="bi-cancel">取消</button>
+          <button class="sim-modal-btn primary" id="bi-ok" disabled>建立</button>`,
+      });
+      const setFiles = (fl) => {
+        files = Array.from(fl || []).filter(f => (f.type || '').startsWith('image/')).sort((a, b) => naturalCompare(a.name, b.name));
+        const n = parseInt(m.$('input[name="bi-per"]:checked').value);
+        m.$('#bi-list').innerHTML = files.length
+          ? `已選 <b>${files.length}</b> 張 → ${Math.ceil(files.length / n)} 頁：${files.slice(0, 8).map(f => `<span class="tool-chip">${escHtml(f.name)}</span>`).join('')}${files.length > 8 ? '…' : ''}`
+          : '';
+        m.$('#bi-ok').disabled = !files.length;
+      };
+      const input = m.$('#bi-file');
+      const drop = m.$('#bi-drop');
+      m.$('#bi-browse').addEventListener('click', () => input.click());
+      input.addEventListener('change', () => setFiles(input.files));
+      drop.addEventListener('dragover', (e) => { e.preventDefault(); drop.classList.add('dragover'); });
+      drop.addEventListener('dragleave', () => drop.classList.remove('dragover'));
+      drop.addEventListener('drop', (e) => { e.preventDefault(); drop.classList.remove('dragover'); setFiles(e.dataTransfer.files); });
+      m.$$('input[name="bi-per"]').forEach(r => r.addEventListener('change', () => setFiles(files)));
+      m.$('#bi-cancel').addEventListener('click', m.close);
+      m.$('#bi-ok').addEventListener('click', async () => {
+        const perPage = parseInt(m.$('input[name="bi-per"]:checked').value);
+        const captions = m.$('#bi-cap').checked;
+        const title = m.$('#bi-title').value.trim();
+        setUserPref('batch_per', perPage);
+        setUserPref('batch_captions', captions);
+        const fl = files;
+        m.close();
+        await insertImagePagesFromFiles(fl, { perPage, captions, title, afterIdx });
+      });
+    }
+
+    // ── 標註頁: name every marker at once (paste a column from Excel) ──
+    function showAnnoBatchNameModal(page) {
+      const markers = page.data.markers || [];
+      if (!markers.length) { alert('請先在照片上放置標註點。'); return; }
+      const pageIdx = state.pages.indexOf(page);
+      const m = openToolModal({
+        title: '✎ 批次命名標註點',
+        width: 460,
+        body: `<div class="tool-hint" style="margin-bottom:8px;">每行一個名稱，依序套用到標註點 1、2、3…（可直接從 Excel 複製一欄貼上）。空白行保留原名稱。</div>
+          <textarea class="tool-textarea" id="ab-text" style="min-height:240px;">${escHtml(markers.map((mk, i) => mk.label || ('TC' + (i + 1))).join('\n'))}</textarea>
+          <div class="tool-hint" id="ab-info"></div>`,
+        footer: `<button class="sim-modal-btn" id="ab-cancel">取消</button>
+          <button class="sim-modal-btn primary" id="ab-ok">套用</button>`,
+      });
+      const ta = m.$('#ab-text');
+      const info = () => {
+        const n = ta.value.split(/\r?\n/).length;
+        m.$('#ab-info').textContent = n > markers.length ? `多出 ${n - markers.length} 行不會使用（標註點共 ${markers.length} 個）` : `標註點共 ${markers.length} 個`;
+      };
+      ta.addEventListener('input', info);
+      info();
+      setTimeout(() => { ta.focus(); ta.select(); }, 30);
+      m.$('#ab-cancel').addEventListener('click', m.close);
+      m.$('#ab-ok').addEventListener('click', () => {
+        const lines = ta.value.split(/\r?\n/).map(s => s.trim());
+        let n = 0;
+        markers.forEach((mk, i) => { if (lines[i] && lines[i] !== mk.label) { mk.label = lines[i]; n++; } });
+        m.close();
+        if (!n) return;
+        scheduleSave(pageIdx);
+        renderAnnotationPage(page);
+        showToast(`已更新 ${n} 個標註點名稱`, 'ok');
+      });
+    }
+
+    // ── Report check (shown before export; every item jumps to its page) ──
+    function runReportCheck() {
+      const out = [];
+      const add = (idx, level, text) => out.push({ idx, level, text });
+      const groups = getDataPageComponentGroups();
+      const all = groups.flatMap(g => g.components);
+      state.pages.forEach((p, idx) => {
+        const d = p.data || {};
+        if (p.type === 'cover') {
+          if (!String(d.project_name || '').trim()) add(idx, 'warn', '封面未填案名');
+          if (!String(d.model || '').trim()) add(idx, 'info', '封面未填產品型號');
+          if (!String(d.tested_by || '').trim()) add(idx, 'info', '封面未填 Tested by');
+          if (!d.cover_image) add(idx, 'info', '封面沒有產品圖片');
+        } else if (p.type === 'image') {
+          if (!(d.images || []).some(im => im && im.url_or_base64)) add(idx, 'warn', '圖片頁沒有圖片');
+          else if (!String(d.title || '').trim()) add(idx, 'info', '圖片頁未填標題');
+        } else if (p.type === 'annotation') {
+          if (!d.photo_url_or_base64) add(idx, 'warn', '標註頁沒有照片');
+          else if (!(d.markers || []).length) add(idx, 'info', '標註頁沒有標註點');
+        } else if (p.type === 'data') {
+          const comps = d.components || [];
+          const tas = d.ta_conditions || [];
+          if (!comps.length) { add(idx, 'warn', '數據頁沒有元件'); return; }
+          const noName = comps.filter(c => !String(c.name || '').trim()).length;
+          if (noName) add(idx, 'warn', `${noName} 顆元件未命名`);
+          const noSpec = comps.filter(c => !c.disabled && !(parseTemp(c.tc_spec) > 0)).length;
+          if (noSpec) add(idx, 'warn', `${noSpec} 顆元件未填 Tc Spec，無法判定`);
+          tas.forEach(ta => {
+            const miss = comps.filter(c => !c.disabled && isNaN(parseTemp((c.readings || {})['ta_' + ta]))).length;
+            if (miss) add(idx, 'warn', `Ta ${ta}°C 有 ${miss} 顆未填實測值`);
+          });
+          const mpMiss = tas.filter(ta => !machinePowerText(d, ta));
+          if (mpMiss.length) add(idx, 'info', `機台功耗未填（Ta ${mpMiss.join(' / ')}°C）`);
+          if (!(d.header || {}).test_date) add(idx, 'info', '未填 Test Date');
+          Object.entries(d.logger_last || {}).forEach(([key, lg]) => {
+            if (tas.some(t => 'ta_' + t === key) && (lg.unstable || []).length) add(idx, 'info', `Ta ${key.replace(/^ta_/, '')}°C 匯入時 ${lg.unstable.length} 顆未達穩態`);
+          });
+        } else if (p.type === 'sim_vs_meas') {
+          const items = d.items || [];
+          if (!items.length) { add(idx, 'warn', '比對頁尚未選取元件'); return; }
+          const ta = simCompareTa(d);
+          const vals = items.map(it => simRowValues(it, all, ta));
+          const stale = vals.filter(v => v.stale).length;
+          if (stale) add(idx, 'warn', `${stale} 個比對元件的來源已變更，請重新選取`);
+          const noSim = items.filter(it => isNaN(parseTemp(it.sim_tc))).length;
+          if (noSim) add(idx, 'warn', `${noSim} 個元件未填 Sim Tc`);
+          const noTa = vals.filter(v => v.noTa).length;
+          if (noTa) add(idx, 'warn', `${noTa} 個元件的數據頁沒有 Ta = ${ta}°C`);
+          if (!String(d.conclusion || '').trim()) add(idx, 'info', '比對頁未填結論敘述');
+        } else if (p.type === 'conclusion') {
+          const text = String(d.summary || '').replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim();
+          if (!text) add(idx, 'warn', '結論未填寫');
+          const overall = computeOverallResult(groups);
+          const listed = new Set((d.compliance || []).map(r => compRefKey(resolveComponentRef(r, all))).filter(Boolean));
+          const unl = overall.flagged.filter(c => !listed.has(compRefKey(c))).length;
+          if (unl) add(idx, 'warn', `${unl} 顆 Fail / Warning 元件未列入 Compliance Summary`);
+          const stale = (d.compliance || []).filter(r => !resolveComponentRef(r, all)).length;
+          if (stale) add(idx, 'warn', `${stale} 列 Compliance 的來源元件已變更`);
+          if (overall.nFail && !(d.issues || []).some(t => String(t || '').trim())) add(idx, 'info', '有 Fail 元件，但 Issues Found 是空的');
+        }
+      });
+      if (state.pages.some(p => p.type === 'data') && !state.pages.some(p => p.type === 'conclusion')) add(null, 'info', '報告沒有結論頁');
+      return out;
+    }
+
+    // ── Page-list badges (status at a glance; refreshed shortly after edits) ──
+    function pageBadge(page) {
+      const d = page.data || {};
+      if (page.type === 'data') {
+        const s = dataPageStats(d);
+        const judged = s.n.pass + s.n.warn + s.n.fail + s.n.unmeasured;
+        if (s.n.fail) return { cls: 'fail', text: '❌' + s.n.fail, title: `${s.n.fail} Fail${s.n.warn ? ' · ' + s.n.warn + ' Warning' : ''}` };
+        if (s.n.warn) return { cls: 'warn', text: '⚠' + s.n.warn, title: `${s.n.warn} Warning` };
+        if (judged && s.n.unmeasured) return { cls: '', text: `${judged - s.n.unmeasured}/${judged}`, title: `已量測 ${judged - s.n.unmeasured} / ${judged} 顆` };
+        if (judged) return { cls: 'pass', text: '✓', title: '全部 Pass' };
+        return null;
+      }
+      if (page.type === 'sim_vs_meas') {
+        const items = d.items || [];
+        if (!items.length) return { cls: '', text: '空', title: '尚未選取元件' };
+        const miss = items.filter(it => isNaN(parseTemp(it.sim_tc))).length;
+        return miss ? { cls: '', text: `缺${miss}`, title: `${miss} 個元件未填 Sim Tc` } : null;
+      }
+      if (page.type === 'conclusion') {
+        const s = computeOverallResult();
+        if (s.status === 'none') return null;
+        return { cls: s.status === 'warning' ? 'warn' : s.status, text: s.status === 'fail' ? 'FAIL' : s.status === 'warning' ? 'COND' : 'PASS', title: s.label };
+      }
+      if (page.type === 'image' && !(d.images || []).some(im => im && im.url_or_base64)) return { cls: '', text: '空', title: '尚未放入圖片' };
+      if (page.type === 'annotation' && !d.photo_url_or_base64) return { cls: '', text: '空', title: '尚未放入照片' };
+      return null;
+    }
+    function pageBadgeHTML(page) {
+      const b = pageBadge(page);
+      return b ? `<span class="page-badge${b.cls ? ' page-badge-' + b.cls : ''}" title="${escapeAttr(b.title)}">${escHtml(b.text)}</span>` : '';
+    }
+    let _badgeTimer = null;
+    function schedulePageBadgeRefresh() {
+      clearTimeout(_badgeTimer);
+      _badgeTimer = setTimeout(refreshPageBadges, 400);
+    }
+    function refreshPageBadges() {
+      _badgeTimer = null;
+      $pageList.querySelectorAll('.page-item').forEach(el => {
+        const page = state.pages[parseInt(el.dataset.index)];
+        if (!page) return;
+        const html = pageBadgeHTML(page);
+        const cur = el.querySelector('.page-badge');
+        if (cur) { if (html) cur.outerHTML = html; else cur.remove(); }
+        else if (html) el.querySelector('.page-label').insertAdjacentHTML('afterend', html);
+      });
+    }
+
+    // ── New report from an existing one (template) ──
+    // Keeps page structure, components, specs, Ta conditions, logger channel
+    // mapping and (optionally) photos; clears every measured / simulated value
+    // and the conclusion. Note pages (scratch jottings) are not carried over.
+    function templateFromPages(pages, o) {
+      const idMap = {};
+      const out = [];
+      pages.filter(p => p && p.type && p.type !== 'note').forEach(src => {
+        const p = { id: newPageId(), type: src.type, order: out.length, data: JSON.parse(JSON.stringify(src.data || {})) };
+        if (src.id) idMap[src.id] = p.id;
+        const d = p.data;
+        if (p.type === 'cover') {
+          Object.assign(d, { project_name: o.name, model: o.model, stage: o.stage, date: o.date, report_version: 'v1.0' });
+          if (!o.keepImages) d.cover_image = '';
+        } else if (p.type === 'image') {
+          if (!o.keepImages) d.images = [];
+        } else if (p.type === 'annotation') {
+          if (!o.keepImages) d.photo_url_or_base64 = '';
+        } else if (p.type === 'data') {
+          clearDataPageValues(d);
+          d.header = Object.assign({}, d.header || {}, { test_date: o.date, stage: o.stage, sw_images: [] });
+          (d.components || []).forEach(c => { if (!c.uid) c.uid = newCompUid(); delete c.highlight; delete c.disabled; });
+          (d.sensors || []).forEach(s => { delete s.highlight; delete s.disabled; });
+        } else if (p.type === 'sim_vs_meas') {
+          (d.items || []).forEach(it => { it.sim_tc = ''; it.note = ''; });
+          d.conclusion = ''; d.conclusion_html = '';
+          if (!o.keepImages) { d.sim_image = ''; d.meas_image = ''; }
+        } else if (p.type === 'conclusion') {
+          Object.assign(d, { summary: '', issues: [''], actions: [], compliance: [], flag_hint_hidden: false });
+        }
+        out.push(p);
+      });
+      // Re-point 比對頁 links at the new data-page ids (component uids are kept).
+      out.forEach(p => {
+        if (p.type === 'sim_vs_meas') (p.data.items || []).forEach(it => { if (idMap[it.source_page]) it.source_page = idMap[it.source_page]; });
+      });
+      return out;
     }
 
     // ━━━ Utility ━━━
@@ -11009,22 +12251,74 @@
       }
     }
 
+    // Homepage list: search / Stage filter / sort, with each report's overall
+    // result (from its data pages) on the card. Clicking a card opens it.
+    const STAGE_ORDER = ['Prototype', 'EVT', 'DVT', 'PVT', 'MP'];
+    const hpView = { q: '', stage: '', sort: userPrefs().hp_sort || 'updated' };
+    let hpCache = { reports: [], digests: new Map() };
+    const $hpTools = document.getElementById('hp-tools');
+
+    function digestResult(dg) {
+      if (!dg) return null;
+      const comps = dg.dataPages.flatMap(dp => dp.components.map(c => {
+        const calc = computeComponent(c, dp.ta_conditions);
+        return { disabled: calc.disabled, tc_derated: calc.derated, calc };
+      }));
+      return summarizeComponents(comps);
+    }
+
     async function renderHomepage() {
       if (!dbAdapter.isReady()) {
+        $hpTools.style.display = 'none';
         renderHomepageNoDb();
         return;
       }
       const reports = await loadReportList();
+      let digests = [];
+      try { digests = await dbAdapter.getReportDigests(); } catch (e) { /* cards just show no result */ }
+      hpCache = { reports, digests: new Map(digests.map(x => [x.id, x])) };
       if (reports.length === 0) {
+        $hpTools.style.display = 'none';
         $hpEmpty.innerHTML = `<div class="icon">📋</div><div class="text">尚無報告，點擊右上方「+ 新增報告」開始</div>`;
         $hpEmpty.style.display = 'flex';
         $hpGrid.style.display = 'none';
         return;
       }
       $hpEmpty.style.display = 'none';
+      $hpTools.style.display = 'flex';
       $hpGrid.style.display = 'grid';
+      const stages = STAGE_ORDER.filter(st => reports.some(r => r.stage === st))
+        .concat(Array.from(new Set(reports.map(r => r.stage).filter(st => st && !STAGE_ORDER.includes(st)))));
+      if (hpView.stage && !stages.includes(hpView.stage)) hpView.stage = '';
+      document.getElementById('hp-stage-filter').innerHTML = ['', ...stages].map(st =>
+        `<button type="button" class="hp-stage-btn${hpView.stage === st ? ' active' : ''}" data-stage="${escapeAttr(st)}">${st ? escHtml(st) : '全部'}</button>`).join('');
+      document.getElementById('hp-sort').value = hpView.sort;
+      renderHomepageGrid();
+    }
 
-      $hpGrid.innerHTML = reports.map(r => `
+    function renderHomepageGrid() {
+      const terms = hpView.q.toLowerCase().split(/\s+/).filter(Boolean);
+      const time = r => String(r.updated_at || r.created_at || '');
+      const list = hpCache.reports.filter(r => {
+        if (hpView.stage && r.stage !== hpView.stage) return false;
+        const hay = [r.project_name, r.model, r.stage, r.date].join(' ').toLowerCase();
+        return terms.every(t => hay.includes(t));
+      }).sort(hpView.sort === 'name' ? (a, b) => naturalCompare(a.project_name || '', b.project_name || '')
+        : hpView.sort === 'created' ? (a, b) => String(b.created_at || '').localeCompare(String(a.created_at || ''))
+        : (a, b) => time(b).localeCompare(time(a)));
+      document.getElementById('hp-count').textContent = list.length === hpCache.reports.length
+        ? `共 ${list.length} 份` : `顯示 ${list.length} / ${hpCache.reports.length} 份`;
+      if (!list.length) {
+        $hpGrid.innerHTML = '<div class="hp-no-match">沒有符合條件的報告</div>';
+        return;
+      }
+      const RESULT_SHORT = { pass: '✓ PASS', warning: '⚠ CONDITIONAL', fail: '✕ FAIL' };
+      $hpGrid.innerHTML = list.map(r => {
+        const dg = hpCache.digests.get(r.id);
+        const sm = digestResult(dg);
+        const result = sm && sm.status !== 'none'
+          ? `<span class="hp-result hp-result-${sm.status}" title="${escapeAttr(summaryCountsText(sm))}">${RESULT_SHORT[sm.status]}</span>` : '';
+        return `
         <div class="hp-card" data-report-id="${escapeAttr(r.id)}">
           <div class="hp-card-title" contenteditable="true" spellcheck="false"
                data-report-id="${escapeAttr(r.id)}" data-original="${escapeAttr(r.project_name || '未命名報告')}"
@@ -11032,16 +12326,20 @@
           ${r.model ? `<div class="hp-card-date" style="font-size:12px;margin-top:-4px;">${escapeAttr(r.model)}</div>` : ''}
           <div class="hp-card-meta">
             ${r.stage ? `<span class="hp-badge">${escapeAttr(r.stage)}</span>` : ''}
+            ${result}
+            ${/衝突副本/.test(r.project_name || '') ? '<span class="hp-conflict" title="SharePoint 同步時兩人改了同一份報告，這是對方的版本">衝突副本</span>' : ''}
             ${r.date ? `<span class="hp-card-date">${escapeAttr(r.date)}</span>` : ''}
+            ${dg ? `<span class="hp-card-pages">${dg.pageCount} 頁</span>` : ''}
           </div>
           <div class="hp-card-updated">最後編輯：${timeAgo(r.updated_at || r.created_at)}</div>
           <div class="hp-card-actions">
             <button class="hp-card-btn primary" data-action="open" data-id="${escapeAttr(r.id)}">開啟編輯</button>
+            <button class="hp-card-btn" data-action="template" data-id="${escapeAttr(r.id)}" title="以這份報告的頁面、元件與規格建立新報告（量測值清空）">當範本新增</button>
             <button class="hp-card-btn" data-action="duplicate" data-id="${escapeAttr(r.id)}">複製</button>
             <button class="hp-card-btn danger" data-action="delete" data-id="${escapeAttr(r.id)}" data-name="${escapeAttr(r.project_name || '未命名報告')}">刪除</button>
           </div>
-        </div>
-      `).join('');
+        </div>`;
+      }).join('');
 
       // Bind card actions
       $hpGrid.querySelectorAll('[data-action]').forEach(btn => {
@@ -11051,11 +12349,20 @@
           const id = btn.dataset.id;
           if (action === 'open') {
             await openReport(id);
+          } else if (action === 'template') {
+            showNewReportModal({ templateId: id });
           } else if (action === 'duplicate') {
             await duplicateReport(id);
           } else if (action === 'delete') {
             showDeleteDialog(id, btn.dataset.name);
           }
+        });
+      });
+      // Click anywhere else on a card (not the editable title) → open it
+      $hpGrid.querySelectorAll('.hp-card').forEach(card => {
+        card.addEventListener('click', (e) => {
+          if (e.target.closest('.hp-card-title, button')) return;
+          openReport(card.dataset.reportId);
         });
       });
 
@@ -11075,6 +12382,8 @@
           const card = titleEl.closest('.hp-card');
           const delBtn = card?.querySelector('[data-action="delete"]');
           if (delBtn) delBtn.dataset.name = newName;
+          const cached = hpCache.reports.find(r => r.id === reportId);
+          if (cached) cached.project_name = newName;
           // Save meta + the cover page's project name in one write
           try {
             const pages = await dbAdapter.getAllPages(reportId);
@@ -11090,6 +12399,35 @@
             alert('改名失敗：' + err.message);
           }
         });
+      });
+    }
+
+    function setupHomepageTools() {
+      const search = document.getElementById('hp-search');
+      search.addEventListener('input', () => { hpView.q = search.value.trim(); renderHomepageGrid(); });
+      search.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') { search.value = ''; hpView.q = ''; renderHomepageGrid(); search.blur(); }
+        if (e.key === 'Enter') { const first = $hpGrid.querySelector('.hp-card'); if (first) openReport(first.dataset.reportId); }
+      });
+      document.getElementById('hp-stage-filter').addEventListener('click', (e) => {
+        const b = e.target.closest('[data-stage]');
+        if (!b) return;
+        hpView.stage = b.dataset.stage;
+        document.querySelectorAll('#hp-stage-filter .hp-stage-btn').forEach(x => x.classList.toggle('active', x === b));
+        renderHomepageGrid();
+      });
+      document.getElementById('hp-sort').addEventListener('change', (e) => {
+        hpView.sort = e.target.value;
+        setUserPref('hp_sort', hpView.sort);
+        renderHomepageGrid();
+      });
+      // "/" jumps to the search box on the homepage
+      document.addEventListener('keydown', (e) => {
+        if (e.key !== '/' || $homepage.classList.contains('hidden') || $hpTools.style.display === 'none') return;
+        const ae = document.activeElement;
+        if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.tagName === 'SELECT' || ae.isContentEditable)) return;
+        e.preventDefault();
+        search.focus();
       });
     }
 
@@ -11137,13 +12475,21 @@
       return false;
     }
 
-    function showNewReportModal() {
+    // New report: name / model / stage / date, and what to start with —
+    // the standard page set, just a cover, or an existing report as template
+    // (its pages, components and specs; every measured value cleared).
+    function showNewReportModal(opts = {}) {
       if (!requireDbOrWarn()) return;
       const today = todayStr();
+      const reports = (hpCache.reports || []).slice().sort((a, b) => String(b.updated_at || b.created_at || '').localeCompare(String(a.updated_at || a.created_at || '')));
+      const prefs = userPrefs();
+      let mode = opts.templateId ? 'template' : (prefs.new_mode || 'standard');
+      if (mode === 'template' && !reports.length) mode = 'standard';
+      const tplOptions = reports.map(r => `<option value="${escapeAttr(r.id)}"${r.id === opts.templateId ? ' selected' : ''}>${escHtml([r.project_name || '未命名報告', r.model, r.stage].filter(Boolean).join(' · '))}</option>`).join('');
       const overlay = document.createElement('div');
       overlay.className = 'hp-modal-overlay';
       overlay.innerHTML = `
-        <div class="hp-modal">
+        <div class="hp-modal hp-modal-wide">
           <div class="hp-modal-header">新增報告</div>
           <div class="hp-modal-body">
             <div class="hp-modal-field">
@@ -11154,17 +12500,32 @@
               <label>產品型號</label>
               <input type="text" id="hp-new-model" placeholder="輸入型號（Model）">
             </div>
-            <div class="hp-modal-field">
-              <label>Stage</label>
-              <select id="hp-new-stage">
-                ${['Prototype','EVT','DVT','PVT','MP'].map(s =>
-                  `<option value="${s}" ${s==='DVT'?'selected':''}>${s}</option>`
-                ).join('')}
-              </select>
+            <div class="hp-modal-row">
+              <div class="hp-modal-field">
+                <label>Stage</label>
+                <select id="hp-new-stage">
+                  ${['Prototype','EVT','DVT','PVT','MP'].map(s =>
+                    `<option value="${s}" ${s==='DVT'?'selected':''}>${s}</option>`
+                  ).join('')}
+                </select>
+              </div>
+              <div class="hp-modal-field">
+                <label>日期</label>
+                <input type="date" id="hp-new-date" value="${today}">
+              </div>
             </div>
             <div class="hp-modal-field">
-              <label>日期</label>
-              <input type="date" id="hp-new-date" value="${today}">
+              <label>起始內容</label>
+              <label class="hp-start-choice"><input type="radio" name="hp-start" value="standard"${mode === 'standard' ? ' checked' : ''}>
+                <div><b>標準架構</b><span>封面、圖片頁、標註頁、數據頁、比對頁、結論頁</span></div></label>
+              <label class="hp-start-choice"><input type="radio" name="hp-start" value="blank"${mode === 'blank' ? ' checked' : ''}>
+                <div><b>只有封面</b><span>之後再自行新增頁面</span></div></label>
+              ${reports.length ? `<label class="hp-start-choice"><input type="radio" name="hp-start" value="template"${mode === 'template' ? ' checked' : ''}>
+                <div><b>以既有報告為範本</b><span>沿用頁面、元件清單、規格、Ta 條件與記錄器通道對應；清空實測值、功耗、模擬值與結論</span></div></label>
+              <div class="hp-start-tpl${mode === 'template' ? ' open' : ''}" id="hp-start-tpl">
+                <select id="hp-tpl-src">${tplOptions}</select>
+                <label><input type="checkbox" id="hp-tpl-img"${prefs.tpl_keep_images !== false ? ' checked' : ''}> 保留圖片（封面 / 圖片頁 / 標註頁照片）</label>
+              </div>` : ''}
             </div>
           </div>
           <div class="hp-modal-footer">
@@ -11174,26 +12535,46 @@
         </div>
       `;
       document.body.appendChild(overlay);
+      const $ = sel => overlay.querySelector(sel);
+      const close = () => overlay.remove();
 
-      overlay.querySelector('#hp-new-cancel').addEventListener('click', () => document.body.removeChild(overlay));
-      overlay.addEventListener('click', (e) => { if (e.target === overlay) document.body.removeChild(overlay); });
+      $('#hp-new-cancel').addEventListener('click', close);
+      overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+      // Template picked → suggest its model (when none typed yet)
+      const suggestModel = () => {
+        const src = $('#hp-tpl-src');
+        if (!src || $('input[name="hp-start"]:checked').value !== 'template') return;
+        const r = reports.find(x => x.id === src.value);
+        if (r && r.model && !$('#hp-new-model').value.trim()) $('#hp-new-model').value = r.model;
+      };
+      overlay.querySelectorAll('input[name="hp-start"]').forEach(r => r.addEventListener('change', () => {
+        $('#hp-start-tpl')?.classList.toggle('open', r.value === 'template' && r.checked);
+        suggestModel();
+      }));
+      $('#hp-tpl-src')?.addEventListener('change', () => { $('#hp-new-model').value = ''; suggestModel(); });
+      suggestModel();
 
-      overlay.querySelector('#hp-new-confirm').addEventListener('click', async () => {
-        const name = overlay.querySelector('#hp-new-name').value.trim();
-        if (!name) { overlay.querySelector('#hp-new-name').focus(); return; }
-        const model = overlay.querySelector('#hp-new-model').value.trim();
-        const stage = overlay.querySelector('#hp-new-stage').value;
-        const date = overlay.querySelector('#hp-new-date').value;
-        document.body.removeChild(overlay);
-        await createNewReport(name, model, stage, date);
+      $('#hp-new-confirm').addEventListener('click', async () => {
+        const name = $('#hp-new-name').value.trim();
+        if (!name) { $('#hp-new-name').focus(); return; }
+        const model = $('#hp-new-model').value.trim();
+        const stage = $('#hp-new-stage').value;
+        const date = $('#hp-new-date').value;
+        const startMode = $('input[name="hp-start"]:checked').value;
+        const templateId = startMode === 'template' ? $('#hp-tpl-src').value : null;
+        const keepImages = startMode === 'template' ? $('#hp-tpl-img').checked : true;
+        setUserPref('new_mode', startMode);
+        if (startMode === 'template') setUserPref('tpl_keep_images', keepImages);
+        close();
+        await createNewReport(name, model, stage, date, { mode: startMode, templateId, keepImages });
       });
 
       // Enter key
-      overlay.querySelector('#hp-new-name').addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') overlay.querySelector('#hp-new-confirm').click();
+      $('#hp-new-name').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') $('#hp-new-confirm').click();
       });
 
-      setTimeout(() => overlay.querySelector('#hp-new-name').focus(), 100);
+      setTimeout(() => $('#hp-new-name').focus(), 100);
     }
 
     // The TIM library is shared by every report in the database, so it must be
@@ -11207,11 +12588,17 @@
       }
     }
 
-    async function createNewReport(name, model, stage, date) {
+    // opts.mode: 'blank' (cover only, default) | 'standard' | 'template' (+ templateId, keepImages)
+    async function createNewReport(name, model, stage, date, opts = {}) {
       if (!requireDbOrWarn()) return;
       const id = 'rpt_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
       const now = new Date().toISOString();
 
+      let templatePages = null;
+      if (opts.mode === 'template' && opts.templateId) {
+        try { templatePages = await dbAdapter.getAllPages(opts.templateId); }
+        catch (err) { alert('讀取範本報告失敗：' + err.message); return; }
+      }
       try {
         await dbAdapter.createReport(id, {
           project_name: name,
@@ -11227,23 +12614,27 @@
         return;
       }
 
-      // Open the new report with a default cover page
       resetEditorSession();
       state.reportId = id;
       spSync.setOpenReport(id);
       state.pages = [];
       state.activePage = null;
       state.timLibrary = await loadTimLibrary();
-      addCoverPage();
-      const cover = state.pages[0];
-      if (cover) {
-        cover.data.project_name = name;
-        cover.data.model = model;
-        cover.data.stage = stage;
-        cover.data.date = date;
-        initPageSnapshot(cover);            // pre-fill is not an undo step
-        scheduleSave(0, { undo: false });
+      if (templatePages) {
+        state.pages = templateFromPages(templatePages, { name, model, stage, date, keepImages: opts.keepImages !== false });
       }
+      if (!state.pages.some(p => p.type === 'cover')) {
+        const cover = makePage('cover');
+        Object.assign(cover.data, { project_name: name, model, stage, date });
+        state.pages.unshift(cover);
+      }
+      if (opts.mode === 'standard') {
+        ['image', 'annotation', 'data', 'sim_vs_meas', 'conclusion'].forEach(t => state.pages.push(makePage(t)));
+      }
+      migrateReportData();
+      state.pages.forEach((p, i) => { p.order = i; initPageSnapshot(p); });
+      await loadSpecMemory();
+      saveStructure();
       showEditor();
       renderPageList();
       selectPage(0);
@@ -11299,6 +12690,7 @@
       if (migrateReportData()) needsStructureSave = true;
       state.pages.forEach(p => initPageSnapshot(p));
       if (needsStructureSave) saveStructure();
+      await loadSpecMemory();
 
       showEditor();
       renderPageList();
@@ -11451,6 +12843,18 @@
     }
 
     // ━━━ Init ━━━
+    async function saveNow() {
+      if (!state.reportId || !dbAdapter.isReady()) return;
+      await flushAllSaves();
+      if (dbAdapter.hasConflict()) { showDbConflictDialog(true); return; }
+      if (window.spSync && spSync.isEnabled()) {
+        showToast('已儲存到本機，正在同步 SharePoint…', 'ok', 2500);
+        spSync.syncNow();
+      } else {
+        showToast('已儲存', 'ok', 1800);
+      }
+    }
+
     async function init() {
       // Set logo images from base64 constants
       const toolbarLogoEl = document.getElementById('toolbar-logo-img');
@@ -11480,12 +12884,19 @@
         if (isUndo) performUndo(); else performRedo();
       });
 
+      // Ctrl+S: write now (and sync SharePoint) instead of the browser's "save page".
+      document.addEventListener('keydown', (e) => {
+        if (!(e.ctrlKey || e.metaKey) || e.shiftKey || e.altKey || (e.key || '').toLowerCase() !== 's') return;
+        e.preventDefault();
+        saveNow();
+      });
+
       // Preview & PDF buttons
       document.getElementById('btn-preview').addEventListener('click', openPreview);
       document.getElementById('preview-close').addEventListener('click', closePreview);
       document.getElementById('btn-export-pdf').addEventListener('click', () => {
         if (state.pages.length === 0) return;
-        showExportPagePicker((sel) => exportPDF(sel));
+        showExportPagePicker((sel, o) => exportPDF(sel, o));
       });
 
       // Status bar: reopen the conflict dialog after "稍後處理"
@@ -11498,7 +12909,8 @@
       document.getElementById('btn-back-home').addEventListener('click', () => { leaveEditor(); });
 
       // New report button
-      document.getElementById('hp-new-report').addEventListener('click', showNewReportModal);
+      document.getElementById('hp-new-report').addEventListener('click', () => showNewReportModal());
+      setupHomepageTools();
 
       // Setup SortableJS
       if (typeof Sortable !== 'undefined') {
@@ -11623,12 +13035,19 @@ async function handleCreateDb() {
 }
 
 // ── Toasts (non-blocking messages) ─────────────────────────────────────
-function showToast(text, type, ms) {
+// link: optional { href, label } appended after the text (opens in a new tab).
+function showToast(text, type, ms, link) {
   let wrap = document.getElementById('toast-wrap');
   if (!wrap) { wrap = document.createElement('div'); wrap.id = 'toast-wrap'; document.body.appendChild(wrap); }
   const t = document.createElement('div');
   t.className = 'toast ' + (type || '');
   t.textContent = text;
+  if (link && link.href) {
+    const a = document.createElement('a');
+    a.href = link.href; a.target = '_blank'; a.rel = 'noopener';
+    a.textContent = ' ' + (link.label || '開啟');
+    t.appendChild(a);
+  }
   const x = document.createElement('button');
   x.className = 'toast-x'; x.textContent = '✕'; x.title = '關閉';
   x.addEventListener('click', () => t.remove());

@@ -1018,8 +1018,21 @@
     .concl-overall-detail { font-size: 10px; color: rgba(15,23,42,0.55); white-space: nowrap; }
     .concl-sub { display: block; font-size: 9px; font-weight: 500; opacity: 0.75; line-height: 1.2; }
     .concl-verdict-stale { color: #b45309; font-weight: 600; }
-    .concl-hint { margin: 6px 0; padding: 6px 10px; font-size: 11px; color: #92400e; background: #fffbeb; border: 1px solid #fde68a; border-radius: 4px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+    .concl-hint { margin: 6px 0; padding: 6px 10px 8px; font-size: 11px; color: #92400e; background: #fffbeb; border: 1px solid #fde68a; border-radius: 4px; display: flex; flex-direction: column; gap: 6px; }
+    .concl-hint-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-weight: 600; }
+    .concl-hint-close { border: none; background: transparent; color: #92400e; font-size: 13px; line-height: 1; padding: 2px 6px; border-radius: 4px; cursor: pointer; }
+    .concl-hint-close:hover { background: rgba(245,158,11,0.18); }
+    .concl-hint-group { border-top: 1px dashed #fcd34d; padding-top: 5px; }
+    .concl-hint-label { display: flex; align-items: center; gap: 8px; font-weight: 700; color: #78350f; margin-bottom: 4px; }
+    .concl-hint-count { font-weight: 500; color: #92400e; }
+    .concl-hint-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+    .concl-chip { font-size: 10.5px; padding: 1px 7px; border-radius: 10px; cursor: pointer; background: #fff; }
+    .concl-chip-fail { border: 1px solid #fca5a5; color: #991b1b; }
+    .concl-chip-warn { border: 1px solid #fcd34d; color: #854d0e; }
+    .concl-chip:hover { filter: brightness(0.95); box-shadow: 0 0 0 2px rgba(245,158,11,0.25); }
     .concl-hint-btn { font-size: 11px; padding: 2px 10px; border: 1px solid #f59e0b; background: #fff; color: #92400e; border-radius: 4px; cursor: pointer; }
+    .concl-btn-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .concl-reopen-btn { color: #b45309 !important; border-color: #fcd34d !important; }
     .concl-overall-pass    { background: rgba(34,197,94,0.10);  border-color: rgba(34,197,94,0.35); }
     .concl-overall-pass .concl-overall-value    { color: #15803d; }
     .concl-overall-warning { background: rgba(250,204,21,0.14); border-color: rgba(202,138,4,0.35); }
@@ -1090,7 +1103,7 @@
     }
 
     .concl-table th {
-      text-align: left;
+      text-align: center;
       font-size: 11px;
       font-weight: 600;
       text-transform: uppercase;
@@ -1100,11 +1113,21 @@
       border-bottom: 2px solid rgba(15,23,42,0.10);
     }
 
+    .concl-table th:first-child { text-align: left; }   /* name column left, value columns centred like their cells */
     .concl-table td {
       padding: 5px 8px;
       border-bottom: 1px solid rgba(15,23,42,0.06);
       vertical-align: middle;
     }
+    .concl-table tr.concl-group-row td {
+      padding: 4px 8px;
+      font-size: 11px;
+      font-weight: 700;
+      color: #0B3D7A;
+      background: #EDF2F8;
+      border-bottom: 1px solid rgba(15,23,42,0.08);
+    }
+    .concl-table td.concl-count { font-weight: 500; font-size: 11px; color: rgba(15,23,42,0.65); }
 
     .concl-table input {
       font-family: var(--font-ui);
@@ -2725,6 +2748,15 @@
       color: rgba(255,255,255,0.5);
       white-space: nowrap;
     }
+    .csm-cnt-fail { color: #f87171; font-weight: 600; }
+    .csm-cnt-warn { color: #fbbf24; font-weight: 600; }
+    /* Component pass/fail badge in the data-page component picker */
+    .csm-badge { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; padding: 1px 8px; border-radius: 10px; white-space: nowrap; }
+    .csm-badge-val { font-weight: 500; font-size: 10px; opacity: 0.85; }
+    .csm-badge-fail { color: #fca5a5; background: rgba(239,68,68,0.16); border: 1px solid rgba(239,68,68,0.45); }
+    .csm-badge-warn { color: #fcd34d; background: rgba(245,158,11,0.14); border: 1px solid rgba(245,158,11,0.45); }
+    .csm-badge-pass { color: rgba(134,239,172,0.85); background: rgba(34,197,94,0.08); border: 1px solid rgba(34,197,94,0.25); }
+    .csm-badge-none, .csm-badge-off { color: rgba(255,255,255,0.45); border: 1px solid rgba(255,255,255,0.12); }
     .anno-imp-children { background: rgba(0,0,0,0.15); }
     .anno-imp-child {
       display: flex;
@@ -7012,8 +7044,27 @@
       return tas.length ? tas[tas.length - 1] : null;
     }
 
-    // Dev(°C) = Sim − Meas; Dev(%) = Dev(°C) / Meas × 100 (judged on |Dev%|).
-    const SIM_DEV_GOOD_PCT = 5, SIM_DEV_WARN_PCT = 10;
+    // 比對頁偏差 — 以「溫升」為基準（CFD 實際預測的是溫升 ΔT = P × Rth，Ta 是
+    // 邊界條件；以溫升為分母，誤差百分比才不會隨 Ta 高低而變）:
+    //   Meas ΔT = Meas Tc − Ta
+    //   Dev(°C) = Sim Tc − Meas Tc
+    //   Dev(%)  = (Sim Tc − Meas Tc) / (Meas Tc − Ta) × 100
+    // 判定取「% 門檻」與「絕對溫差下限」中較寬鬆者；下限對應熱電偶量測不確定度
+    // （約 ±1~2°C），避免低溫升元件因 1~2°C 的差異被誤判：
+    //   ✅ |Dev%| ≤ 10% 或 |Dev| ≤ 2°C
+    //   ⚠️ |Dev%| ≤ 20% 或 |Dev| ≤ 4°C
+    //   ❌ 其餘
+    const SIM_DEV_GOOD_PCT = 10, SIM_DEV_WARN_PCT = 20;
+    const SIM_DEV_GOOD_C = 2, SIM_DEV_WARN_C = 4;
+    function simNotesLines(compareTa) {
+      const ta = compareTa === null ? '—' : compareTa;
+      return [
+        `※ 備註 1：判斷規則（以溫升為基準）：|Dev%| ≤ ${SIM_DEV_GOOD_PCT}% 或 |Dev| ≤ ${SIM_DEV_GOOD_C}°C 為 ✅；|Dev%| ≤ ${SIM_DEV_WARN_PCT}% 或 |Dev| ≤ ${SIM_DEV_WARN_C}°C 為 ⚠️；其餘為 ❌。`,
+        '※ 備註 2：Sim Tc 為實測瓦數後的模擬校正值。',
+        `※ 備註 3：Meas Tc 取自數據頁 Ta = ${ta}°C 的實測值；Meas ΔT = Meas Tc − Ta；Dev(°C) = Sim Tc − Meas Tc；Dev(%) = (Sim Tc − Meas Tc) / (Meas Tc − Ta) × 100。`,
+        `※ 備註 4：±${SIM_DEV_GOOD_PCT}% 相當於絕對溫差 ±(${SIM_DEV_GOOD_PCT / 100} × Meas ΔT)°C，例：Meas ΔT = 40°C 時約 ±${(SIM_DEV_GOOD_PCT * 0.4).toFixed(0)}°C；${SIM_DEV_GOOD_C}°C / ${SIM_DEV_WARN_C}°C 下限對應熱電偶量測不確定度。`,
+      ];
+    }
     function simRowValues(item, all, compareTa) {
       const m = resolveComponentRef(item, all);
       const simTc = parseTemp(item.sim_tc);
@@ -7024,6 +7075,7 @@
         derated: m ? m.tc_derated : NaN,
         simTc,
         measTc: NaN,
+        measDT: NaN,      // measured temperature rise above the comparison Ta
         noTa: false,
         devC: NaN, devPct: NaN, judge: 'none',
       };
@@ -7031,13 +7083,24 @@
         if (compareTa === null || !m.tas.includes(compareTa)) out.noTa = true;
         else out.measTc = m.readingAt(compareTa);
       }
-      if (!isNaN(simTc) && !isNaN(out.measTc) && out.measTc !== 0) {
+      if (!isNaN(out.measTc) && compareTa !== null) out.measDT = out.measTc - compareTa;
+      if (!isNaN(simTc) && !isNaN(out.measTc)) {
         out.devC = simTc - out.measTc;
-        out.devPct = out.devC / out.measTc * 100;
-        const a = Math.abs(out.devPct);
-        out.judge = a <= SIM_DEV_GOOD_PCT ? 'good' : a <= SIM_DEV_WARN_PCT ? 'warn' : 'bad';
+        // A non-positive rise means the reading is at/below ambient — no % basis.
+        if (out.measDT > 0) out.devPct = out.devC / out.measDT * 100;
+        const a = Math.abs(out.devC);
+        const p = isNaN(out.devPct) ? Infinity : Math.abs(out.devPct);
+        out.judge = (p <= SIM_DEV_GOOD_PCT || a <= SIM_DEV_GOOD_C) ? 'good'
+          : (p <= SIM_DEV_WARN_PCT || a <= SIM_DEV_WARN_C) ? 'warn' : 'bad';
       }
       return out;
+    }
+    // Tooltip: what the % thresholds mean in °C for this row's temperature rise.
+    function simDevTooltip(v) {
+      if (!(v.measDT > 0)) return '';
+      const g = Math.max(SIM_DEV_GOOD_PCT / 100 * v.measDT, SIM_DEV_GOOD_C);
+      const w = Math.max(SIM_DEV_WARN_PCT / 100 * v.measDT, SIM_DEV_WARN_C);
+      return `Meas ΔT = ${v.measDT.toFixed(1)}°C → ✅ 範圍 ±${g.toFixed(1)}°C，⚠️ 範圍 ±${w.toFixed(1)}°C`;
     }
     const SIM_JUDGE_ICON = { good: '✅', warn: '⚠️', bad: '❌', none: '—' };
 
@@ -7046,7 +7109,7 @@
     // component (the worst case the data page judges), with its Ta shown.
     function complianceRowValues(row, all) {
       const m = resolveComponentRef(row, all);
-      if (!m) return { stale: true, name: row.component || '', maxTc: NaN, maxTa: null, derated: NaN, marginPct: NaN, marginC: NaN, verdict: 'stale' };
+      if (!m) return { stale: true, pageId: null, key: '', name: row.component || '', maxTc: NaN, maxTa: null, derated: NaN, marginPct: NaN, marginC: NaN, verdict: 'stale' };
       const mc = m.calc.maxCell;
       const derated = m.tc_derated;
       let marginPct = NaN, marginC = NaN, verdict = 'none';
@@ -7056,29 +7119,64 @@
         marginPct = marginC / derated * 100;
         verdict = marginStatus(marginPct);
       }
-      return { stale: false, name: m.component_name, maxTc: mc ? mc.tc : NaN, maxTa: mc ? mc.ta : null, derated, marginPct, marginC, verdict };
+      return { stale: false, pageId: m.source_page, key: compRefKey(m), name: m.component_name, maxTc: mc ? mc.tc : NaN, maxTa: mc ? mc.ta : null, derated, marginPct, marginC, verdict };
+    }
+
+    // Pass/fail summary of a set of data-page components (enabled + with spec).
+    const RESULT_LABEL = { fail: '❌ FAIL', warning: '⚠️ CONDITIONAL PASS', pass: '✅ PASS', none: '尚未判定' };
+    function summarizeComponents(comps) {
+      const judged = comps.filter(c => !c.disabled && c.tc_derated > 0);
+      const evaluated = judged.filter(c => c.calc.status !== 'none');
+      const fails = evaluated.filter(c => c.calc.status === 'fail');
+      const warns = evaluated.filter(c => c.calc.status === 'warn');
+      const status = fails.length ? 'fail' : warns.length ? 'warning' : evaluated.length ? 'pass' : 'none';
+      return {
+        status, label: RESULT_LABEL[status],
+        total: judged.length, nEvaluated: evaluated.length,
+        nFail: fails.length, nWarn: warns.length, unmeasured: judged.length - evaluated.length,
+        flagged: [...fails, ...warns],          // Fail first, then Warning
+      };
+    }
+    function summaryCountsText(sm) {
+      const parts = [];
+      if (sm.nFail) parts.push(`${sm.nFail} Fail`);
+      if (sm.nWarn) parts.push(`${sm.nWarn} Warning`);
+      if (sm.unmeasured) parts.push(`${sm.unmeasured} 未量測`);
+      return (parts.length ? parts.join(' · ') + ' / ' : '') + `共 ${sm.total} 顆`;
     }
 
     // Overall result is derived from EVERY enabled data-page component with a
     // spec — not just the rows hand-picked into the Compliance Summary — so a
-    // Fail on the data page can never be shown as an overall PASS.
-    function computeOverallResult() {
-      const comps = getDataPageComponents().filter(c => !c.disabled && c.tc_derated > 0);
-      const evaluated = comps.filter(c => c.calc.status !== 'none');
-      const nFail = evaluated.filter(c => c.calc.status === 'fail').length;
-      const nWarn = evaluated.filter(c => c.calc.status === 'warn').length;
-      const unmeasured = comps.length - evaluated.length;
-      let status, label;
-      if (nFail) { status = 'fail'; label = '❌ FAIL'; }
-      else if (nWarn) { status = 'warning'; label = '⚠️ CONDITIONAL PASS'; }
-      else if (evaluated.length) { status = 'pass'; label = '✅ PASS'; }
-      else { status = 'none'; label = '尚未判定'; }
-      let detail = evaluated.length ? `依數據頁 ${evaluated.length} 顆元件判定` : '數據頁尚無可判定的量測值';
-      if (nFail) detail += `，${nFail} 顆 Fail`;
-      if (nWarn) detail += `，${nWarn} 顆 Warning`;
-      if (unmeasured) detail += `，${unmeasured} 顆未量測`;
-      const flagged = evaluated.filter(c => c.calc.status === 'fail' || c.calc.status === 'warn');
-      return { status, label, detail, flagged };
+    // Fail on the data page can never be shown as an overall PASS. Each data
+    // page is one test condition, so results are also reported per page.
+    function computeOverallResult(groups) {
+      groups = groups || getDataPageComponentGroups();
+      // `name` = the test condition (data page); `label` = its result label.
+      const perPage = groups.map(g => ({ ...summarizeComponents(g.components), pageId: g.pageId, name: conditionName(g) }));
+      const overall = summarizeComponents(groups.flatMap(g => g.components));
+      const detail = perPage.length
+        ? `依 ${perPage.length} 個數據頁（測試條件）判定`
+        : '尚無數據頁';
+      return { ...overall, detail, perPage };
+    }
+
+    // Display name of a data page (= test condition): "數據頁 1 · RF無補償".
+    const conditionName = g => g.label + (g.note ? ' · ' + g.note : '');
+
+    // Compliance rows grouped by their source data page (report page order);
+    // rows whose source was deleted go into a trailing "stale" group.
+    function groupComplianceRows(rows, groups, all) {
+      const byPage = new Map(groups.map(g => [g.pageId, { group: g, items: [] }]));
+      const stale = [];
+      rows.forEach((row, i) => {
+        const v = complianceRowValues(row, all);
+        if (v.stale || !byPage.has(v.pageId)) stale.push({ row, i, v });
+        else byPage.get(v.pageId).items.push({ row, i, v });
+      });
+      const out = [];
+      byPage.forEach(({ group, items }) => { if (items.length) out.push({ group, items }); });
+      if (stale.length) out.push({ group: null, items: stale });
+      return out;
     }
 
     // ━━━ Data Page Module ━━━
@@ -8619,6 +8717,15 @@
     // section with its own "select all" parent checkbox, so components from
     // different data pages are no longer crammed into one flat list. onConfirm
     // still receives a flat array of the selected getDataPageComponents() entries.
+    // Pass/fail badge for a data-page component (component picker).
+    function compStatusBadgeHTML(c) {
+      const st = c.calc.status, w = c.calc.worst;
+      if (st === 'disabled') return '<span class="csm-badge csm-badge-off">斷線 N/A</span>';
+      if (st === 'none') return `<span class="csm-badge csm-badge-none">${c.tc_derated > 0 ? '未量測' : '無 Spec'}</span>`;
+      const label = st === 'fail' ? '❌ Fail' : st === 'warn' ? '⚠️ Warning' : '✔ Pass';
+      return `<span class="csm-badge csm-badge-${st}" title="最差 Margin ${fmtPct(w.marginPct)}（${fmtDeltaC(w.marginC)}）@ Ta ${w.ta}°C">${label}<span class="csm-badge-val">${fmtPct(w.marginPct)} @${w.ta}°C</span></span>`;
+    }
+
     function showComponentSelectModal(preCheckedNames, onConfirm) {
       const groups = getDataPageComponentGroups().filter(g => g.components.length > 0);
       if (groups.length === 0) {
@@ -8649,15 +8756,18 @@
             <input type="checkbox" class="csm-comp-cb" data-group="${gi}" data-comp="${ci}"${checked}>
             <span class="sim-modal-item-cat ${catClass}">${escHtml(comp.category)}</span>
             <span class="sim-modal-item-label">${escHtml(comp.component_name)}</span>
-            ${comp.disabled ? '<span class="anno-imp-count">斷線 N/A</span>' : ''}
+            ${compStatusBadgeHTML(comp)}
           </label>`;
         }).join('');
+        const sm = summarizeComponents(g.components);
+        const groupCounts = [sm.nFail ? `<span class="csm-cnt-fail">${sm.nFail} Fail</span>` : '', sm.nWarn ? `<span class="csm-cnt-warn">${sm.nWarn} Warning</span>` : '']
+          .filter(Boolean).join(' · ');
         return `<div class="anno-imp-page" data-group="${gi}">
           <div class="anno-imp-page-row" data-group="${gi}">
             <button type="button" class="anno-imp-toggle" data-group="${gi}">▾</button>
             <input type="checkbox" class="csm-group-cb" data-group="${gi}">
             <span class="sim-modal-item-label" style="font-weight:600;">${escapeAttr(g.label)}${g.note ? ' · ' + escapeAttr(g.note) : ''}</span>
-            <span class="anno-imp-count">${g.components.length} 個元件</span>
+            <span class="anno-imp-count">${groupCounts ? groupCounts + ' · ' : ''}${g.components.length} 個元件</span>
           </div>
           <div class="anno-imp-children" data-group="${gi}" style="display:block;">${childrenHTML}</div>
         </div>`;
@@ -8669,6 +8779,7 @@
           <div class="sim-modal-toolbar">
             <button type="button" class="sim-modal-tool-btn" id="sim-modal-select-all">全選</button>
             <button type="button" class="sim-modal-tool-btn" id="sim-modal-deselect-all">全不選</button>
+            <button type="button" class="sim-modal-tool-btn" id="sim-modal-select-flagged" title="勾選所有 Fail / Warning 元件（保留目前已勾選的）">勾選 Fail / Warning</button>
           </div>
           <div class="sim-modal-body">${groupsHTML}</div>
           <div class="sim-modal-footer">
@@ -8724,6 +8835,13 @@
         overlay.querySelectorAll('.csm-group-cb').forEach(cb => { cb.checked = val; cb.indeterminate = false; });
       };
       overlay.querySelector('#sim-modal-select-all').addEventListener('click', () => setAll(true));
+      overlay.querySelector('#sim-modal-select-flagged').addEventListener('click', () => {
+        overlay.querySelectorAll('.csm-comp-cb').forEach(cb => {
+          const c = groups[parseInt(cb.dataset.group)].components[parseInt(cb.dataset.comp)];
+          if (c && (c.calc.status === 'fail' || c.calc.status === 'warn')) cb.checked = true;
+        });
+        groups.forEach((g, gi) => syncGroup(gi));
+      });
       overlay.querySelector('#sim-modal-deselect-all').addEventListener('click', () => setAll(false));
 
       overlay.querySelector('#sim-modal-cancel').addEventListener('click', close);
@@ -8859,10 +8977,12 @@
           : fmt1(v.measTc);
         return {
           meas: measCell,
+          measDT: fmt1(v.measDT),
           devC: isNaN(v.devC) ? '—' : v.devC.toFixed(1),
           devPct: fmtPct(v.devPct),
           judge: SIM_JUDGE_ICON[v.judge],
           cls: devClass(v.judge),
+          tip: simDevTooltip(v),
         };
       };
 
@@ -8880,9 +9000,10 @@
           <td class="sim-readonly">${fmt1(v.derated)}</td>
           <td class="sim-tc-cell"><input type="number" step="any" style="width:55px;text-align:center;" placeholder="—" value="${escapeAttr(numStr(item.sim_tc))}" data-sim-idx="${i}" data-sim-field="sim_tc" data-fill-col="sim:sim_tc"></td>
           <td class="sim-readonly">${c.meas}</td>
-          <td class="${c.cls}" style="text-align:center;">${c.devC}</td>
-          <td class="${c.cls}" style="text-align:center;">${c.devPct}</td>
-          <td class="sim-judge ${c.cls}">${c.judge}</td>
+          <td class="sim-readonly">${c.measDT}</td>
+          <td class="${c.cls}" data-sim-col="devC" style="text-align:center;">${c.devC}</td>
+          <td class="${c.cls}" data-sim-col="devPct" style="text-align:center;" title="${escapeAttr(c.tip)}">${c.devPct}</td>
+          <td class="sim-judge ${c.cls}" data-sim-col="judge">${c.judge}</td>
           <td><input type="text" placeholder="備註" value="${escapeAttr(item.note || '')}" data-sim-idx="${i}" data-sim-field="note" data-fill-col="sim:note"></td>
           <td class="sim-del-cell"><button class="sim-del-btn" data-sim-del="${i}" title="刪除此元件">✕</button></td>
         </tr>`;
@@ -8915,8 +9036,9 @@
                   <th>Derated Tc (°C)</th>
                   <th>Sim Tc${taLabel}</th>
                   <th>Meas Tc${taLabel}</th>
+                  <th title="Meas ΔT = Meas Tc − Ta">Meas ΔT (°C)</th>
                   <th>Dev (°C)</th>
-                  <th>Dev (%)</th>
+                  <th title="Dev(%) = (Sim Tc − Meas Tc) / (Meas Tc − Ta) × 100">Dev (%)</th>
                   <th>判斷</th>
                   <th>備註</th>
                   <th style="width:30px;"></th>
@@ -8928,9 +9050,7 @@
 
           <!-- Static notes -->
           <div class="sim-notes-block">
-            <div>※ 備註 1：判斷規則：偏差 ≤5% 為 ✅，5%~10% 為 ⚠️，&gt;10% 為 ❌。</div>
-            <div>※ 備註 2：Sim Tc 為實測瓦數後的模擬校正值。</div>
-            <div>※ 備註 3：Meas Tc 取自數據頁 Ta = ${compareTa === null ? '—' : compareTa}°C 的實測值；Dev(°C) = Sim − Meas，Dev(%) = Dev(°C) / Meas × 100。</div>
+            ${simNotesLines(compareTa).map(t => `<div>${escHtml(t)}</div>`).join('')}
           </div>
 
           <!-- Conclusion description -->
@@ -9014,10 +9134,10 @@
           const tr = el.closest('tr');
           if (!tr) return;
           const c = rowCells(simRowValues(d.items[idx], getDataPageComponents(), compareTa));
-          const tds = tr.querySelectorAll('td');
-          tds[5].className = c.cls; tds[5].textContent = c.devC;
-          tds[6].className = c.cls; tds[6].textContent = c.devPct;
-          tds[7].className = 'sim-judge ' + c.cls; tds[7].textContent = c.judge;
+          const cell = k => tr.querySelector(`[data-sim-col="${k}"]`);
+          cell('devC').className = c.cls; cell('devC').textContent = c.devC;
+          cell('devPct').className = c.cls; cell('devPct').textContent = c.devPct; cell('devPct').title = c.tip;
+          cell('judge').className = 'sim-judge ' + c.cls; cell('judge').textContent = c.judge;
         });
       });
 
@@ -9366,13 +9486,37 @@
 
       // Compliance rows are linked to their source component (page id + uid);
       // every value is recomputed from the live data page on each render.
-      const all = getDataPageComponents();
-      const overall = computeOverallResult();
+      // Each data page is one test condition, so results, compliance rows and
+      // the Fail/Warning hint are all shown per data page.
+      const groups = getDataPageComponentGroups();
+      const all = groups.flatMap(g => g.components);
+      const overall = computeOverallResult(groups);
       const listedKeys = new Set(d.compliance.map(r => compRefKey(resolveComponentRef(r, all))).filter(Boolean));
-      const unlisted = overall.flagged.filter(c => !listedKeys.has(compRefKey(c)));
+      const unlistedByPage = groups.map(g => {
+        const sm = overall.perPage.find(pp => pp.pageId === g.pageId);
+        return { group: g, sm, items: sm.flagged.filter(c => !listedKeys.has(compRefKey(c))) };
+      }).filter(x => x.items.length);
+      const unlistedCount = unlistedByPage.reduce((n, x) => n + x.items.length, 0);
 
-      let complianceRows = d.compliance.map((row, i) => {
-        const v = complianceRowValues(row, all);
+      // Result by test condition (one row per data page)
+      const conditionRows = overall.perPage.map(pp => `
+          <tr>
+            <td class="concl-readonly" style="text-align:left;">${escHtml(pp.name)}</td>
+            <td class="concl-verdict-cell concl-overall-${pp.status}"><span class="concl-overall-value">${pp.label}</span></td>
+            <td class="concl-readonly concl-count">${escHtml(summaryCountsText(pp))}</td>
+          </tr>`).join('');
+      const conditionTable = overall.perPage.length ? `
+          <div class="concl-section">
+            <div class="concl-section-title">Result by Test Condition</div>
+            <div class="concl-table-wrap">
+              <table class="concl-table">
+                <thead><tr><th style="width:46%">Test Condition（數據頁）</th><th style="width:22%">Result</th><th style="width:32%">Fail / Warning / 未量測</th></tr></thead>
+                <tbody>${conditionRows}</tbody>
+              </table>
+            </div>
+          </div>` : '';
+
+      const rowHtml = ({ i, v }) => {
         const vd = CONCL_VERDICT[v.verdict] || CONCL_VERDICT.none;
         const mCls = CONCL_MARGIN_CLS[v.verdict] || '';
         return `
@@ -9384,13 +9528,38 @@
             <td class="${vd.cls} concl-verdict-cell">${vd.label}</td>
             <td class="concl-del-cell"><button class="concl-del-btn" data-comp-del="${i}" title="移除此元件">✕</button></td>
           </tr>`;
-      }).join('');
+      };
+      let complianceRows = groupComplianceRows(d.compliance, groups, all).map(({ group, items }) => `
+          <tr class="concl-group-row"><td colspan="6">${group ? escHtml(conditionName(group)) : '⚠ 來源元件已變更（請重新選取）'}</td></tr>
+          ${items.map(rowHtml).join('')}`).join('');
       if (d.compliance.length === 0) {
         complianceRows = `<tr><td colspan="6" class="concl-empty">尚未選取元件 — 點下方按鈕從數據頁選取有疑慮的元件</td></tr>`;
       }
-      const unlistedHint = unlisted.length
-        ? `<div class="concl-hint">⚠ 數據頁有 ${unlisted.length} 顆 Fail / Warning 元件未列入此表：${unlisted.map(c => escHtml(c.component_name)).join('、')}
-             <button type="button" class="concl-hint-btn" id="concl-add-flagged">全部加入</button></div>`
+
+      // Unlisted Fail / Warning components, grouped per data page. Each chip adds
+      // one component; each group can be added at once; the box can be closed
+      // (remembered on this page) and reopened from the button below the table.
+      const chip = c => `<button type="button" class="concl-chip concl-chip-${c.calc.status}" data-add-key="${escapeAttr(compRefKey(c))}"
+            title="${c.calc.status === 'fail' ? 'Fail' : 'Warning'}：最差 Margin ${fmtPct(c.calc.worst && c.calc.worst.marginPct)} @ Ta ${c.calc.worst ? c.calc.worst.ta : '—'}°C — 點擊加入">
+            ${c.calc.status === 'fail' ? '❌' : '⚠️'} ${escHtml(c.component_name)}</button>`;
+      const unlistedHint = (unlistedCount && !d.flag_hint_hidden)
+        ? `<div class="concl-hint" id="concl-flag-hint">
+             <div class="concl-hint-head">
+               <span>⚠ 以下 Fail / Warning 元件尚未列入此表（依數據頁分組，點元件可單獨加入）</span>
+               <button type="button" class="concl-hint-close" id="concl-hint-close" title="關閉提示（可從下方按鈕重新顯示）">✕</button>
+             </div>
+             ${unlistedByPage.map(x => `
+               <div class="concl-hint-group">
+                 <div class="concl-hint-label">${escHtml(conditionName(x.group))}
+                   <span class="concl-hint-count">${x.items.filter(c => c.calc.status === 'fail').length} Fail · ${x.items.filter(c => c.calc.status === 'warn').length} Warning</span>
+                   <button type="button" class="concl-hint-btn" data-add-page="${escapeAttr(x.group.pageId)}">加入此頁全部</button>
+                 </div>
+                 <div class="concl-hint-chips">${x.items.map(chip).join('')}</div>
+               </div>`).join('')}
+           </div>`
+        : '';
+      const reopenHintBtn = (unlistedCount && d.flag_hint_hidden)
+        ? `<button class="concl-add-btn concl-reopen-btn" id="concl-show-flagged">⚠ 顯示未列入的 Fail / Warning（${unlistedCount}）</button>`
         : '';
 
       // Build issues
@@ -9429,6 +9598,8 @@
                  id="concl-summary-editor">${sanitizeRichHtml(d.summary || '')}</div>
           </div>
 
+          ${conditionTable}
+
           <!-- 2. Compliance Summary -->
           <div class="concl-section">
             <div class="concl-section-title">Compliance Summary</div>
@@ -9448,7 +9619,10 @@
               </table>
             </div>
             ${unlistedHint}
-            <button class="concl-add-btn" id="add-compliance-btn">+ 從數據頁選取元件</button>
+            <div class="concl-btn-row">
+              <button class="concl-add-btn" id="add-compliance-btn">+ 從數據頁選取元件</button>
+              ${reopenHintBtn}
+            </div>
           </div>
 
           <!-- 3 + 4. Issues / Next Action side by side -->
@@ -9524,12 +9698,35 @@
           scheduleSave(pageIdx);
         });
       });
-      document.getElementById('concl-add-flagged')?.addEventListener('click', () => {
+      // Fail / Warning hint: add one (chip), add a whole data page, close, reopen.
+      const addByKeys = (keys) => {
         const all = getDataPageComponents();
         const have = new Set(d.compliance.map(r => compRefKey(resolveComponentRef(r, all))).filter(Boolean));
-        computeOverallResult().flagged.forEach(c => { if (!have.has(compRefKey(c))) d.compliance.push(toRow(c)); });
+        keys.forEach(k => {
+          const c = all.find(x => compRefKey(x) === k);
+          if (c && !have.has(k)) { d.compliance.push(toRow(c)); have.add(k); }
+        });
         renderConclusionPage(page);
         scheduleSave(pageIdx);
+      };
+      $canvas.querySelectorAll('[data-add-key]').forEach(btn => {
+        btn.addEventListener('click', () => addByKeys([btn.dataset.addKey]));
+      });
+      $canvas.querySelectorAll('[data-add-page]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const pp = computeOverallResult().perPage.find(x => x.pageId === btn.dataset.addPage);
+          if (pp) addByKeys(pp.flagged.map(compRefKey));
+        });
+      });
+      document.getElementById('concl-hint-close')?.addEventListener('click', () => {
+        d.flag_hint_hidden = true;
+        renderConclusionPage(page);
+        scheduleSave(pageIdx, { undo: false });
+      });
+      document.getElementById('concl-show-flagged')?.addEventListener('click', () => {
+        d.flag_hint_hidden = false;
+        renderConclusionPage(page);
+        scheduleSave(pageIdx, { undo: false });
       });
 
       // Delete a compliance row
@@ -9632,13 +9829,17 @@
           buildSimVsMeasPagesHTML(page.data).forEach(html => {
             list.push({ page, pageIdx, html, isLandscape: true });
           });
+        } else if (page.type === 'conclusion') {
+          // Long Compliance Summaries continue onto further pages.
+          buildConclusionPagesHTML(page.data).forEach(html => {
+            list.push({ page, pageIdx, html, isLandscape: true });
+          });
         } else {
           let html = '';
           const isLandscape = page.type === 'image' || page.type === 'annotation' || page.type === 'conclusion';
           if (page.type === 'cover') html = buildCoverHTML(page.data);
           else if (page.type === 'image') html = buildImagePageHTML(page.data);
           else if (page.type === 'annotation') html = buildAnnotationHTML(page.data);
-          else if (page.type === 'conclusion') html = buildConclusionHTML(page.data);
           list.push({ page, pageIdx, html, isLandscape });
         }
       });
@@ -9940,15 +10141,20 @@
       return wrapPageHTML(inner);
     }
 
-    function buildConclusionHTML(d) {
+    // Returns an ARRAY of page HTML strings: the conclusion normally fits on one
+    // page; when the Compliance Summary is long it continues on further pages
+    // (header row repeated) instead of being clipped. Issues / Next Action go
+    // after the last compliance row, or onto their own final page.
+    function buildConclusionPagesHTML(d) {
       const comp = d.compliance || [];
       const issues = (d.issues || []).filter(s => s);
       const acts = d.actions || [];
 
-      const overall = computeOverallResult();
-      const all = getDataPageComponents();
-      const oColor = overall.status === 'pass' ? '#15803d' : overall.status === 'warning' ? '#a16207'
-        : overall.status === 'fail' ? '#b91c1c' : 'rgba(15,23,42,0.45)';
+      const groups = getDataPageComponentGroups();
+      const all = groups.flatMap(g => g.components);
+      const overall = computeOverallResult(groups);
+      const statusColor = st => st === 'pass' ? '#15803d' : st === 'warning' ? '#a16207' : st === 'fail' ? '#b91c1c' : 'rgba(15,23,42,0.45)';
+      const oColor = statusColor(overall.status);
       const oBg = overall.status === 'pass' ? 'rgba(34,197,94,0.10)' : overall.status === 'warning' ? 'rgba(250,204,21,0.14)'
         : overall.status === 'fail' ? 'rgba(239,68,68,0.10)' : 'rgba(15,23,42,0.03)';
       const oBorder = overall.status === 'pass' ? 'rgba(34,197,94,0.35)' : overall.status === 'warning' ? 'rgba(202,138,4,0.35)'
@@ -9957,58 +10163,67 @@
       const thStyle = 'text-align:center;font-family:&apos;JetBrains Mono&apos;,monospace;font-size:9px;font-weight:500;letter-spacing:0.04em;word-spacing:0px;color:#ffffff;background:#0B3D7A;padding:5px 6px;border:1px solid rgba(255,255,255,0.3);';
       const tdStyle = 'padding:4px 8px;border:1px solid rgba(15,23,42,0.08);font-size:11px;letter-spacing:0px;word-spacing:0px;text-align:center;';
       const tdLeft = tdStyle + 'text-align:left;';
-      const show = v => (v !== undefined && v !== '' && v !== null) ? escHtml(String(v)) : '—';
-
-      const sub = t => `<div style="font-size:8px;font-weight:500;opacity:0.75;line-height:1.2;">${t}</div>`;
-      const compRows = comp.map(r => {
-        const v = complianceRowValues(r, all);
-        const vd = CONCL_VERDICT[v.verdict] || CONCL_VERDICT.none;
-        const mColor = CONCL_MARGIN_PDF[v.verdict] || '';
-        return `<tr>
-          <td style="${tdLeft}">${escHtml(v.name) || '—'}</td>
-          <td style="${tdStyle}">${fmt1(v.maxTc)}${v.maxTa !== null ? sub('@ Ta ' + v.maxTa + '°C') : ''}</td>
-          <td style="${tdStyle}">${fmt1(v.derated)}</td>
-          <td style="${tdStyle}font-weight:600;${mColor}">${fmtPct(v.marginPct)}${isNaN(v.marginC) ? '' : sub(fmtDeltaC(v.marginC))}</td>
-          <td style="${tdStyle}font-weight:600;${vd.pdf}">${vd.label}</td>
-        </tr>`;
-      }).join('');
-
-      const issuesHtml = issues.length
-        ? issues.map(s => `<li style="margin-bottom:5px;font-size:11px;line-height:1.6;">• ${escHtml(s)}</li>`).join('')
-        : `<li style="list-style:none;font-size:11px;color:rgba(15,23,42,0.4);">—</li>`;
-
-      const actTd = 'padding:4px 8px;border:1px solid rgba(15,23,42,0.08);font-size:11px;letter-spacing:0px;word-spacing:0px;text-align:left;';
-      const actRows = acts.length
-        ? acts.map(a => `<tr><td style="${actTd}">${escHtml(a.description)}</td><td style="${actTd}">${escHtml(a.owner)}</td><td style="${actTd}">${escHtml(a.due_date)}</td></tr>`).join('')
-        : `<tr><td style="${actTd}color:rgba(15,23,42,0.4);" colspan="3">—</td></tr>`;
-
       const secTitle = "font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:600;letter-spacing:0.08em;word-spacing:0px;color:#2357A7;margin-bottom:6px;text-transform:uppercase;";
+      const sub = t => `<div style="font-size:8px;font-weight:500;opacity:0.75;line-height:1.2;">${t}</div>`;
 
-      const inner = `<div style="width:100%;height:100%;display:flex;flex-direction:column;padding:26px 34px 24px;gap:14px;color:rgba(15,23,42,0.90);overflow:hidden;letter-spacing:0px;word-spacing:0px;">
-        <div style="display:flex;align-items:center;justify-content:space-between;padding-bottom:8px;border-bottom:2px solid #C2DFF8;">
-          <div style="font-family:'Space Grotesk',sans-serif;font-size:16px;font-weight:600;letter-spacing:0.02em;color:#0B3D7A;">TEST CONCLUSION</div>
+      const headerHtml = (cont) => `<div style="display:flex;align-items:center;justify-content:space-between;padding-bottom:8px;border-bottom:2px solid #C2DFF8;">
+          <div style="font-family:'Space Grotesk',sans-serif;font-size:16px;font-weight:600;letter-spacing:0.02em;color:#0B3D7A;">TEST CONCLUSION${cont ? '（續）' : ''}</div>
           <div style="display:flex;align-items:center;gap:8px;padding:5px 12px;border-radius:6px;background:${oBg};border:1px solid ${oBorder};">
             <span style="font-family:'JetBrains Mono',monospace;font-size:8px;font-weight:600;letter-spacing:0.08em;color:rgba(15,23,42,0.45);text-transform:uppercase;">Overall Result</span>
             <span style="font-size:13px;font-weight:700;color:${oColor};">${overall.label}</span>
             <span style="font-size:8px;color:rgba(15,23,42,0.5);">${escHtml(overall.detail)}</span>
           </div>
-        </div>
+        </div>`;
 
-        <div>
+      const summaryHtml = `<div>
           <div style="${secTitle}">Conclusion</div>
           <div style="min-height:48px;padding:9px 12px;border:1px solid #C2DFF8;border-radius:4px;font-size:12px;line-height:1.6;">${sanitizeRichHtml(d.summary || '')}</div>
-        </div>
+        </div>`;
 
-        <div>
-          <div style="${secTitle}">Compliance Summary</div>
-          ${comp.length > 0 ? `<div style="border:1px solid #C2DFF8;"><table style="width:100%;border-collapse:collapse;">
+      const conditionHtml = overall.perPage.length ? `<div>
+          <div style="${secTitle}">Result by Test Condition</div>
+          <div style="border:1px solid #C2DFF8;"><table style="width:100%;border-collapse:collapse;">
+            <thead><tr><th style="${thStyle}text-align:left;width:46%;">Test Condition（數據頁）</th><th style="${thStyle}width:22%;">Result</th><th style="${thStyle}">Fail / Warning / 未量測</th></tr></thead>
+            <tbody>${overall.perPage.map(pp => `<tr>
+              <td style="${tdLeft}">${escHtml(pp.name)}</td>
+              <td style="${tdStyle}font-weight:700;color:${statusColor(pp.status)};">${pp.label}</td>
+              <td style="${tdStyle}color:rgba(15,23,42,0.65);">${escHtml(summaryCountsText(pp))}</td>
+            </tr>`).join('')}</tbody></table></div>
+        </div>` : '';
+
+      // Compliance rows, grouped by data page (each group gets a label row).
+      const compRowList = [];
+      groupComplianceRows(comp, groups, all).forEach(({ group, items }) => {
+        compRowList.push(`<tr><td colspan="5" style="${tdLeft}font-weight:700;color:#0B3D7A;background:#EDF2F8;font-size:10px;">${group ? escHtml(conditionName(group)) : '⚠ 來源元件已變更'}</td></tr>`);
+        items.forEach(({ v }) => {
+          const vd = CONCL_VERDICT[v.verdict] || CONCL_VERDICT.none;
+          const mColor = CONCL_MARGIN_PDF[v.verdict] || '';
+          compRowList.push(`<tr>
+            <td style="${tdLeft}">${escHtml(v.name) || '—'}</td>
+            <td style="${tdStyle}">${fmt1(v.maxTc)}${v.maxTa !== null ? sub('@ Ta ' + v.maxTa + '°C') : ''}</td>
+            <td style="${tdStyle}">${fmt1(v.derated)}</td>
+            <td style="${tdStyle}font-weight:600;${mColor}">${fmtPct(v.marginPct)}${isNaN(v.marginC) ? '' : sub(fmtDeltaC(v.marginC))}</td>
+            <td style="${tdStyle}font-weight:600;${vd.pdf}">${vd.label}</td>
+          </tr>`);
+        });
+      });
+      const complianceBlock = (rowsHtml, cont) => `<div>
+          <div style="${secTitle}">Compliance Summary${cont ? '（續）' : ''}</div>
+          ${rowsHtml !== null ? `<div style="border:1px solid #C2DFF8;"><table style="width:100%;border-collapse:collapse;">
             <thead><tr>
               <th style="${thStyle}text-align:left;">Component</th><th style="${thStyle}">Max Tc (°C)</th><th style="${thStyle}">Derated Spec (°C)</th><th style="${thStyle}">Margin</th><th style="${thStyle}">Verdict</th>
-            </tr></thead><tbody>${compRows}</tbody></table></div>`
+            </tr></thead><tbody>${rowsHtml}</tbody></table></div>`
             : `<div style="font-size:11px;color:rgba(15,23,42,0.4);padding:6px 2px;">尚未選取元件</div>`}
-        </div>
+        </div>`;
 
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start;">
+      const issuesHtml = issues.length
+        ? issues.map(s => `<li style="margin-bottom:5px;font-size:11px;line-height:1.6;">• ${escHtml(s)}</li>`).join('')
+        : `<li style="list-style:none;font-size:11px;color:rgba(15,23,42,0.4);">—</li>`;
+      const actTd = 'padding:4px 8px;border:1px solid rgba(15,23,42,0.08);font-size:11px;letter-spacing:0px;word-spacing:0px;text-align:left;';
+      const actRows = acts.length
+        ? acts.map(a => `<tr><td style="${actTd}">${escHtml(a.description)}</td><td style="${actTd}">${escHtml(a.owner)}</td><td style="${actTd}">${escHtml(a.due_date)}</td></tr>`).join('')
+        : `<tr><td style="${actTd}color:rgba(15,23,42,0.4);" colspan="3">—</td></tr>`;
+      const issuesActionsHtml = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start;">
           <div>
             <div style="${secTitle}">Issues Found</div>
             <ul style="list-style:none;padding:0;margin:0;">${issuesHtml}</ul>
@@ -10019,9 +10234,47 @@
               <thead><tr><th style="${thStyle}text-align:left;">Action</th><th style="${thStyle}text-align:left;">Owner</th><th style="${thStyle}text-align:left;">Due Date</th></tr></thead>
               <tbody>${actRows}</tbody></table></div>
           </div>
-        </div>
-      </div>`;
-      return wrapPageHTML(inner);
+        </div>`;
+
+      const pageInner = (blocks) => `<div style="width:100%;height:100%;display:flex;flex-direction:column;padding:26px 34px 24px;gap:14px;color:rgba(15,23,42,0.90);overflow:hidden;letter-spacing:0px;word-spacing:0px;">${blocks.join('')}</div>`;
+      const page = (blocks) => wrapPageHTML(pageInner(blocks));
+
+      // Fit check: content must clear the footer band of the 595px-tall page.
+      const SAFE_H = 560;
+      const fits = (blocks) => {
+        const m = document.createElement('div');
+        m.style.cssText = `position:fixed;left:-9999px;top:0;width:842px;background:#fff;z-index:-1;font-family:${PDF_FONT};letter-spacing:0;word-spacing:0;`;
+        m.innerHTML = pageInner(blocks).replace('height:100%;', '').replace('overflow:hidden;', '');
+        document.body.appendChild(m);
+        void m.offsetHeight;
+        const h = m.firstElementChild.getBoundingClientRect().height;
+        document.body.removeChild(m);
+        return h <= SAFE_H;
+      };
+
+      const firstBlocks = [headerHtml(false), summaryHtml, conditionHtml].filter(Boolean);
+      const single = [...firstBlocks, complianceBlock(comp.length ? compRowList.join('') : null, false), issuesActionsHtml];
+      if (comp.length === 0 || fits(single)) return [page(single)];
+
+      // Paginate the compliance rows greedily (at least one row per page).
+      const pages = [];
+      let idx = 0, first = true;
+      while (idx < compRowList.length) {
+        const base = first ? firstBlocks : [headerHtml(true)];
+        let end = idx + 1;
+        while (end < compRowList.length && fits([...base, complianceBlock(compRowList.slice(idx, end + 1).join(''), !first)])) end++;
+        const chunk = compRowList.slice(idx, end).join('');
+        const isLast = end >= compRowList.length;
+        if (isLast && fits([...base, complianceBlock(chunk, !first), issuesActionsHtml])) {
+          pages.push(page([...base, complianceBlock(chunk, !first), issuesActionsHtml]));
+          return pages;
+        }
+        pages.push(page([...base, complianceBlock(chunk, !first)]));
+        idx = end;
+        first = false;
+      }
+      pages.push(page([headerHtml(true), issuesActionsHtml]));
+      return pages;
     }
 
     function buildDataPagePagesHTML(d) {
@@ -10409,6 +10662,7 @@
           <td style="${tdStyle}text-align:center;">${fmt1(v.derated)}</td>
           <td style="${tdStyle}text-align:center;">${fmt1(v.simTc)}</td>
           <td style="${tdStyle}text-align:center;">${meas}</td>
+          <td style="${tdStyle}text-align:center;">${fmt1(v.measDT)}</td>
           <td style="${tdStyle}text-align:center;font-weight:600;${devStyle}">${isNaN(v.devC) ? '—' : v.devC.toFixed(1)}</td>
           <td style="${tdStyle}text-align:center;font-weight:600;${devStyle}">${fmtPct(v.devPct)}</td>
           <td style="${tdStyle}text-align:center;font-size:12px;${devStyle}">${SIM_JUDGE_ICON[v.judge]}</td>
@@ -10419,13 +10673,11 @@
       const titleHtml = `<div style="font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:600;letter-spacing:0.02em;word-spacing:0px;color:#0B3D7A;margin-bottom:10px;">SIMULATION VS MEASUREMENT COMPARISON${compareTa === null ? '' : ` — Ta = ${compareTa}°C`}</div>`;
       const theadHtml = `<thead><tr>
               <th style="${thStyle}">類別</th><th style="${thStyle}">元件名稱</th><th style="${thStyle}">Derated Tc (°C)</th>
-              <th style="${thStyle}">Sim Tc${taLabel}</th><th style="${thStyle}">Meas Tc${taLabel}</th>
+              <th style="${thStyle}">Sim Tc${taLabel}</th><th style="${thStyle}">Meas Tc${taLabel}</th><th style="${thStyle}">Meas ΔT (°C)</th>
               <th style="${thStyle}">Dev (°C)</th><th style="${thStyle}">Dev (%)</th><th style="${thStyle}">判斷</th><th style="${thStyle}">備註</th>
             </tr></thead>`;
       const notesHtml = `<div style="font-size:9px;color:rgba(15,23,42,0.55);padding:6px 0 0;text-align:left;line-height:1.6;">
-          <div>※ 備註 1：判斷規則：偏差 ≤5% 為 ✅，5%~10% 為 ⚠️，&gt;10% 為 ❌。</div>
-          <div>※ 備註 2：Sim Tc 為實測瓦數後的模擬校正值。</div>
-          <div>※ 備註 3：Meas Tc 取自數據頁 Ta = ${compareTa === null ? '—' : compareTa}°C 的實測值；Dev(°C) = Sim − Meas，Dev(%) = Dev(°C) / Meas × 100。</div>
+          ${simNotesLines(compareTa).map(t => `<div>${escHtml(t)}</div>`).join('')}
         </div>`;
       // Prefer the highlighted rich HTML; fall back to the legacy plain text.
       const conclBody = d.conclusion_html ? sanitizeRichHtml(d.conclusion_html) : (d.conclusion ? escHtml(d.conclusion) : '');

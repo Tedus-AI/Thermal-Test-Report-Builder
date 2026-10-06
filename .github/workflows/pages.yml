@@ -1,0 +1,44 @@
+name: Deploy to GitHub Pages
+
+# Requires Settings → Pages → Build and deployment → Source "GitHub Actions" (one-time).
+# Deploys on every push to main; can also be run manually (Actions → Run workflow).
+# The build id stamped into index.html and version.json lets an open tool notice a
+# newer deploy, save everything and reload itself (see "new version" in index.html).
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build site and stamp the version (never edited by hand)
+        run: |
+          set -e
+          V="$(date -u +%Y%m%d.%H%M)-${GITHUB_SHA::7}"
+          mkdir -p _site
+          cp -r index.html auth.html version.json fileDb.js dbAdapter.js spSync.js loggerCsv.js assets _site/
+          sed -i "s/__BUILD_VERSION__/$V/g" _site/index.html _site/version.json
+          grep -q "$V" _site/version.json
+          grep -q "content=\"$V\"" _site/index.html
+          echo "Deploying version $V"
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deployment
+        uses: actions/deploy-pages@v4

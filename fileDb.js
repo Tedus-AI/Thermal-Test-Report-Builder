@@ -15,6 +15,7 @@ let conflict = false;
 // a burst of saves collapses into a single serialized write of the latest state.
 let _pendingWrite = null;
 let _writeTail = Promise.resolve();
+let _lastWriteFailed = false;   // the newest write attempt failed → in-memory data not on disk
 
 // ── Auto-backup folder (a directory handle chosen once, persisted like the DB) ──
 let backupDirHandle = null;
@@ -181,6 +182,7 @@ const fileDb = {
     dbCache = { thermal_reports: {} };
     knownLastModified = null;
     conflict = false;
+    _lastWriteFailed = false;
     dbGeneration++;
     await this._writeFile();
     await this._saveHandle(handle);
@@ -191,6 +193,9 @@ const fileDb = {
   isReady() { return fileHandle !== null; },
   getFilename() { return fileHandle ? fileHandle.name : null; },
   hasConflict() { return conflict; },
+  // True while something in memory is not (yet) in the file: a write queued /
+  // in flight, the newest write failed, or saving is stopped by a conflict.
+  hasUnsavedChanges() { return !!_pendingWrite || _lastWriteFailed || conflict; },
 
   // Resolves once every queued write has settled (never rejects).
   flush() { return _writeTail; },
@@ -203,6 +208,7 @@ const fileDb = {
     dbCache = parseDbText(await file.text());
     knownLastModified = file.lastModified;
     conflict = false;
+    _lastWriteFailed = false;
     dbGeneration++;
   },
   // …or overwrite the file with this window's state (explicit user choice).
@@ -578,6 +584,7 @@ const fileDb = {
     dbCache = data;
     knownLastModified = lastModified;
     conflict = false;
+    _lastWriteFailed = false;
     dbGeneration++;
     const otherTab = !(await this._acquireTabLock(handle.name));
     return { success: true, filename: handle.name, otherTab };
@@ -609,6 +616,7 @@ const fileDb = {
   _writeFile() {
     if (_pendingWrite) return _pendingWrite;
     const p = _writeTail.then(() => { _pendingWrite = null; return this._doWrite(); });
+    p.then(() => { _lastWriteFailed = false; }, () => { _lastWriteFailed = true; });
     _pendingWrite = p;
     _writeTail = p.catch(() => {});
     return p;

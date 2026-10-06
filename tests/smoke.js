@@ -980,6 +980,153 @@ const assert = (cond, msg, detail) => { if (!cond) throw new Error(msg + (detail
     assert(/已上傳到 SharePoint/.test(r.toast), 'toast', r.toast);
   });
 
+  await T('loggerCsv：單位列、經過時間欄、mm:ss、截斷的最後一行、括號名稱不混淆', async (page) => {
+    const r = await page.evaluate(() => {
+      const rows = n => Array.from({ length: n }, (_, i) => i);
+      const units = loggerCsv.parse('No.,Time,CH1,CH2\n,,degC,degC\n' + rows(30).map(i => `${i + 1},13:${String(i).padStart(2, '0')}:00,50,60`).join('\n'));
+      const elapsed = loggerCsv.parse('Date,Elapsed(s),A\n' + rows(30).map(i => `2026/10/06,${i * 30},50`).join('\n'));
+      const mmss = loggerCsv.analyze(loggerCsv.parse('Time,A\n' + rows(41).map(i => `${String(Math.floor(i / 2)).padStart(2, '0')}:${i % 2 ? '30' : '00'}.0,50`).join('\n')), { minutes: 10 });
+      const cut = loggerCsv.parse('Time,A,B\n' + rows(30).map(i => `13:${String(i).padStart(2, '0')}:00,50,60`).join('\n') + '\n13:30:00,5');
+      return { units: units.channels.map(c => c.name + '/' + c.unit).join(), unitsTime: units.timeHeader,
+               elapsed: [elapsed.timeHeader, elapsed.timeMode, elapsed.channels.map(c => c.name).join()],
+               mmss: [mmss.info.totalMinutes, mmss.info.rows], cut: [cut.rows.length, cut.channels.length],
+               ddr: [loggerCsv.nameScore('DDR (U5)', '101 <DDR (U7)> (C)'), loggerCsv.nameScore('DDR (U5)', '102 <DDR (U5)> (C)')],
+               label: loggerCsv.channelLabel('CH3: DDR (U5) [°C]') };
+    });
+    assert(r.units === 'CH1/degC,CH2/degC' && r.unitsTime === 'Time', 'units row skipped', r);
+    assert(r.elapsed.join('|') === 'Elapsed(s)|time|A', 'elapsed column', r.elapsed);
+    assert(r.mmss.join() === '20,21' && r.cut.join() === '30,2', 'mm:ss + truncated line', r);
+    assert(r.ddr.join() === '0,2' && r.label === 'DDR (U5)', 'bracketed names', r);
+  });
+
+  await T('記錄器 CSV：只差括號編號的元件不會對調；凍結頁摘要仍可跳列；批次命名預填空白', async (page) => {
+    const csv = loggerCsvText(['DDR (U7)', 'DDR (U5)'], (tag) => tag.includes('U7') ? 77 : 55);
+    const r = await page.evaluate(async (csv) => {
+      await useDb({ thermal_reports: { A: report('A', {
+        0: dataPage(0, [comp('DDR (U5)', {}), comp('DDR (U7)', {})]),
+        1: dataPage(1, [comp('F', { ta_55: '120' })], [55], { frozen: true }),
+        2: { type: 'annotation', order: 2, data: { tc_category: 'RF', photo_url_or_base64: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', markers: [{ id: 'm1', x: 10, y: 10, label: 'Named' }, { id: 'm2', x: 20, y: 10 }] } } }) } });
+      await openReport('A');
+      showLoggerImportModal(state.pages[0], new File([csv], 'ddr.csv'));
+      await sleep(300);
+      document.getElementById('lg-apply').click();
+      const vals = state.pages[0].data.components.map(c => c.name + '=' + c.readings.ta_25);   // no ambient → first empty Ta
+      selectPage(1);
+      const chip = document.querySelector('[data-sum-jump="fail"]');
+      selectPage(2);
+      document.getElementById('anno-batch-name').click();
+      const prefill = document.getElementById('ab-text').value;
+      document.getElementById('ab-ok').click();
+      return { vals, chipEnabled: !!chip && !chip.disabled, prefill, labels: state.pages[2].data.markers.map(m => m.label || '') };
+    }, csv);
+    assert(r.vals.join() === 'DDR (U5)=55,DDR (U7)=77', 'no swap', r.vals);
+    assert(r.chipEnabled, 'summary jump works on a frozen page', r);
+    assert(r.prefill === 'Named\n' && r.labels.join() === 'Named,', 'unnamed markers stay automatic', r);
+  });
+
+  await T('Ctrl+S：存檔失敗時不顯示「已儲存」', async (page) => {
+    const r = await page.evaluate(async () => {
+      await useDb({ thermal_reports: { A: report('A', { 0: cover('A') }) } });
+      await openReport('A');
+      await flushAllSaves();
+      fileDb.__setDbCacheForTest({ thermal_reports: {} });      // the report vanished from the database
+      const dept = document.querySelector('[data-field="dept"]');
+      dept.value = 'X'; dept.dispatchEvent(new Event('input'));
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 's', ctrlKey: true, bubbles: true, cancelable: true }));
+      await sleep(200);
+      return Array.from(document.querySelectorAll('.toast')).map(t => t.textContent).join('|');
+    });
+    assert(/存檔失敗/.test(r) && !/已儲存/.test(r), 'failure reported', r);
+  });
+
+  console.log('New version → save, then reload');
+
+  // Serve index.html stamped with `build.served` and version.json with `build.online`
+  // (what the Pages deploy does); a reload with ?v=<x> starts serving build x.
+  const versionRoutes = (build) => async (ctx) => {
+    await ctx.route(/\/index\.html(\?.*)?$/, async (route) => {
+      const m = /[?&]v=([^&]+)/.exec(route.request().url());
+      if (m) build.served = decodeURIComponent(m[1]);
+      build.loads.push(route.request().url());
+      const resp = await route.fetch();
+      route.fulfill({ response: resp, body: (await resp.text()).replace(/__BUILD_VERSION__/g, build.served) });
+    });
+    await ctx.route(/\/version\.json(\?.*)?$/, route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ version: build.online }) }));
+  };
+
+  {
+    const build = { served: 'build-A', online: 'build-B', loads: [] };
+    await T('新版本上線：倒數提示 → 先存檔 → 帶 ?v= 重新載入 → 回到原本的報告', async (page) => {
+      let lastDisk = null;
+      await page.exposeFunction('__report', t => { lastDisk = t; });
+      const r1 = await page.evaluate(async () => {
+        await useDb({ thermal_reports: { A: report('A', { 0: cover('A'), 1: dataPage(1, [comp('PA', {})]) }) } });
+        const orig = __h.createWritable;
+        __h.createWritable = async () => { const w = await orig(); const c = w.close; w.close = async () => { await c(); window.__report(__h._text); }; return w; };
+        await openReport('A');
+        selectPage(1);
+        const inp = document.querySelector('input[data-comp="0"][data-ta-key="ta_55"]');
+        inp.focus(); inp.value = '88.8'; inp.dispatchEvent(new Event('input'));
+        const pendingBefore = hasPendingSaves();
+        await checkAppVersion();
+        const notice = document.getElementById('update-notice').textContent.replace(/\s+/g, ' ');
+        return { pendingBefore, notice, version: APP_VERSION };
+      });
+      assert(r1.version === 'build-A' && r1.pendingBefore && /build-A → build-B/.test(r1.notice) && /10 秒後自動更新/.test(r1.notice) && /回到目前的報告/.test(r1.notice), 'notice', r1);
+      await Promise.all([
+        page.waitForURL(/[?&]v=build-B/, { waitUntil: 'commit' }),
+        page.evaluate(() => document.getElementById('update-now').click()),
+      ]);
+      await page.waitForLoadState('load');
+      await page.waitForTimeout(300);
+      const saved = JSON.parse(lastDisk).thermal_reports.A.pages['1'].data.components[0].readings.ta_55;
+      const r2 = await page.evaluate(() => ({ search: location.search, version: APP_VERSION, guard: sessionStorage.getItem('trb_update_attempt'), resume: JSON.parse(sessionStorage.getItem('trb_update_resume')), notice: !!document.getElementById('update-notice') }));
+      assert(saved === '88.8', 'saved before reload', saved);
+      assert(r2.search === '' && r2.version === 'build-B' && r2.guard === null && r2.resume.reportId === 'A' && r2.resume.page === 1 && !r2.notice, 'reloaded on the new build', r2);
+      // database ready again → the report reopens on the same page
+      await page.evaluate(SETUP);
+      const r3 = await page.evaluate(async (disk) => {
+        await useDb(JSON.parse(disk));
+        await resumeAfterUpdate();
+        return { report: state.reportId, page: state.activePage, left: sessionStorage.getItem('trb_update_resume') };
+      }, lastDisk);
+      assert(r3.report === 'A' && r3.page === 1 && r3.left === null, 'resumed', r3);
+    }, { __setup: versionRoutes(build) });
+  }
+
+  {
+    const build = { served: 'build-A', online: 'build-B', loads: [] };
+    await T('新版本上線但存檔失敗（檔案衝突）→ 不重新載入，顯示原因可重試；重載兩次仍是舊版 → 提示列', async (page) => {
+      const r = await page.evaluate(async () => {
+        await useDb({ thermal_reports: { A: report('A', { 0: cover('A') }) } });
+        await openReport('A');
+        await flushAllSaves();
+        __h._mtime += 1000;                       // someone else wrote the file
+        const dept = document.querySelector('[data-field="dept"]');
+        dept.value = 'X'; dept.dispatchEvent(new Event('input'));
+        await checkAppVersion();
+        document.getElementById('update-now').click();
+        await sleep(500);
+        const err = document.getElementById('update-notice').textContent.replace(/\s+/g, ' ');
+        const href = location.href;
+        // loop guard: this build was already reloaded twice for build-B
+        appUpdate = null; renderUpdateNotice();
+        sessionStorage.setItem('trb_update_attempt', JSON.stringify({ to: 'build-B', n: 2 }));
+        await checkAppVersion();
+        const banner = document.getElementById('update-notice');
+        return { err, sameUrl: href === location.href, bannerCls: banner.className, banner: banner.textContent };
+      });
+      assert(/存檔失敗/.test(r.err) && /衝突/.test(r.err) && /重試/.test(r.err) && r.sameUrl, 'no reload over unsaved data', r);
+      assert(r.bannerCls === 'update-banner' && /尚未生效/.test(r.banner), 'loop guard', r);
+      assert(build.loads.length === 1, 'never reloaded', build.loads);
+    }, { __setup: versionRoutes(build) });
+  }
+
+  await T('開發版（未蓋版本號）不檢查更新', async (page) => {
+    const r = await page.evaluate(async () => { await checkAppVersion(); return { dev: APP_IS_DEV, notice: !!document.getElementById('update-notice') }; });
+    assert(r.dev && !r.notice, 'dev build', r);
+  }, { __setup: async (ctx) => { await ctx.route(/\/version\.json/, route => route.fulfill({ status: 200, contentType: 'application/json', body: '{"version":"build-Z"}' })); } });
+
   console.log('Stability');
 
   await T('default dates use the local calendar day', async (page) => {

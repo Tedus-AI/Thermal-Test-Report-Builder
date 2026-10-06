@@ -4,11 +4,13 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Thermal Report Builder</title>
+  <!-- Build id, stamped by .github/workflows/pages.yml (same value as version.json). -->
+  <meta name="trb-version" content="__BUILD_VERSION__">
 
-  <script src="fileDb.js"></script>
-  <script src="dbAdapter.js"></script>
-  <script src="spSync.js"></script>
-  <script src="loggerCsv.js"></script>
+  <script src="fileDb.js?v=__BUILD_VERSION__"></script>
+  <script src="dbAdapter.js?v=__BUILD_VERSION__"></script>
+  <script src="spSync.js?v=__BUILD_VERSION__"></script>
+  <script src="loggerCsv.js?v=__BUILD_VERSION__"></script>
 
   <!-- Google Fonts: Space Grotesk + DM Sans + JetBrains Mono -->
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Noto+Sans+TC:wght@400;500;700&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -4262,6 +4264,14 @@
     .exp-sp input { accent-color: #38bdf8; }
     .toast a { color: #2357A7; font-weight: 600; }
 
+    /* New version online → save, then reload */
+    .update-backdrop { position: fixed; inset: 0; z-index: 9500; background: rgba(2,10,24,0.55); backdrop-filter: blur(3px); display: flex; align-items: center; justify-content: center; }
+    .update-box { width: 420px; max-width: calc(100vw - 32px); background: #0f172a; color: #e2e8f0; border: 1px solid rgba(56,189,248,0.35); border-radius: 10px; box-shadow: 0 16px 48px rgba(0,0,0,0.5); padding: 18px 20px 16px; font-size: 13px; line-height: 1.7; }
+    .update-box h3 { margin: 0 0 4px; font-size: 15px; color: #f1f5f9; }
+    .update-box .update-ver { font-family: var(--font-mono); font-size: 11px; color: rgba(226,232,240,0.55); margin-bottom: 8px; }
+    .update-foot { display: flex; justify-content: flex-end; margin-top: 12px; }
+    .update-banner { position: fixed; left: 50%; top: 10px; transform: translateX(-50%); z-index: 9500; display: flex; align-items: center; gap: 10px; padding: 8px 14px; font-size: 12.5px; color: #0f172a; background: #fef3c7; border: 1px solid #f59e0b; border-radius: 6px; box-shadow: 0 6px 18px rgba(0,0,0,0.3); }
+
     #toast-wrap { position: fixed; right: 18px; bottom: 18px; z-index: 4000; display: flex; flex-direction: column; gap: 8px; max-width: 420px; pointer-events: none; }
     .toast { pointer-events: auto; font-size: 12.5px; line-height: 1.55; color: #0f172a; background: #fff; border-left: 4px solid #3A7AD4; border-radius: 6px; padding: 9px 30px 9px 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.35); position: relative; animation: toastIn 0.18s ease-out; }
     .toast.ok { border-left-color: #22c55e; }
@@ -4669,6 +4679,10 @@
       _structureSave = p;
       return p;
     }
+
+    // True if a save attempt that started after `seq` (from currentSaveSeq()) failed.
+    function currentSaveSeq() { return _saveSeq; }
+    function saveFailedSince(seq) { return _lastFailSeq > seq; }
 
     // Write every pending save now and wait for the file write to finish.
     // Used before leaving a report, switching database, and on tab close.
@@ -6146,8 +6160,10 @@
       const list = files.slice().sort((a, b) => naturalCompare(a.name, b.name));
       const captions = userPrefs().batch_captions !== false;
       const free = Math.max(0, 4 - (page.data.images || []).length);
+      const rid = state.reportId;
       for (const f of list.slice(0, free)) {
         const url = await processImageCompressed(f, PHOTO_JPEG_QUALITY);
+        if (state.reportId !== rid || !state.pages.includes(page)) return;   // report switched meanwhile
         page.data.images.push({ position: page.data.images.length, url_or_base64: url, caption: captions ? fileStem(f.name) : '' });
       }
       const pageIdx = state.pages.indexOf(page);
@@ -8746,7 +8762,7 @@
         if (dp) {
           dp.classList.add('data-frozen');
           dp.querySelectorAll('input, select, textarea, button').forEach(el => {
-            if (el.hasAttribute('data-freeze-toggle')) return; // keep the unlock button usable
+            if (el.hasAttribute('data-freeze-toggle') || el.hasAttribute('data-freeze-keep')) return; // unlock button + summary jumps stay usable
             el.disabled = true;
           });
         }
@@ -11060,7 +11076,7 @@
               <span class="lv">${c.level === 'warn' ? '⚠️' : 'ℹ️'}</span><span class="pg">${escHtml(pageName(c.idx))}</span><span>${escHtml(c.text)}</span>
             </button>`).join('')}</div>
         </div>`;
-      const spOn = !!(window.spSync && spSync.isEnabled());
+      const spOn = !!(window.spSync && spSync.isEnabled() && spSync.account() && spSync.status().state !== 'needs-login');
       const spChecked = spOn && userPrefs().export_sp !== false;
       const spFolder = (() => {
         const cv = state.pages.find(p => p.type === 'cover');
@@ -11245,7 +11261,9 @@
             const url = await spSync.uploadExport(opts.folder || 'Report', filename + '.pdf', pdf.output('blob'));
             showToast(`PDF 已上傳到 SharePoint：Reports/${opts.folder || 'Report'}/`, 'ok', 8000, url ? { href: url, label: '開啟' } : null);
           } catch (e) {
-            showToast('PDF 已下載，但上傳 SharePoint 失敗：' + (e.message || e), 'err', 9000);
+            showToast(e && e.auth
+              ? 'PDF 已下載；SharePoint 登入已過期，請按工具列的 ☁ 重新登入後再匯出一次'
+              : 'PDF 已下載，但上傳 SharePoint 失敗：' + (e.message || e), 'err', 9000);
           }
         }
       } catch (err) {
@@ -11379,7 +11397,7 @@
       if (!s.n.total) return '';
       const nm = x => escHtml(x.c.name || '(未命名)');
       const chip = (cls, label, jump) => jump
-        ? `<button type="button" class="dt-sum-chip ${cls}" data-sum-jump="${jump}" title="跳到第一顆">${label}</button>`
+        ? `<button type="button" class="dt-sum-chip ${cls}" data-sum-jump="${jump}" data-freeze-keep title="跳到第一顆">${label}</button>`
         : `<span class="dt-sum-chip ${cls}">${label}</span>`;
       const parts = [chip('', `共 ${s.n.total} 顆`)];
       if (s.n.pass) parts.push(chip('dt-sum-pass', `✔ ${s.n.pass} Pass`));
@@ -11441,13 +11459,7 @@
     function loggerPrefs() { return Object.assign({}, LOGGER_DEFAULTS, userPrefs().logger || {}); }
     const AMBIENT_RE = /amb|ambient|環溫|環境|chamber|room|\bair\b|^\s*ta\s*$|\bta\b/i;
     // "101 <PA-1> (C)" → "PA-1"; "CH3: FPGA [°C]" → "FPGA".
-    function cleanChannelName(name) {
-      const s = String(name || '');
-      const tag = s.match(/<([^>]+)>/);
-      if (tag) return tag[1].trim();
-      const t = s.replace(/[([][^)\]]*[)\]]/g, '').replace(/^\s*(?:ch(?:annel)?\s*\d+|\d{3,4})\s*[:_\-.]?\s*/i, '').trim();
-      return t || s.trim();
-    }
+    const cleanChannelName = name => loggerCsv.channelLabel(name);
     async function readTextFile(file) {
       const buf = await file.arrayBuffer();
       let best = new TextDecoder('utf-8').decode(buf);
@@ -11513,10 +11525,13 @@
             if (st.map[c.uid] !== undefined || !String(c.name || '').trim()) return;
             chs.forEach((ch, ci) => { const sc = loggerCsv.nameScore(c.name, ch.name); if (sc) cands.push({ uid: c.uid, ci, sc }); });
           });
-          cands.sort((a, b) => b.sc - a.sc).forEach(x => {
-            if (st.map[x.uid] !== undefined || used.has(x.ci)) return;
-            st.map[x.uid] = x.ci; used.add(x.ci); matched++;
-          });
+          // a loose (score 1) match that several channels / components share is ambiguous → skip
+          const ones = (key, val) => cands.filter(x => x.sc === 1 && x[key] === val).length;
+          cands.filter(x => x.sc > 1 || (ones('uid', x.uid) === 1 && ones('ci', x.ci) === 1))
+            .sort((a, b) => b.sc - a.sc).forEach(x => {
+              if (st.map[x.uid] !== undefined || used.has(x.ci)) return;
+              st.map[x.uid] = x.ci; used.add(x.ci); matched++;
+            });
         }
         st.matchedBy = matched ? 'name' : '';
         // 3) nothing matched by name → in order (TC1 → first channel …)
@@ -11957,12 +11972,21 @@
       const firstNew = at;
       const t = showToast(`處理圖片中 0 / ${list.length}…`, '', 0);
       const created = [];
+      const rid = state.reportId, pagesRef = state.pages;
+      const switched = () => state.reportId !== rid || state.pages !== pagesRef;
       for (let i = 0; i < list.length; i += per) {
         const images = [];
         for (const f of list.slice(i, i + per)) {
           const url = await processImageCompressed(f, PHOTO_JPEG_QUALITY);
+          if (switched()) break;
           images.push({ position: images.length, url_or_base64: url, caption: opts.captions ? fileStem(f.name) : '' });
           t.firstChild.textContent = `處理圖片中 ${i + images.length} / ${list.length}…`;
+        }
+        if (switched()) {                        // report closed / switched meanwhile → don't write into another one
+          t.remove();
+          if (created.length) saveStructure();
+          showToast('已切換報告，批次圖片已停止' + (created.length ? `（已加入 ${created.length} 頁）` : ''), 'warn');
+          return created.length;
         }
         const page = makePage('image');
         if (opts.title) page.data.title = opts.title;
@@ -12039,7 +12063,7 @@
         title: '✎ 批次命名標註點',
         width: 460,
         body: `<div class="tool-hint" style="margin-bottom:8px;">每行一個名稱，依序套用到標註點 1、2、3…（可直接從 Excel 複製一欄貼上）。空白行保留原名稱。</div>
-          <textarea class="tool-textarea" id="ab-text" style="min-height:240px;">${escHtml(markers.map((mk, i) => mk.label || ('TC' + (i + 1))).join('\n'))}</textarea>
+          <textarea class="tool-textarea" id="ab-text" style="min-height:240px;" placeholder="${escapeAttr(markers.map((mk, i) => 'TC' + (i + 1)).join('\n'))}">${escHtml(markers.map(mk => mk.label || '').join('\n'))}</textarea>
           <div class="tool-hint" id="ab-info"></div>`,
         footer: `<button class="sim-modal-btn" id="ab-cancel">取消</button>
           <button class="sim-modal-btn primary" id="ab-ok">套用</button>`,
@@ -12056,7 +12080,7 @@
       m.$('#ab-ok').addEventListener('click', () => {
         const lines = ta.value.split(/\r?\n/).map(s => s.trim());
         let n = 0;
-        markers.forEach((mk, i) => { if (lines[i] && lines[i] !== mk.label) { mk.label = lines[i]; n++; } });
+        markers.forEach((mk, i) => { if (lines[i] && lines[i] !== (mk.label || '')) { mk.label = lines[i]; n++; } });
         m.close();
         if (!n) return;
         scheduleSave(pageIdx);
@@ -12424,6 +12448,7 @@
       // "/" jumps to the search box on the homepage
       document.addEventListener('keydown', (e) => {
         if (e.key !== '/' || $homepage.classList.contains('hidden') || $hpTools.style.display === 'none') return;
+        if (document.querySelector('.hp-modal-overlay, .sim-modal-overlay, .update-backdrop')) return;
         const ae = document.activeElement;
         if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.tagName === 'SELECT' || ae.isContentEditable)) return;
         e.preventDefault();
@@ -12845,8 +12870,13 @@
     // ━━━ Init ━━━
     async function saveNow() {
       if (!state.reportId || !dbAdapter.isReady()) return;
+      const seq = currentSaveSeq();
       await flushAllSaves();
       if (dbAdapter.hasConflict()) { showDbConflictDialog(true); return; }
+      if (saveFailedSince(seq) || dbAdapter.hasUnsavedChanges()) {
+        showToast('存檔失敗：' + (document.getElementById('status-text').textContent || '資料尚未寫入'), 'err', 6000);
+        return;
+      }
       if (window.spSync && spSync.isEnabled()) {
         showToast('已儲存到本機，正在同步 SharePoint…', 'ok', 2500);
         spSync.syncNow();
@@ -12986,6 +13016,7 @@ async function afterDbOpened(result, wasInEditor) {
       alert('注意：這個資料庫似乎已在另一個分頁開啟。\n同時在兩個分頁編輯時，系統會偵測並阻止互相覆蓋，但建議只在一個分頁中編輯。');
     }
     if (wasInEditor) await leaveEditor(); else await renderHomepage();
+    await resumeAfterUpdate();
     runAutoBackup(true);   // catch-up backup once a DB is opened
   } else if (result.reason === 'parse-error') {
     alert('無法開啟「' + result.filename + '」：' + result.message +
@@ -13238,6 +13269,148 @@ async function handlePickBackupDir() {
   }
 }
 
+// ── New version online → save everything, then reload (as in the TIM tool) ──
+// The Pages deploy (.github/workflows/pages.yml) stamps index.html (meta
+// trb-version) and version.json with the same build id. A different id in
+// version.json means a newer build is online: a notice that cannot be
+// dismissed counts down, commits the field being edited, writes the local
+// database file, syncs SharePoint, and reloads with ?v=<build> so neither the
+// browser nor the CDN can hand back the old page; the open report is reopened
+// afterwards. Nothing is reloaded over unsaved data: a failed save stops the
+// update until the user fixes it and presses 重試.
+// The deploy replaces EVERY occurrence of the placeholder in index.html, so the
+// code must never spell it out — it is assembled here.
+const BUILD_PLACEHOLDER = '__BUILD_' + 'VERSION__';
+const APP_VERSION = (document.querySelector('meta[name="trb-version"]') || {}).content || 'dev';
+const APP_IS_DEV = APP_VERSION.includes(BUILD_PLACEHOLDER);
+const UPDATE_KEY = 'trb_update_attempt';     // sessionStorage { to, n } — stops reload loops
+const RESUME_KEY = 'trb_update_resume';      // sessionStorage { reportId, page } — reopen after reload
+const UPDATE_COUNTDOWN = 10;                 // seconds (3 when no report is open)
+let appUpdate = null;                        // { to, state: 'countdown' | 'saving' | 'error' | 'failed', left, error }
+let appUpdateTimer = null;
+
+/** version.json with a timeout; one retry on network errors / 5xx. */
+async function fetchAppVersion() {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const ctl = new AbortController();
+    const t = setTimeout(() => ctl.abort(), 8000);
+    try {
+      const res = await fetch('version.json?t=' + Date.now(), { cache: 'no-store', signal: ctl.signal });
+      if (res.ok) { const v = await res.json(); return v && v.version ? String(v.version) : null; }
+      if (res.status < 500 && res.status !== 429) return null;
+    } catch (e) { /* offline / timeout → retry once */ } finally { clearTimeout(t); }
+  }
+  return null;
+}
+function readSession(key) { try { return JSON.parse(sessionStorage.getItem(key) || 'null') || {}; } catch (e) { return {}; } }
+
+async function checkAppVersion() {
+  if (APP_IS_DEV || !/^https?:/.test(location.protocol) || appUpdate) return;
+  const v = await fetchAppVersion();
+  if (!v || v === APP_VERSION || v.includes(BUILD_PLACEHOLDER) || appUpdate) return;
+  const att = readSession(UPDATE_KEY);
+  if (att.to === v && att.n >= 2) { appUpdate = { to: v, state: 'failed' }; renderUpdateNotice(); return; }   // reloaded twice, still old
+  appUpdate = { to: v, state: 'countdown', left: state.reportId ? UPDATE_COUNTDOWN : 3 };
+  renderUpdateNotice();
+  clearInterval(appUpdateTimer);
+  appUpdateTimer = setInterval(() => {
+    if (!appUpdate || appUpdate.state !== 'countdown') { clearInterval(appUpdateTimer); return; }
+    appUpdate.left -= 1;
+    if (appUpdate.left <= 0) { clearInterval(appUpdateTimer); applyAppUpdate(); } else renderUpdateNotice();
+  }, 1000);
+}
+
+async function applyAppUpdate() {
+  const u = appUpdate;
+  if (!u || u.state === 'saving') return;
+  clearInterval(appUpdateTimer);
+  u.state = 'saving'; u.step = '儲存到本機…'; renderUpdateNotice();
+  const a = document.activeElement;
+  if (a && a.blur) a.blur();                                    // commit the field being edited
+  await new Promise(r => setTimeout(r, 0));
+  if (dbAdapter.isReady()) {
+    const seq = currentSaveSeq();
+    try { await flushAllSaves(); } catch (e) { /* reported below */ }
+    if (hasPendingSaves() || dbAdapter.hasUnsavedChanges() || saveFailedSince(seq)) {
+      u.state = 'error';
+      u.error = dbAdapter.hasConflict() ? '資料庫檔案已被其他視窗或使用者修改，請先處理衝突' : '資料尚未寫入本機資料庫檔';
+      renderUpdateNotice();
+      return;                                                   // never reload over unsaved work
+    }
+    if (spSync.isEnabled()) {
+      u.step = '同步到 SharePoint…'; renderUpdateNotice();
+      // Unsynced changes stay marked in the local file and are pushed after the reload anyway.
+      try { await Promise.race([spSync.syncNow(), new Promise(r => setTimeout(r, 15000))]); } catch (e) { /* see above */ }
+    }
+  }
+  const att = readSession(UPDATE_KEY);
+  try {
+    sessionStorage.setItem(UPDATE_KEY, JSON.stringify({ to: u.to, n: att.to === u.to ? (att.n || 0) + 1 : 1 }));
+    if (state.reportId) sessionStorage.setItem(RESUME_KEY, JSON.stringify({ reportId: state.reportId, page: state.activePage }));
+  } catch (e) { /* private mode */ }
+  location.replace(location.pathname + '?v=' + encodeURIComponent(u.to) + location.hash);
+}
+
+function renderUpdateNotice() {
+  let el = document.getElementById('update-notice');
+  const u = appUpdate;
+  if (!u) { if (el) el.remove(); return; }
+  if (!el) { el = document.createElement('div'); el.id = 'update-notice'; document.body.appendChild(el); }
+  if (u.state === 'failed') {
+    el.className = 'update-banner';
+    el.innerHTML = `新版本 <span style="font-family:var(--font-mono)">${escHtml(u.to)}</span> 尚未生效，請稍後按 Ctrl+Shift+R 重新整理
+      <button class="hp-modal-btn primary" id="update-retry">再試一次</button>`;
+    el.querySelector('#update-retry').addEventListener('click', () => {
+      appUpdate = null;
+      try { sessionStorage.removeItem(UPDATE_KEY); } catch (e) { /* ignore */ }
+      renderUpdateNotice();
+      checkAppVersion();
+    });
+    return;
+  }
+  if (u.state === 'error') {
+    // Not blocking: the user has to be able to fix the save problem first.
+    el.className = 'update-banner';
+    el.innerHTML = `<span>新版本 ${escHtml(u.to)}：存檔失敗（${escHtml(u.error || '')}）。資料還沒寫入，所以先不更新；處理後按「重試」。</span>
+      <button class="hp-modal-btn primary" id="update-now">重試</button>`;
+    el.querySelector('#update-now').addEventListener('click', () => applyAppUpdate());
+    return;
+  }
+  const saving = u.state === 'saving';
+  const what = dbAdapter.isReady()
+    ? `會先儲存所有資料（本機${spSync.isEnabled() ? ' + SharePoint' : ''}），再載入新版本${state.reportId ? '，並回到目前的報告' : ''}。`
+    : '正在載入新版本。';
+  el.className = 'update-backdrop';
+  el.innerHTML = `<div class="update-box" role="alertdialog" aria-modal="true" aria-label="有新版本">
+      <h3>工具有新版本</h3>
+      <div class="update-ver">${escHtml(APP_VERSION)} → ${escHtml(u.to)}</div>
+      <div>${escHtml(what)}${saving ? `<br><b>${escHtml(u.step || '')}</b>` : ` <b>${u.left}</b> 秒後自動更新。`}</div>
+      <div class="update-foot">
+        <button class="hp-modal-btn primary" id="update-now"${saving ? ' disabled' : ''}>${saving ? '儲存中…' : '立即更新'}</button>
+      </div>
+    </div>`;
+  el.querySelector('#update-now').addEventListener('click', () => applyAppUpdate());
+}
+
+// After an update reload: reopen the report that was open (once the database is ready).
+async function resumeAfterUpdate() {
+  const r = readSession(RESUME_KEY);
+  if (!r.reportId || !dbAdapter.isReady() || state.reportId) return;
+  try { sessionStorage.removeItem(RESUME_KEY); } catch (e) { /* ignore */ }
+  const meta = await dbAdapter.getReportMeta(r.reportId).catch(() => null);
+  if (!meta) return;
+  await openReport(r.reportId);
+  if (typeof r.page === 'number' && state.pages[r.page]) selectPage(r.page);
+  showToast('已更新到新版本，並回到剛才的報告', 'ok');
+}
+
+// After an update reload: drop ?v= from the address bar; clear the loop guard once on the new build.
+if (/[?&]v=/.test(location.search)) { try { history.replaceState(null, '', location.pathname + location.hash); } catch (e) { /* ignore */ } }
+if (readSession(UPDATE_KEY).to === APP_VERSION) { try { sessionStorage.removeItem(UPDATE_KEY); } catch (e) { /* ignore */ } }
+setTimeout(checkAppVersion, 3000);
+setInterval(checkAppVersion, 5 * 60 * 1000);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkAppVersion(); });
+
 document.addEventListener('DOMContentLoaded', async () => {
   // Ensure homepage logo is set (fallback in case init() hasn't run yet)
   if (typeof TOOLBAR_LOGO_B64 !== 'undefined') {
@@ -13261,6 +13434,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     setDbState('none');
   }
   if (typeof renderHomepage === 'function' && !state.reportId) await renderHomepage();
+  await resumeAfterUpdate();
 
   // Restore the auto-backup folder and run a catch-up backup (if the DB is ready).
   await initAutoBackup();

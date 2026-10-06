@@ -31,7 +31,7 @@
 | **目標用戶** | 熱流工程師（個人與團隊）|
 | **核心任務** | 將熱流量測數據、TC 標註照片、IR 圖片組裝成一份正式電子報告書 |
 | **使用頻率** | 每個專案 Prototype / EVT / DVT / PVT 各一份，中高頻使用 |
-| **部署方式** | GitHub Pages（單一 `index.html`，無後端）|
+| **部署方式** | GitHub Pages（GitHub Actions `pages.yml` 部署並蓋上建置版本號；單一 `index.html`，無後端）|
 | **技術限制** | 無 Python、無後端、純瀏覽器執行，公司防火牆限制 |
 | **資料持久化** | 本機 JSON 資料庫檔案（File System Access API，可放共用磁碟）＋ 每日自動備份資料夾（保留 30 份）；可選 **SharePoint 雙存檔**（`spSync.js`，見 §4.1）。原規劃的 Firebase 已停用，見 §4 |
 | **輸出格式** | PDF（Phase 1）/ PPTX（Phase 2）|
@@ -604,6 +604,7 @@ SharePoint 已啟用時可勾選「同時上傳到 SharePoint」（`Thermal_Repo
 | 頁面徽章 | 左側頁面清單 | 數據頁 ❌n / ⚠n / ✓ / 已量測數、比對頁缺 Sim Tc、結論頁整體判定、圖片 / 標註頁「空」|
 | 預設值 | 封面 | 部門、Tested by 記住上次輸入（Tested by 無紀錄時用 Microsoft 帳號名稱） |
 | Ctrl+S | 全域 | 立即寫入本機並觸發 SharePoint 同步 |
+| 自動更新 | 全域 | Pages 部署（`pages.yml`）把建置版本號蓋進 `index.html`（`meta trb-version`）與 `version.json`；工具每 5 分鐘 / 切回視窗時比對，有新版本 → 不可關閉的倒數提示 → 送出編輯中的欄位、寫入本機檔、同步 SharePoint → 以 `?v=<版本>` 重新載入並回到原報告；存檔失敗則改為頂端提示列可重試，不重新載入；同一版本重載兩次仍是舊版則提示手動 Ctrl+Shift+R |
 
 ---
 

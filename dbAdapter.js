@@ -16,6 +16,7 @@ const dbAdapter = {
   // Write-safety: wait for queued writes; detect / resolve external changes.
   flush() { return fileDb.flush(); },
   hasConflict() { return fileDb.hasConflict(); },
+  hasUnsavedChanges() { return fileDb.hasUnsavedChanges(); },
   reloadFromDisk() { return fileDb.reloadFromDisk(); },
   forceOverwrite() { return fileDb.forceOverwrite(); },
 

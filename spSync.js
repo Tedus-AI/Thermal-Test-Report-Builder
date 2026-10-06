@@ -593,12 +593,13 @@
       if (!openReportId && deferred.size) { deferred.clear(); if (isEnabled() && account) syncNow(); }
     },
 
-    /** Upload an exported file to Reports/<folder>/<name>. → webUrl */
+    /** Upload an exported file to Reports/<folder>/<name>. → webUrl
+     *  Not interactive: it runs after the export, too late for a sign-in popup. */
     async uploadExport(folder, name, blob) {
-      await resolveSite(true);
+      await resolveSite(false);
       const safe = s => String(s || '').replace(/[\\/:*?"<>|#%]+/g, '_').trim() || 'Report';
       const res = await graph(byPath(EXPORTS_FOLDER + '/' + safe(folder) + '/' + safe(name)) + ':/content',
-        { method: 'PUT', body: blob, headers: { 'Content-Type': blob.type || 'application/pdf' }, interactive: true });
+        { method: 'PUT', body: blob, headers: { 'Content-Type': blob.type || 'application/pdf' } });
       const j = await res.json().catch(() => ({}));
       return j.webUrl || null;
     },

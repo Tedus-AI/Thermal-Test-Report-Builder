@@ -445,8 +445,9 @@ Thermal-Spec-DB → 文件（Shared Documents）
 | TIM 材料庫 | 兩邊新增的材料合併（同名以本機為準） |
 | 斷線 / 登入過期 | 工具列顯示「未同步」/「請重新登入」，修改保留在本機，恢復後自動補傳 |
 
-一次性設定：Azure **應用程式註冊 → 驗證 → 單頁應用程式（SPA）重新導向 URI** 加上工具網址旁的 `auth.html`
-（例：`https://tedus-ai.github.io/Thermal-Test-Report-Builder/auth.html`；在本機以 `http://localhost:<port>/` 開啟時加上對應的 localhost 網址）。
+登入回傳頁：Azure 只接受已登記的重新導向 URI。在 `https://tedus-ai.github.io/` 上沿用 TIM 工具已登記的
+`https://tedus-ai.github.io/Project-TIM-management-tool/auth.html`（同網域，MSAL 可讀取彈出視窗 / 靜默更新 iframe 的結果），不需改 Azure；
+其他網址（例如 `http://localhost:<port>/`）使用工具旁的 `auth.html`，需在 Azure **應用程式註冊 → 驗證 → SPA 重新導向 URI** 登記。
 使用者需要 `Thermal-Spec-DB` 網站的編輯權限。網站、資料夾路徑在 `spSync.js` 的 `CONFIG`。
 
 ### 專案設定

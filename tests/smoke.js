@@ -477,9 +477,11 @@ const assert = (cond, msg, detail) => { if (!cond) throw new Error(msg + (detail
       await useDb({ thermal_reports: { A: report('A', { 0: cover('A') }), B: report('B', { 0: cover('B') }) }, tim_library: { grease: [], pad: [{ name: 'PadA' }], putty: [] } });
       const res = await spSync.enable();
       const st = fileDb.sync.state();
-      return { res, chip: document.querySelector('[data-sp-chip]').textContent, etags: Object.keys(st.etags).sort(), dirty: Object.keys(st.dirty), onDiskEtags: Object.keys(disk().sp_sync.etags).length };
+      return { res, chip: document.querySelector('[data-sp-chip]').textContent, etags: Object.keys(st.etags).sort(), dirty: Object.keys(st.dirty), onDiskEtags: Object.keys(disk().sp_sync.etags).length,
+               redirect: window.__msalConfig.auth.redirectUri === location.origin + '/auth.html' };
     });
     assert(r.res.ok && r.chip.includes('✓'), 'enabled + synced', r);
+    assert(r.redirect, 'off GitHub Pages: auth.html next to the tool', r);
     assert(g.reportIds().sort().join() === 'A,B' && g.report('A').project_name === 'A', 'reports uploaded', g.reportIds());
     assert(g.json('Thermal_Report_Builder/Database/tim_library.json').tim_library.pad[0].name === 'PadA', 'TIM uploaded');
     assert(r.etags.join() === 'A,B' && r.dirty.length === 0 && r.onDiskEtags === 2, 'sync state persisted locally', r);

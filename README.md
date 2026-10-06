@@ -28,11 +28,11 @@ Thermal_Report_Builder/
 
 ### SharePoint 設定（一次性）
 
-1. Azure 應用程式（與 Project-TIM-management-tool 共用同一個）：**Microsoft Entra ID → 應用程式註冊 → 驗證 →
-   單頁應用程式（SPA）的重新導向 URI** 加上
-   `https://tedus-ai.github.io/Thermal-Test-Report-Builder/auth.html`
-   （若在本機用 `http://localhost:<port>/` 開啟，另外加上 `http://localhost:<port>/auth.html`）。
-   權限沿用 `Files.ReadWrite.All`、`Sites.Read.All`、`Sites.ReadWrite.All`。
+1. **不需要改 Azure**：與 Project-TIM-management-tool 共用同一個 Azure 應用程式。工具放在 `https://tedus-ai.github.io/` 時，
+   登入直接沿用 TIM 工具已登記的 `https://tedus-ai.github.io/Project-TIM-management-tool/auth.html`（同一個網域，所以可以共用；
+   在 TIM 工具登入過，這裡通常就不用再登入）。權限沿用 `Files.ReadWrite.All`、`Sites.Read.All`、`Sites.ReadWrite.All`。
+   只有在別的網址開啟（例如 `http://localhost:<port>/`）時，才要到 **Microsoft Entra ID → 應用程式註冊 → 驗證 →
+   單頁應用程式（SPA）的重新導向 URI** 加上該網址旁的 `auth.html`。
 2. 使用者需要 `Thermal-Spec-DB` 網站的編輯權限。網站與資料夾路徑在 `spSync.js` 的 `CONFIG`。
 
 > ⚠️ 請不要把資料庫 JSON、匯出的 PDF 或任何實際專案資料 commit 進來（CI 會擋 `*.json`）。

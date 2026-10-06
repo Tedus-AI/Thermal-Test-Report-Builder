@@ -9,6 +9,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const { chromium } = require('playwright');
+const fakeSp = require('./fake-sharepoint');
 
 const ROOT = path.join(__dirname, '..');
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.png': 'image/png', '.css': 'text/css' };
@@ -64,8 +65,11 @@ const SETUP = () => {
 
 const results = [];
 async function test(browser, name, fn, opts = {}) {
-  const { __clock, ...ctxOpts } = opts;
+  // SMOKE_ONLY=<substring> runs just the matching tests (local iteration)
+  if (process.env.SMOKE_ONLY && !name.includes(process.env.SMOKE_ONLY)) return;
+  const { __clock, __setup, ...ctxOpts } = opts;
   const ctx = await browser.newContext(ctxOpts);
+  if (__setup) await __setup(ctx);
   const page = await ctx.newPage();
   const errors = [];
   page.on('pageerror', e => errors.push(e.message));
@@ -93,10 +97,9 @@ const assert = (cond, msg, detail) => { if (!cond) throw new Error(msg + (detail
   const server = await startServer();
   const URL = `http://127.0.0.1:${server.address().port}/index.html`;
   const browser = await chromium.launch();
-  const T = (name, fn, opts = {}) => {
-    const { __clock, ...ctxOpts } = opts;
-    return test(browser, name, async (page) => fn(page), { ...ctxOpts, __clock });
-  };
+  const T = (name, fn, opts = {}) => test(browser, name, async (page) => fn(page), opts);
+  // SharePoint scenario: fresh in-memory Graph + fake MSAL per test.
+  const SP = (name, fn) => { const g = fakeSp.fakeDrive(); return T(name, page => fn(page, g), { __setup: ctx => fakeSp.setup(ctx, g) }); };
   // Make the page URL available to test()
   const origNewContext = browser.newContext.bind(browser);
   browser.newContext = async (o) => { const c = await origNewContext(o); const orig = c.newPage.bind(c); c.newPage = async () => { const p = await orig(); p.__url = URL; return p; }; return c; };
@@ -465,6 +468,179 @@ const assert = (cond, msg, detail) => { if (!cond) throw new Error(msg + (detail
     });
     assert(r.badges[0].startsWith('❌ Fail') && r.badges[1].startsWith('⚠️ Warning') && r.badges[2].startsWith('✔ Pass') && r.badges[3] === '未量測' && r.badges[4] === '斷線 N/A', 'badges', r);
     assert(r.groupCount.includes('1 Fail') && r.groupCount.includes('1 Warning') && r.checked.join() === 'true,true,false,false,false', 'quick select', r);
+  });
+
+  console.log('SharePoint dual save');
+
+  await SP('enable: every local report + TIM library is uploaded; chip shows synced', async (page, g) => {
+    const r = await page.evaluate(async () => {
+      await useDb({ thermal_reports: { A: report('A', { 0: cover('A') }), B: report('B', { 0: cover('B') }) }, tim_library: { grease: [], pad: [{ name: 'PadA' }], putty: [] } });
+      const res = await spSync.enable();
+      const st = fileDb.sync.state();
+      return { res, chip: document.querySelector('[data-sp-chip]').textContent, etags: Object.keys(st.etags).sort(), dirty: Object.keys(st.dirty), onDiskEtags: Object.keys(disk().sp_sync.etags).length };
+    });
+    assert(r.res.ok && r.chip.includes('✓'), 'enabled + synced', r);
+    assert(g.reportIds().sort().join() === 'A,B' && g.report('A').project_name === 'A', 'reports uploaded', g.reportIds());
+    assert(g.json('Thermal_Report_Builder/Database/tim_library.json').tim_library.pad[0].name === 'PadA', 'TIM uploaded');
+    assert(r.etags.join() === 'A,B' && r.dirty.length === 0 && r.onDiskEtags === 2, 'sync state persisted locally', r);
+    assert(g.files.has('Thermal_Report_Builder/Backup/thermal_reports_backup_' + (await page.evaluate(() => localDateStr())) + '.json'), 'daily SharePoint backup');
+  });
+
+  await SP('dual save: editing one report uploads only that report', async (page, g) => {
+    await page.evaluate(async () => {
+      await useDb({ thermal_reports: { A: report('A', { 0: cover('A') }), B: report('B', { 0: cover('B') }) } });
+      await spSync.enable();
+      await openReport('A');                      // legacy pages get ids → one structure upload
+      await flushAllSaves(); await spSync.syncNow();
+    });
+    const before = { a: g.puts('reports/A.json'), b: g.puts('reports/B.json') };
+    const r = await page.evaluate(async () => {
+      const inp = document.querySelector('[data-field="dept"]');
+      inp.value = 'NEW-DEPT'; inp.dispatchEvent(new Event('input'));
+      await flushAllSaves();
+      await spSync.syncNow();
+      return { localDept: disk().thermal_reports.A.pages['0'].data.dept };
+    });
+    assert(r.localDept === 'NEW-DEPT' && g.report('A').pages['0'].data.dept === 'NEW-DEPT', 'saved in both places', r);
+    assert(g.puts('reports/A.json') === before.a + 1 && g.puts('reports/B.json') === before.b, 'only A re-uploaded', { before, a: g.puts('reports/A.json'), b: g.puts('reports/B.json') });
+  });
+
+  await SP('pull: a colleague\'s new / changed / deleted reports reach the local file', async (page, g) => {
+    await page.evaluate(async () => {
+      await useDb({ thermal_reports: { A: report('A', { 0: cover('A') }), B: report('B', { 0: cover('B') }) } });
+      await spSync.enable();
+    });
+    const changedA = g.report('A'); changedA.project_name = 'A by colleague';
+    g.putReport('A', changedA);
+    g.putReport('C', { project_name: 'C new', created_at: '2026-10-01T00:00:00Z', pages: { 0: { id: 'pgC', type: 'cover', order: 0, data: { project_name: 'C new' } } } });
+    g.files.delete('Thermal_Report_Builder/Database/reports/B.json');
+    const r = await page.evaluate(async () => {
+      await spSync.syncNow();
+      const names = Array.from(document.querySelectorAll('.hp-card-title')).map(e => e.textContent.trim()).sort();
+      return { ids: Object.keys(disk().thermal_reports).sort(), a: disk().thermal_reports.A.project_name, names };
+    });
+    assert(r.ids.join() === 'A,C' && r.a === 'A by colleague', 'pulled', r);
+    assert(r.names.join() === 'A by colleague,C new', 'homepage refreshed', r.names);
+  });
+
+  await SP('conflict: both edited the same report → yours in place, theirs kept as a copy', async (page, g) => {
+    await page.evaluate(async () => {
+      await useDb({ thermal_reports: { A: report('A', { 0: cover('A') }) } });
+      await spSync.enable();
+      await openReport('A');
+    });
+    const theirs = g.report('A'); theirs.pages['0'].data.dept = 'THEIR-DEPT';
+    g.putReport('A', theirs, 'Colleague B');
+    const r = await page.evaluate(async () => {
+      const inp = document.querySelector('[data-field="dept"]');
+      inp.value = 'MY-DEPT'; inp.dispatchEvent(new Event('input'));
+      await flushAllSaves();
+      await spSync.syncNow();
+      await spSync.syncNow();                     // pushes the conflict copy
+      const reps = disk().thermal_reports;
+      const copyId = Object.keys(reps).find(id => id !== 'A');
+      return { mine: reps.A.pages['0'].data.dept, copyName: copyId && reps[copyId].project_name, copyDept: copyId && reps[copyId].pages['0'].data.dept, copyId,
+               toast: Array.from(document.querySelectorAll('.toast')).map(t => t.textContent).join(' | ') };
+    });
+    assert(r.mine === 'MY-DEPT' && g.report('A').pages['0'].data.dept === 'MY-DEPT', 'ours in place', r);
+    assert(/衝突副本 · Colleague B/.test(r.copyName) && r.copyDept === 'THEIR-DEPT' && g.report(r.copyId) && g.report(r.copyId).pages['0'].data.dept === 'THEIR-DEPT', 'theirs kept as copy (local + SharePoint)', r);
+    assert(/衝突副本/.test(r.toast), 'user told', r.toast);
+  });
+
+  await SP('offline: changes wait in the local file and are pushed later', async (page, g) => {
+    await page.evaluate(async () => {
+      await useDb({ thermal_reports: { A: report('A', { 0: cover('A') }) } });
+      await spSync.enable();
+      await openReport('A');
+    });
+    g.down = true;
+    const r1 = await page.evaluate(async () => {
+      const inp = document.querySelector('[data-field="dept"]');
+      inp.value = 'OFFLINE-EDIT'; inp.dispatchEvent(new Event('input'));
+      await flushAllSaves();
+      await spSync.syncNow();
+      return { state: spSync.status().state, chip: document.querySelector('[data-sp-chip]').textContent, dirtyOnDisk: Object.keys(disk().sp_sync.dirty) };
+    });
+    assert(r1.state === 'pending' && /未同步/.test(r1.chip) && r1.dirtyOnDisk.includes('A'), 'pending recorded', r1);
+    assert(g.report('A').pages['0'].data.dept !== 'OFFLINE-EDIT', 'not on SharePoint yet');
+    g.down = false;
+    const r2 = await page.evaluate(async () => { await spSync.syncNow(); return { state: spSync.status().state, dirty: Object.keys(disk().sp_sync.dirty) }; });
+    assert(r2.state === 'synced' && r2.dirty.length === 0 && g.report('A').pages['0'].data.dept === 'OFFLINE-EDIT', 'pushed after reconnect', r2);
+  });
+
+  await SP('delete: local delete removes it on SharePoint; a remotely edited one is restored', async (page, g) => {
+    await page.evaluate(async () => {
+      await useDb({ thermal_reports: { A: report('A', { 0: cover('A') }), B: report('B', { 0: cover('B') }) } });
+      await spSync.enable();
+    });
+    const changedB = g.report('B'); changedB.project_name = 'B edited remotely';
+    g.putReport('B', changedB);
+    const r = await page.evaluate(async () => {
+      await dbAdapter.deleteReport('A');
+      await dbAdapter.deleteReport('B');
+      await spSync.syncNow();
+      return { ids: Object.keys(disk().thermal_reports) };
+    });
+    assert(!g.report('A') && g.report('B') && r.ids.join() === 'B', 'A deleted, B restored', { remote: g.reportIds(), r });
+  });
+
+  await SP('open report is not swapped while editing; applied after leaving', async (page, g) => {
+    await page.evaluate(async () => {
+      await useDb({ thermal_reports: { A: report('A', { 0: cover('A') }) } });
+      await spSync.enable();
+      await openReport('A');
+      await flushAllSaves(); await spSync.syncNow();
+    });
+    const theirs = g.report('A'); theirs.pages['0'].data.dept = 'REMOTE';
+    g.putReport('A', theirs);
+    const r = await page.evaluate(async () => {
+      await spSync.syncNow();
+      const during = disk().thermal_reports.A.pages['0'].data.dept;
+      await leaveEditor();
+      await spSync.__idle(); await sleep(50); await spSync.__idle();
+      return { during, after: disk().thermal_reports.A.pages['0'].data.dept };
+    });
+    assert(r.during === 'DEPT-A' && r.after === 'REMOTE', 'deferred', r);
+  });
+
+  await SP('expired sign-in → "請重新登入", relogin syncs', async (page, g) => {
+    const r = await page.evaluate(async () => {
+      await useDb({ thermal_reports: { A: report('A', { 0: cover('A') }) } });
+      await spSync.enable();
+      window.__expired = true;
+      await dbAdapter.updateReportMeta('A', { project_name: 'A2' });
+      await spSync.syncNow();
+      const chip = document.querySelector('[data-sp-chip]').textContent;
+      await spSync.relogin();
+      return { chip, state: spSync.status().state };
+    });
+    assert(/重新登入/.test(r.chip) && r.state === 'synced' && g.report('A').project_name === 'A2', 'relogin', r);
+  });
+
+  await SP('TIM library: entries added on both sides are merged', async (page, g) => {
+    await page.evaluate(async () => {
+      await useDb({ thermal_reports: {}, tim_library: { grease: [], pad: [{ name: 'PadA' }], putty: [] } });
+      await spSync.enable();
+    });
+    g.put('Thermal_Report_Builder/Database/tim_library.json', Buffer.from(JSON.stringify({ format: 'thermal-tim-library-v1', tim_library: { grease: [], pad: [{ name: 'PadA' }, { name: 'PadRemote' }], putty: [] } })), 'Colleague B');
+    const r = await page.evaluate(async () => {
+      await dbAdapter.setTimLibrary({ grease: [{ name: 'GreaseLocal' }], pad: [{ name: 'PadA' }], putty: [] });
+      await spSync.syncNow();
+      return disk().tim_library;
+    });
+    const remote = g.json('Thermal_Report_Builder/Database/tim_library.json').tim_library;
+    assert(r.grease[0].name === 'GreaseLocal' && r.pad.map(x => x.name).join() === 'PadA,PadRemote', 'local merged', r);
+    assert(remote.grease[0].name === 'GreaseLocal' && remote.pad.length === 2, 'remote merged', remote);
+  });
+
+  await SP('new empty local DB downloads everything from SharePoint', async (page, g) => {
+    g.putReport('X', { project_name: 'X shared', created_at: '2026-10-01T00:00:00Z', pages: { 0: { id: 'pgX', type: 'cover', order: 0, data: { project_name: 'X shared' } } } });
+    const r = await page.evaluate(async () => {
+      await useDb({ thermal_reports: {} });
+      await spSync.enable();
+      return Object.keys(disk().thermal_reports);
+    });
+    assert(r.join() === 'X', 'downloaded', r);
   });
 
   console.log('Stability');

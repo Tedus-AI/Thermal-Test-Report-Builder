@@ -33,7 +33,7 @@
 | **使用頻率** | 每個專案 Prototype / EVT / DVT / PVT 各一份，中高頻使用 |
 | **部署方式** | GitHub Pages（單一 `index.html`，無後端）|
 | **技術限制** | 無 Python、無後端、純瀏覽器執行，公司防火牆限制 |
-| **資料持久化** | 本機 JSON 資料庫檔案（File System Access API，可放共用磁碟）＋ 每日自動備份資料夾（保留 30 份）。原規劃的 Firebase 已停用，見 §4 |
+| **資料持久化** | 本機 JSON 資料庫檔案（File System Access API，可放共用磁碟）＋ 每日自動備份資料夾（保留 30 份）；可選 **SharePoint 雙存檔**（`spSync.js`，見 §4.1）。原規劃的 Firebase 已停用，見 §4 |
 | **輸出格式** | PDF（Phase 1）/ PPTX（Phase 2）|
 
 ---
@@ -420,6 +420,34 @@ Step 6  Sim Tc 欄留空，等待手動填入
 > `{ thermal_reports: { [reportId]: { ...meta, pages: { "0": { id, type, order, data, updated_at }, ... } } }, tim_library }`。
 > 每頁有持久化的 `id`；數據頁元件有 `uid`，比對頁 / 結論頁以 `source_page + source_uid` 連結來源元件。
 > 寫入採單一佇列合併寫入；檔案被其他分頁 / 使用者修改時會停止儲存並提示，不會覆蓋；JSON 毀損時拒絕開啟。
+
+### 4.1 SharePoint 雙存檔（`spSync.js`）
+
+與 Project-TIM-management-tool 共用同一個 Azure 應用程式與 `Thermal-Spec-DB` 網站。本機資料庫檔案仍是工作檔；
+每次本機存檔後約 4 秒，**只上傳有變更的報告**到 SharePoint，並每 60 秒拉回同事改過的報告。
+
+```
+Thermal-Spec-DB → 文件（Shared Documents）
+└── Thermal_Report_Builder/
+    ├── Database/
+    │   ├── reports/<reportId>.json   每份報告一個檔（{ format: 'thermal-report-v1', id, report }）
+    │   └── tim_library.json          共用 TIM 材料庫（{ format: 'thermal-tim-library-v1', tim_library }）
+    ├── Backup/                       thermal_reports_backup_YYYY-MM-DD.json（每日一份，保留 30 份）
+    └── Reports/<案名>_<Stage>/       匯出 PDF 時可勾選「同時上傳到 SharePoint」
+```
+
+| 情境 | 行為 |
+|---|---|
+| 同步狀態 | 寫在本機資料庫檔 `sp_sync`（dirty / deleted / eTag），重新整理或離線後仍會補傳 |
+| 兩人改了同一份報告 | 以 If-Match（eTag）寫入；SharePoint 上已被別人改過 → 你的版本寫入，對方版本另存「（衝突副本 · 對方 · 時間）」報告，並跳出提示 |
+| 正在編輯的報告被別人改 | 編輯中不替換畫面；離開編輯器後才套用 |
+| 本機刪除、SharePoint 上已被改過 | 不刪，改為還原到本機 |
+| TIM 材料庫 | 兩邊新增的材料合併（同名以本機為準） |
+| 斷線 / 登入過期 | 工具列顯示「未同步」/「請重新登入」，修改保留在本機，恢復後自動補傳 |
+
+一次性設定：Azure **應用程式註冊 → 驗證 → 單頁應用程式（SPA）重新導向 URI** 加上工具網址旁的 `auth.html`
+（例：`https://tedus-ai.github.io/Thermal-Test-Report-Builder/auth.html`；在本機以 `http://localhost:<port>/` 開啟時加上對應的 localhost 網址）。
+使用者需要 `Thermal-Spec-DB` 網站的編輯權限。網站、資料夾路徑在 `spSync.js` 的 `CONFIG`。
 
 ### 專案設定
 

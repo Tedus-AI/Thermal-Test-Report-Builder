@@ -7,6 +7,7 @@
 
   <script src="fileDb.js"></script>
   <script src="dbAdapter.js"></script>
+  <script src="spSync.js"></script>
 
   <!-- Google Fonts: Space Grotesk + DM Sans + JetBrains Mono -->
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Noto+Sans+TC:wght@400;500;700&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -4135,6 +4136,25 @@
       line-height: 1.6;
       color: rgba(255,255,255,0.75);
     }
+    /* ━━━ SharePoint chip / menu ━━━ */
+    .sp-chip { font-size: 12px; padding: 4px 12px; border-radius: 4px; border: 1px solid #555; background: transparent; color: #ccc; cursor: pointer; white-space: nowrap; }
+    .sp-chip.sp-synced { border-color: rgba(74,222,128,0.6); color: #86efac; }
+    .sp-chip.sp-syncing { border-color: rgba(96,165,250,0.6); color: #93c5fd; }
+    .sp-chip.sp-pending, .sp-chip.sp-needs-login { border-color: rgba(251,191,36,0.7); color: #fcd34d; }
+    .sp-chip.sp-error { border-color: rgba(248,113,113,0.7); color: #fca5a5; }
+    .sp-menu { position: fixed; z-index: 3000; min-width: 220px; background: #0f1f36; border: 1px solid rgba(91,163,230,0.35); border-radius: 6px; box-shadow: 0 10px 30px rgba(0,0,0,0.45); padding: 4px; }
+    .sp-menu-head { font-size: 11px; color: rgba(255,255,255,0.55); padding: 6px 10px 4px; border-bottom: 1px solid rgba(255,255,255,0.08); margin-bottom: 4px; line-height: 1.5; }
+    .sp-menu button { display: block; width: 100%; text-align: left; font-size: 12px; color: #e2e8f0; background: transparent; border: none; padding: 7px 10px; border-radius: 4px; cursor: pointer; }
+    .sp-menu button:hover { background: rgba(91,163,230,0.18); }
+    .sp-menu button.danger { color: #fca5a5; }
+    /* ━━━ Toasts ━━━ */
+    #toast-wrap { position: fixed; right: 18px; bottom: 18px; z-index: 4000; display: flex; flex-direction: column; gap: 8px; max-width: 420px; pointer-events: none; }
+    .toast { pointer-events: auto; font-size: 12.5px; line-height: 1.55; color: #0f172a; background: #fff; border-left: 4px solid #3A7AD4; border-radius: 6px; padding: 9px 30px 9px 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.35); position: relative; animation: toastIn 0.18s ease-out; }
+    .toast.ok { border-left-color: #22c55e; }
+    .toast.warn { border-left-color: #f59e0b; }
+    .toast.err { border-left-color: #ef4444; }
+    .toast-x { position: absolute; top: 4px; right: 6px; border: none; background: transparent; color: #64748b; cursor: pointer; font-size: 13px; }
+    @keyframes toastIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
   </style>
 </head>
 <body>
@@ -4166,6 +4186,7 @@
                  color:#ccc; cursor:pointer;">
           💾 備份資料庫
         </button>
+        <button class="sp-chip" data-sp-chip onclick="handleSpChip(this)" title="SharePoint 雙重存檔">☁ SharePoint：未連線</button>
         <button id="hp-btn-backup-dir" onclick="handlePickBackupDir()"
           title="設定自動備份資料夾（每日自動備份、保留最近 30 份）"
           style="font-size:12px; padding:4px 12px; border-radius:4px;
@@ -4234,6 +4255,7 @@
                  color:#ccc; cursor:pointer;">
           💾 備份資料庫
         </button>
+        <button class="sp-chip" data-sp-chip onclick="handleSpChip(this)" title="SharePoint 雙重存檔" style="margin-right:4px;">☁ SharePoint：未連線</button>
         <button id="btn-backup-dir" onclick="handlePickBackupDir()"
           title="設定自動備份資料夾（每日自動備份、保留最近 30 份）"
           style="font-size:12px; padding:4px 12px; border-radius:4px;
@@ -11087,6 +11109,9 @@
       } else if (st.level === 'parse-error') {
         text = `資料庫「${escHtml(st.filename || '')}」無法讀取：${escHtml(st.message || '')}<br>為避免覆蓋原檔，系統沒有開啟它。請從自動備份資料夾還原最近的備份，再重新開啟。`;
       }
+      if (spSync.isEnabled() && st.level !== 'needs-permission') {
+        text += '<br><span style="opacity:0.8;">已開啟 SharePoint 同步：建立新資料庫後，會自動把 SharePoint 上的所有報告下載進來。</span>';
+      }
       $hpEmpty.innerHTML = `<div class="icon">🗄</div><div class="text" style="max-width:560px;text-align:center;line-height:1.7;">${text}</div>
         <div style="display:flex;gap:10px;">${buttons}</div>`;
       $hpEmpty.querySelectorAll('[data-db-act]').forEach(b => b.addEventListener('click', () => {
@@ -11205,6 +11230,7 @@
       // Open the new report with a default cover page
       resetEditorSession();
       state.reportId = id;
+      spSync.setOpenReport(id);
       state.pages = [];
       state.activePage = null;
       state.timLibrary = await loadTimLibrary();
@@ -11246,6 +11272,7 @@
     async function openReport(reportId) {
       resetEditorSession();
       state.reportId = reportId;
+      spSync.setOpenReport(reportId);
       state.pages = [];
       state.activePage = null;
       state.timLibrary = await loadTimLibrary();
@@ -11295,6 +11322,7 @@
       }
       resetEditorSession();
       state.reportId = null;
+      spSync.setOpenReport(null);
       state.pages = [];
       state.activePage = null;
       $pageList.innerHTML = '';
@@ -11541,6 +11569,7 @@ async function afterDbOpened(result, wasInEditor) {
   if (!result) return;
   if (result.success) {
     setDbState('ready', result.filename);
+    spSync.dbOpened();
     if (result.otherTab) {
       alert('注意：這個資料庫似乎已在另一個分頁開啟。\n同時在兩個分頁編輯時，系統會偵測並阻止互相覆蓋，但建議只在一個分頁中編輯。');
     }
@@ -11591,6 +11620,139 @@ async function handleCreateDb() {
     return;
   }
   await afterDbOpened(result, prep.inEditor);
+}
+
+// ── Toasts (non-blocking messages) ─────────────────────────────────────
+function showToast(text, type, ms) {
+  let wrap = document.getElementById('toast-wrap');
+  if (!wrap) { wrap = document.createElement('div'); wrap.id = 'toast-wrap'; document.body.appendChild(wrap); }
+  const t = document.createElement('div');
+  t.className = 'toast ' + (type || '');
+  t.textContent = text;
+  const x = document.createElement('button');
+  x.className = 'toast-x'; x.textContent = '✕'; x.title = '關閉';
+  x.addEventListener('click', () => t.remove());
+  t.appendChild(x);
+  wrap.appendChild(t);
+  if (ms !== 0) setTimeout(() => t.remove(), ms || 3500);
+  return t;
+}
+
+// ── SharePoint dual save (spSync.js) ───────────────────────────────────
+function spTime(d) {
+  if (!d) return '';
+  const p = n => String(n).padStart(2, '0');
+  return p(d.getHours()) + ':' + p(d.getMinutes());
+}
+function updateSpChips(st) {
+  st = st || spSync.status();
+  const acc = spSync.account();
+  let label, cls = '';
+  if (!spSync.isEnabled()) { label = '☁ SharePoint：未連線'; }
+  else if (st.state === 'needs-login') { label = '☁ SharePoint：請重新登入'; cls = 'sp-needs-login'; }
+  else if (st.state === 'syncing') { label = '☁ SharePoint 同步中…'; cls = 'sp-syncing'; }
+  else if (st.state === 'synced') { label = '☁ SharePoint ✓ ' + spTime(st.lastSync); cls = 'sp-synced'; }
+  else if (st.state === 'pending') { label = `☁ 未同步（${st.pending} 筆待上傳）`; cls = 'sp-pending'; }
+  else if (st.state === 'error') { label = '☁ SharePoint 錯誤'; cls = 'sp-error'; }
+  else { label = dbAdapter.isReady() ? '☁ SharePoint：等待同步' : '☁ SharePoint：待開啟資料庫'; cls = 'sp-pending'; }
+  const tip = [
+    'SharePoint 雙重存檔：' + spSync.location(),
+    acc ? '帳號：' + acc.name + (acc.email ? ' <' + acc.email + '>' : '') : '',
+    st.message ? '狀態：' + st.message : '',
+  ].filter(Boolean).join('\n');
+  document.querySelectorAll('[data-sp-chip]').forEach(b => { b.textContent = label; b.className = 'sp-chip ' + cls; b.title = tip; });
+}
+
+function closeSpMenu() { document.querySelectorAll('.sp-menu').forEach(m => m.remove()); }
+
+async function handleSpChip(btn) {
+  closeSpMenu();
+  if (!spSync.isEnabled()) { showSpEnableDialog(); return; }
+  const st = spSync.status();
+  if (st.state === 'needs-login') {
+    const r = await spSync.relogin();
+    if (!r.ok && r.reason !== 'cancelled') showToast('Microsoft 登入失敗：' + (r.error || (r.reason === 'popup' ? '登入視窗被瀏覽器擋下，請允許彈出視窗' : r.reason)), 'err', 8000);
+    return;
+  }
+  const acc = spSync.account();
+  const menu = document.createElement('div');
+  menu.className = 'sp-menu';
+  menu.innerHTML = `<div class="sp-menu-head">${escHtml(spSync.location())}<br>${acc ? '帳號：' + escHtml(acc.name) : ''}${st.message ? '<br>' + escHtml(st.message) : ''}</div>
+    <button data-sp-act="sync">⟳ 立即同步</button>
+    <button data-sp-act="open">↗ 開啟 SharePoint 資料夾</button>
+    <button data-sp-act="account">👤 切換帳號</button>
+    <button data-sp-act="off" class="danger">停用 SharePoint 同步</button>`;
+  document.body.appendChild(menu);
+  const r = btn.getBoundingClientRect();
+  menu.style.top = (r.bottom + 4) + 'px';
+  menu.style.left = Math.max(8, Math.min(window.innerWidth - menu.offsetWidth - 8, r.right - menu.offsetWidth)) + 'px';
+  setTimeout(() => document.addEventListener('mousedown', function off(e) {
+    if (!menu.contains(e.target)) { closeSpMenu(); document.removeEventListener('mousedown', off); }
+  }), 0);
+  menu.querySelectorAll('[data-sp-act]').forEach(b => b.addEventListener('click', async () => {
+    const act = b.dataset.spAct;
+    closeSpMenu();
+    try {
+      if (act === 'sync') { await spSync.syncNow(); if (spSync.status().state === 'synced') showToast('已與 SharePoint 同步', 'ok'); }
+      else if (act === 'open') {
+        const url = await spSync.folderUrl();
+        if (url) window.open(url, '_blank', 'noopener'); else showToast('SharePoint 上還沒有 Thermal_Report_Builder 資料夾（第一次同步後會自動建立）', 'warn', 6000);
+      }
+      else if (act === 'account') {
+        const rr = await spSync.signIn({ select: true });
+        if (rr.ok) await spSync.syncNow();
+      }
+      else if (act === 'off') {
+        if (confirm('停用後只會存到本機資料庫，不再同步到 SharePoint。\n（SharePoint 上已有的資料不會被刪除，之後可再開啟同步）\n\n確定停用？')) spSync.disable();
+      }
+    } catch (err) { showToast(err.message || String(err), 'err', 8000); }
+    updateSpChips();
+  }));
+}
+
+function showSpEnableDialog() {
+  const overlay = document.createElement('div');
+  overlay.className = 'hp-modal-overlay';
+  overlay.innerHTML = `
+    <div class="hp-modal" style="max-width:540px;">
+      <div class="hp-modal-header">☁ 開啟 SharePoint 雙重存檔</div>
+      <div class="hp-modal-body">
+        <div class="hp-delete-msg" style="line-height:1.8;">
+          開啟後，每次存檔會<strong>同時</strong>寫入兩個地方：<br>
+          ① 本機資料庫檔${dbAdapter.isReady() ? `（${escHtml(fileDb.getFilename() || '')}）` : '（請先開啟或建立）'}<br>
+          ② SharePoint：<strong>${escHtml(spSync.location())}</strong><br>
+          同事在 SharePoint 上的報告也會同步到你的本機資料庫；同一份報告兩邊都改過時，保留你的版本，對方版本另存「衝突副本」，不會互相覆蓋。<br>
+          <span style="opacity:0.7;">需要公司 Microsoft 帳號，以及 Thermal-Spec-DB 網站的編輯權限。</span>
+        </div>
+      </div>
+      <div class="hp-modal-footer">
+        <button class="hp-modal-btn" data-sp-dlg="cancel">取消</button>
+        <button class="hp-modal-btn primary" data-sp-dlg="ok">登入並開始同步</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  const close = () => overlay.remove();
+  overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+  overlay.querySelector('[data-sp-dlg="cancel"]').addEventListener('click', close);
+  overlay.querySelector('[data-sp-dlg="ok"]').addEventListener('click', async () => {
+    close();
+    const r = await spSync.enable();
+    if (r.ok) showToast(dbAdapter.isReady() ? '已開啟 SharePoint 雙重存檔' : '已登入 SharePoint；開啟本機資料庫後會自動同步', 'ok', 5000);
+    else if (r.reason !== 'cancelled') showToast('無法開啟 SharePoint 同步：' + (r.error || (r.reason === 'popup' ? '登入視窗被瀏覽器擋下，請允許彈出視窗' : r.reason)), 'err', 9000);
+    updateSpChips();
+  });
+}
+
+async function onSpRemote(info) {
+  if (info.timChanged && state.reportId) {
+    try { state.timLibrary = spSync.mergeTim(state.timLibrary, await dbAdapter.getTimLibrary()); } catch (e) { /* keep current */ }
+  }
+  if (!state.reportId && typeof renderHomepage === 'function') renderHomepage();
+  const parts = [];
+  if (info.pulled) parts.push(`更新 ${info.pulled} 份`);
+  if (info.removed) parts.push(`移除 ${info.removed} 份（已在 SharePoint 刪除）`);
+  if (info.restored) parts.push(`還原 ${info.restored} 份`);
+  if (parts.length) showToast('已從 SharePoint 同步報告：' + parts.join('、'), 'info', 5000);
 }
 
 // ── Auto-backup folder (每日自動備份到選定資料夾) ──────────────────────
@@ -11683,6 +11845,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Restore the auto-backup folder and run a catch-up backup (if the DB is ready).
   await initAutoBackup();
+
+  // SharePoint dual save: restore a previous sign-in and sync.
+  spSync.onStatus(updateSpChips);
+  spSync.onRemoteChange(onSpRemote);
+  spSync.onNotice(msg => showToast(msg, 'warn', 10000));
+  updateSpChips();
+  spSync.tryRestore();
 });
 </script>
 </body>

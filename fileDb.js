@@ -239,15 +239,18 @@ const fileDb = {
     this._assertReady();
     const reports = dbCache['thermal_reports'] ?? {};
     const pick = c => ({
-      name: c.name, category: c.category, spec_type: c.spec_type, tc_spec: c.tc_spec,
+      uid: c.uid, name: c.name, category: c.category, spec_type: c.spec_type, tc_spec: c.tc_spec,
       derating: c.derating, tim_type: c.tim_type, disabled: !!c.disabled, readings: clone(c.readings || {}),
     });
     return Object.entries(reports).map(([id, r]) => {
       const pages = Object.values(r.pages || {}).filter(Boolean).sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+      const cover = pages.find(p => p.type === 'cover')?.data || {};   // older reports keep these only on the cover
       return {
-        id, project_name: r.project_name, updated_at: r.updated_at, created_at: r.created_at,
+        id, project_name: r.project_name || cover.project_name, model: r.model || cover.model, stage: r.stage || cover.stage,
+        updated_at: r.updated_at, created_at: r.created_at,
         pageCount: pages.length,
-        dataPages: pages.filter(p => p.type === 'data').map(p => ({
+        dataPages: pages.filter(p => p.type === 'data').map((p, i) => ({
+          id: p.id, n: i + 1, note: p.data?.list_note || '',
           ta_conditions: clone(p.data?.ta_conditions || []),
           components: (p.data?.components || []).map(pick),
         })),

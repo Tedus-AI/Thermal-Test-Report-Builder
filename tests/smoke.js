@@ -292,9 +292,9 @@ const assert = (cond, msg, detail) => { if (!cond) throw new Error(msg + (detail
       await useDb({ thermal_reports: { A: report('A', { 0: dataPage(0, [comp('PA_U1', { ta_25: '80', ta_55: '100', ta_65: '115' }), comp('LNA', { ta_65: '60' })], [25, 55, 65]), 1: concl }) } });
       await openReport('A');
       selectPage(1);
-      const row = tds('#compliance-tbody tr td').slice(0, 5);
+      const row = tds('#compliance-tbody tr:not(.concl-group-row) td').slice(0, 5);
       const overall = document.querySelector('.concl-overall-value').textContent.trim();
-      const pdf = buildConclusionHTML(state.pages[1].data);
+      const pdf = buildConclusionPagesHTML(state.pages[1].data).join("");
       return { row, overall, pdfFail: pdf.includes('❌ FAIL'), linked: !!state.pages[1].data.compliance[0].source_uid };
     });
     assert(r.row[1].startsWith('115.0') && r.row[1].includes('65°C') && r.row[4].includes('Fail'), 'compliance max Tc', r);
@@ -307,7 +307,7 @@ const assert = (cond, msg, detail) => { if (!cond) throw new Error(msg + (detail
       await useDb({ thermal_reports: { A: report('A', { 0: dataPage(0, [comp('PA_U1', { ta_55: '130' })]), 1: concl }) } });
       await openReport('A');
       selectPage(1);
-      return { overall: document.querySelector('.concl-overall-value').textContent.trim(), hint: !!document.getElementById('concl-add-flagged') };
+      return { overall: document.querySelector('.concl-overall-value').textContent.trim(), hint: !!document.getElementById('concl-flag-hint') };
     });
     assert(r.overall.includes('FAIL') && r.hint, 'overall with empty summary', r);
   });
@@ -373,6 +373,98 @@ const assert = (cond, msg, detail) => { if (!cond) throw new Error(msg + (detail
       return { ta, comps: state.pages[0].data.components.length, taEditor: !!document.querySelector('.ta-tag-edit') };
     });
     assert(r.ta.join() === '25,55' && r.comps === 2 && !r.taEditor, 'duplicate Ta / frozen', r);
+  });
+
+  await T('比對頁: Dev% uses the temperature rise (Meas − Ta) with 10/20% + 2/4°C rule', async (page) => {
+    const r = await page.evaluate(async () => {
+      const sim = { type: 'sim_vs_meas', order: 1, data: { compare_ta: 55, items: [] } };
+      await useDb({ thermal_reports: { A: report('A', { 0: dataPage(0, [
+        comp('PA', { ta_55: '99.1' }), comp('FPGA', { ta_55: '89.2' }, 100), comp('LOWRISE', { ta_55: '60' }), comp('BAD', { ta_55: '80' })]), 1: sim }) } });
+      await openReport('A');
+      const all = getDataPageComponents();
+      const sims = ['102.1', '95.3', '61.5', '95'];
+      state.pages[1].data.items = all.map((c, i) => ({ category: c.category, component_name: c.component_name, sim_tc: sims[i], source_page: c.source_page, source_uid: c.source_uid }));
+      selectPage(1);
+      const rows = Array.from(document.querySelectorAll('#sim-tbody tr')).map(tr => Array.from(tr.children).map(td => td.textContent.trim()));
+      const notes = document.querySelector('.sim-notes-block').textContent;
+      const pdf = buildSimVsMeasPagesHTML(state.pages[1].data)[0];
+      return { rows: rows.map(r => r.slice(5, 9)), head: tds('.sim-table thead th')[5], notes, pdfFormula: pdf.includes('(Sim Tc − Meas Tc) / (Meas Tc − Ta) × 100') };
+    });
+    // [Meas ΔT, Dev°C, Dev%, judge]
+    assert(r.head === 'Meas ΔT (°C)', 'Meas ΔT column', r);
+    assert(r.rows[0].join('|') === '44.1|3.0|6.8%|✅', 'PA', r.rows[0]);
+    assert(r.rows[1].join('|') === '34.2|6.1|17.8%|⚠️', 'FPGA', r.rows[1]);
+    assert(r.rows[2].join('|') === '5.0|1.5|30.0%|✅', 'low-rise floor', r.rows[2]);
+    assert(r.rows[3].join('|') === '25.0|15.0|60.0%|❌', 'bad', r.rows[3]);
+    assert(r.notes.includes('(Sim Tc − Meas Tc) / (Meas Tc − Ta) × 100') && r.notes.includes('|Dev%| ≤ 10% 或 |Dev| ≤ 2°C') && r.pdfFormula, 'formula notes', r.notes);
+  });
+
+  await T('結論頁: results, compliance rows and hints are grouped per data page', async (page) => {
+    const r = await page.evaluate(async () => {
+      const concl = { type: 'conclusion', order: 2, data: { summary: '', issues: [''], actions: [], compliance: [] } };
+      await useDb({ thermal_reports: { A: report('A', {
+        0: dataPage(0, [comp('U1', { ta_55: '120' }), comp('U2', { ta_55: '108' }), comp('U3', { ta_55: '60' })], [25, 55], {}),
+        1: dataPage(1, [comp('U1', { ta_55: '90' }), comp('U2', { ta_55: '106' })]),
+        2: concl }) } });
+      state.pages = []; // no-op guard
+      await openReport('A');
+      state.pages[1].data.list_note = '加風扇';
+      selectPage(2);
+      const out = {};
+      out.conditions = tds('.concl-section .concl-table tbody')[0];
+      out.groups = Array.from(document.querySelectorAll('.concl-hint-group .concl-hint-label')).map(e => e.firstChild.textContent.trim());
+      out.chips = Array.from(document.querySelectorAll('.concl-hint-group')).map(g => g.querySelectorAll('.concl-chip').length);
+      document.querySelector('.concl-chip').click();                       // add one (page 1 U1)
+      out.afterChip = state.pages[2].data.compliance.length;
+      document.querySelector('[data-add-page]:last-of-type') && document.querySelectorAll('[data-add-page]')[1].click(); // add all of page 2
+      out.afterPage = state.pages[2].data.compliance.length;
+      out.groupRows = tds('#compliance-tbody tr.concl-group-row td');
+      document.getElementById('concl-hint-close').click();
+      out.hintGone = !document.getElementById('concl-flag-hint');
+      out.reopen = (document.getElementById('concl-show-flagged') || {}).textContent;
+      document.getElementById('concl-show-flagged').click();
+      out.hintBack = !!document.getElementById('concl-flag-hint');
+      const th = document.querySelectorAll('#compliance-tbody')[0].closest('table').querySelectorAll('thead th');
+      out.align = [getComputedStyle(th[0]).textAlign, getComputedStyle(th[1]).textAlign];
+      return out;
+    });
+    assert(r.conditions.startsWith('數據頁 1') && r.conditions.includes('數據頁 2 · 加風扇') && r.conditions.includes('FAIL'), 'condition table', r.conditions);
+    assert(r.groups.length === 2 && r.groups[0].startsWith('數據頁 1') && r.groups[1].includes('加風扇'), 'hint groups', r);
+    assert(r.chips.join() === '2,1' && r.afterChip === 1 && r.afterPage === 2, 'chip / page add', r);
+    assert(r.groupRows.length === 2 && r.groupRows[1].includes('數據頁 2'), 'compliance grouped', r);
+    assert(r.hintGone && /顯示未列入/.test(r.reopen || '') && r.hintBack, 'close / reopen', r);
+    assert(r.align[0] === 'left' && r.align[1] === 'center', 'header alignment', r);
+  });
+
+  await T('結論頁 PDF continues onto more pages instead of clipping', async (page) => {
+    const r = await page.evaluate(async () => {
+      const comps = Array.from({ length: 45 }, (_, i) => comp('C' + i, { ta_55: String(100 + (i % 20)) }));
+      const concl = { type: 'conclusion', order: 1, data: { summary: 'x', issues: ['i'], actions: [], compliance: comps.map(c => ({ component: c.name })) } };
+      await useDb({ thermal_reports: { A: report('A', { 0: dataPage(0, comps), 1: concl }) } });
+      await openReport('A');
+      const pages = buildConclusionPagesHTML(state.pages[1].data);
+      const joined = pages.join('');
+      return { n: pages.length, allRows: comps.every(c => joined.includes('>' + c.name + '<')), issues: joined.includes('• i') };
+    });
+    assert(r.n >= 2 && r.allRows && r.issues, 'conclusion pagination', r);
+  });
+
+  await T('元件選取視窗顯示 Fail / Warning 並可一鍵勾選', async (page) => {
+    const r = await page.evaluate(async () => {
+      const sim = { type: 'sim_vs_meas', order: 1, data: { items: [] } };
+      await useDb({ thermal_reports: { A: report('A', { 0: dataPage(0, [comp('F', { ta_55: '120' }), comp('W', { ta_55: '108' }), comp('P', { ta_55: '60' }), comp('N', {}), comp('D', { ta_55: '60' }, 125, '0.90', { disabled: true })]), 1: sim }) } });
+      await openReport('A');
+      selectPage(1);
+      document.getElementById('sim-select-comp').click();
+      const badges = Array.from(document.querySelectorAll('.csm-comp-cb')).map(cb => cb.closest('label').querySelector('.csm-badge').textContent.trim());
+      const groupCount = document.querySelector('.anno-imp-page-row .anno-imp-count').textContent;
+      document.getElementById('sim-modal-select-flagged').click();
+      const checked = Array.from(document.querySelectorAll('.csm-comp-cb')).map(cb => cb.checked);
+      document.getElementById('sim-modal-cancel').click();
+      return { badges, groupCount, checked };
+    });
+    assert(r.badges[0].startsWith('❌ Fail') && r.badges[1].startsWith('⚠️ Warning') && r.badges[2].startsWith('✔ Pass') && r.badges[3] === '未量測' && r.badges[4] === '斷線 N/A', 'badges', r);
+    assert(r.groupCount.includes('1 Fail') && r.groupCount.includes('1 Warning') && r.checked.join() === 'true,true,false,false,false', 'quick select', r);
   });
 
   console.log('Stability');

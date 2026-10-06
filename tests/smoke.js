@@ -1039,6 +1039,174 @@ const assert = (cond, msg, detail) => { if (!cond) throw new Error(msg + (detail
     assert(/存檔失敗/.test(r) && !/已儲存/.test(r), 'failure reported', r);
   });
 
+  console.log('Per-page review (round 2)');
+
+  const PNG1 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+
+  await T('PDF：頁碼（封面除外）、檔名含版本、數據頁標題印測試條件、功耗表不再造成最後一列壓到頁尾', async (page) => {
+    const r = await page.evaluate(async () => {
+      const comps = Array.from({ length: 12 }, (_, i) => comp('C' + i, { ta_25: '50', ta_55: '80' }));
+      await useDb({ thermal_reports: { A: report('A', {
+        0: { ...cover('A'), data: { ...cover('A').data, report_version: 'v1.2' } },
+        1: dataPage(1, comps, [25, 55], { list_note: 'Full load 8x40W', machine_power: { ta_25: { v: '48', i: '9' }, ta_55: { v: '48', i: '9.2' } } }) }) } });
+      await openReport('A');
+      openPreview();
+      const vps = _virtualPages.map(vp => ({ type: vp.page.type, num: (vp.html.match(/>(\d+) \/ (\d+)</) || [])[0] || '' }));
+      closePreview();
+      // row bottoms vs the definition note on every data PDF page
+      const overlaps = buildVirtualPages().filter(v => v.page.type === 'data').map(vp => {
+        const d = document.createElement('div');
+        d.style.cssText = 'position:fixed;left:0;top:0;width:842px;height:595px;background:#fff;font-family:' + PDF_FONT;
+        d.innerHTML = vp.html; document.body.appendChild(d);
+        const top = d.getBoundingClientRect().top;
+        const rows = Array.from(d.querySelectorAll('tbody tr')); const last = rows[rows.length - 1];
+        const note = Array.from(d.querySelectorAll('div')).find(x => x.children.length === 0 && x.textContent.trim().startsWith('※'));
+        const res = { last: last.getBoundingClientRect().bottom - top, note: note ? note.getBoundingClientRect().top - top : 999 };
+        d.remove();
+        return res;
+      });
+      const title = buildVirtualPages()[1].html.includes('Full load 8x40W');
+      let name = '';
+      const Orig = jspdf.jsPDF;
+      window.jspdf = { jsPDF: function (...a) { const inst = new Orig(...a); inst.save = (n) => { name = n; }; return inst; } };
+      await exportPDF(new Set([0]));
+      return { vps, overlaps, title, name };
+    });
+    assert(r.vps[0].num === '' && r.vps.slice(1).every((v, i) => v.num === `>${i + 2} / ${r.vps.length}<`), 'page numbers', r.vps);
+    assert(r.overlaps.every(o => o.last <= o.note - 2), 'no row under the footnote', r.overlaps);
+    assert(r.title && /_v1\.2_ThermalReport\.pdf$/.test(r.name), 'title + filename', r);
+  });
+
+  await T('封面：Stage 同步到數據頁；審核 / 核准有填才印', async (page) => {
+    const r = await page.evaluate(async () => {
+      await useDb({ thermal_reports: { A: report('A', { 0: cover('A'), 1: dataPage(1, [comp('X', {})]), 2: dataPage(2, [comp('Y', {})]) }) } });
+      await openReport('A');
+      const st = document.querySelector('[data-field="stage"]');
+      st.value = 'PVT'; st.dispatchEvent(new Event('change'));
+      const before = buildCoverHTML(state.pages[0].data).includes('APPROVED BY');
+      const ap = document.querySelector('[data-field="approved_by"]');
+      ap.value = 'Director B'; ap.dispatchEvent(new Event('input'));
+      await flushAllSaves();
+      const p = disk().thermal_reports.A.pages;
+      const html = buildCoverHTML(state.pages[0].data);
+      return { stages: [p['1'].data.header.stage, p['2'].data.header.stage], before, approved: html.includes('APPROVED BY') && html.includes('Director B'), reviewed: html.includes('REVIEWED BY') };
+    });
+    assert(r.stages.join() === 'PVT,PVT', 'stage synced', r);
+    assert(!r.before && r.approved && !r.reviewed, 'sign-off rows printed only when filled', r);
+  });
+
+  await T('圖片頁：◀ ▶ 交換圖片位置（說明跟著走）', async (page) => {
+    const r = await page.evaluate(async (png) => {
+      await useDb({ thermal_reports: { A: report('A', { 0: { type: 'image', order: 0, data: { title: 'T', images: [{ position: 0, url_or_base64: png, caption: 'first' }, { position: 1, url_or_base64: png, caption: 'second' }] } } }) } });
+      await openReport('A');
+      const prevOnFirst = !!document.querySelector('.img-edit-btn[data-pos="0"][data-edit="move-prev"]');
+      document.querySelector('.img-edit-btn[data-pos="0"][data-edit="move-next"]').click();
+      await flushAllSaves();
+      return { prevOnFirst, caps: disk().thermal_reports.A.pages['0'].data.images.map(im => im.position + ':' + im.caption) };
+    }, PNG1);
+    assert(!r.prevOnFirst && r.caps.join() === '0:second,1:first', 'swapped', r);
+  });
+
+  await T('標註頁：量測溫度疊圖（依狀態上色，PDF 也有）、標籤寬度自動、批次命名帶入數據頁名稱', async (page) => {
+    const r = await page.evaluate(async (png) => {
+      const mk = (i, label) => ({ id: 'm' + i, x: 10 + i * 20, y: 20, label, label_x: 10 + i * 20, label_y: 70 });
+      await useDb({ thermal_reports: { A: report('A', {
+        0: { id: 'an', type: 'annotation', order: 0, data: { tc_category: 'RF', title: 'RF Thermocouple Location', photo_url_or_base64: png, markers: [mk(0, 'PA-1'), mk(1, 'Very long inductor name L101'), mk(2, 'Hot'), mk(3, 'Unknown')] } },
+        1: { id: 'dp', ...dataPage(1, [comp('PA-1', { ta_55: '60' }), comp('Very long inductor name L101', { ta_55: '108' }), comp('Hot', { ta_55: '120' })], [25, 55], { list_note: 'Full' }) } }) } });
+      await openReport('A');
+      const sel = document.querySelector('[data-anno-temp-page]');
+      sel.value = 'dp'; sel.dispatchEvent(new Event('change'));
+      const badges = Array.from(document.querySelectorAll('.marker-label-wrap')).map(w => (w.querySelector('.marker-temp') || {}).className || '-');
+      const widths = Array.from(document.querySelectorAll('.marker-label')).map(l => parseFloat(l.style.width));
+      const pdf = buildAnnotationHTML(state.pages[0].data);
+      document.getElementById('anno-batch-name').click();
+      document.getElementById('ab-fill').click();
+      const filled = document.getElementById('ab-text').value;
+      document.querySelector('.tool-modal-overlay').remove();
+      return { src: state.pages[0].data.temp_src, badges, widths, pdf120: /Hot<b[^>]*#b91c1c[^>]*>120\.0°C/.test(pdf), pdfSub: pdf.includes('實測 Tc（Ta = 55°C · 數據頁 1 · Full）'), filled };
+    }, PNG1);
+    assert(r.src.page_id === 'dp' && r.src.ta === 55, 'source saved', r.src);
+    assert(r.badges.join('|') === 'marker-temp marker-temp-pass|marker-temp marker-temp-warn|marker-temp marker-temp-fail|-', 'coloured badges', r.badges);
+    assert(r.widths[1] > 150 && r.widths[0] < 80, 'auto label width', r.widths);
+    assert(r.pdf120 && r.pdfSub, 'PDF overlay', r);
+    assert(r.filled === 'PA-1\nVery long inductor name L101\nHot', 'batch-name fill from data page', r.filled);
+  });
+
+  await T('數據頁排序：依最差 Margin、依類別（可復原）', async (page) => {
+    const r = await page.evaluate(async () => {
+      await useDb({ thermal_reports: { A: report('A', { 0: dataPage(0, [comp('A', { ta_55: '60' }, 125, '0.90', { category: 'PWR' }), comp('B', { ta_55: '110' }), comp('C', { ta_55: '90' }, 125, '0.90', { category: 'Digital' })]) }) } });
+      await openReport('A');
+      const sort = (mode) => { const sel = document.getElementById('dt-sort'); sel.value = mode; sel.dispatchEvent(new Event('change')); return state.pages[0].data.components.map(c => c.name).join(); };
+      const byMargin = sort('margin');
+      await flushAllSaves();
+      const byCat = sort('cat');
+      await flushAllSaves();
+      const byName = sort('name');
+      await flushAllSaves();
+      performUndo();
+      return { byMargin, byCat, byName, undone: state.pages[0].data.components.map(c => c.name).join() };
+    });
+    assert(r.byMargin === 'B,C,A' && r.byCat === 'B,C,A' && r.byName === 'A,B,C', 'sorted', r);
+    assert(r.undone === 'B,C,A', 'undo restores the previous order', r);
+  });
+
+  await T('比對頁：比較圖（編輯器 + PDF，可關閉）、產生比對結論', async (page) => {
+    const r = await page.evaluate(async () => {
+      await useDb({ thermal_reports: { A: report('A', {
+        0: { id: 'dp', ...dataPage(0, [comp('PA', { ta_55: '80' }, 125, '0.90', { uid: 'u1' }), comp('FPGA', { ta_55: '90' }, 125, '0.90', { uid: 'u2' })]) },
+        1: { type: 'sim_vs_meas', order: 1, data: { compare_ta: 55, items: [{ component_name: 'PA', sim_tc: '84', source_page: 'dp', source_uid: 'u1' }, { component_name: 'FPGA', sim_tc: '99', source_page: 'dp', source_uid: 'u2' }] } } }) } });
+      await openReport('A');
+      selectPage(1);
+      const img = document.getElementById('sim-chart-img');
+      const shown = img.style.display !== 'none' && img.src.startsWith('data:image/png');
+      const pdfOn = buildSimVsMeasPagesHTML(state.pages[1].data).join('').includes('data:image/png');
+      document.getElementById('sim-concl-draft').click();
+      const concl = state.pages[1].data.conclusion;
+      document.getElementById('sim-chart-on').click();
+      const pdfOff = buildSimVsMeasPagesHTML(state.pages[1].data).join('').includes('data:image/png');
+      return { shown, pdfOn, pdfOff, hidden: document.getElementById('sim-chart-img').style.display === 'none', concl };
+    });
+    assert(r.shown && r.pdfOn && !r.pdfOff && r.hidden, 'chart on / off', r);
+    assert(/比對 2 顆元件：✅ 0、⚠️ 1、❌ 1/.test(r.concl) && /模擬整體偏高 \+6\.5°C/.test(r.concl) && /最大偏差 FPGA \+9\.0°C/.test(r.concl), 'sim conclusion', r.concl);
+  });
+
+  await T('結論頁：由 Fail / Warning 產生行動（Owner = Tested by、期限兩週、不重複）', async (page) => {
+    const r = await page.evaluate(async () => {
+      await useDb({ thermal_reports: { A: report('A', {
+        0: { ...cover('A'), data: { ...cover('A').data, tested_by: 'Tedus' } },
+        1: dataPage(1, [comp('F1', { ta_55: '120' }), comp('W1', { ta_55: '105' }), comp('P1', { ta_55: '60' })]),
+        2: { type: 'conclusion', order: 2, data: { summary: '', issues: [''], actions: [{ description: '', owner: '', due_date: '' }], compliance: [] } } }) } });
+      await openReport('A');
+      selectPage(2);
+      document.getElementById('concl-actions-btn').click();
+      document.getElementById('concl-actions-btn').click();
+      const due = new Date(Date.now() + 14 * 86400000);
+      return { actions: state.pages[2].data.actions, due: `${due.getFullYear()}-${String(due.getMonth() + 1).padStart(2, '0')}-${String(due.getDate()).padStart(2, '0')}` };
+    });
+    assert(r.actions.length === 2 && /^改善 F1 散熱並重測/.test(r.actions[0].description) && /^追蹤 W1 溫度餘裕/.test(r.actions[1].description), 'actions', r.actions);
+    assert(r.actions.every(a => a.owner === 'Tedus' && a.due_date === r.due), 'owner + due', r);
+  });
+
+  await T('備註頁：記錄的截圖一鍵做成圖片頁（插在結論頁前）；預覽雙擊回到該頁', async (page) => {
+    const r = await page.evaluate(async (png) => {
+      await useDb({ thermal_reports: { A: report('A', {
+        0: cover('A'),
+        1: { type: 'conclusion', order: 1, data: { summary: 'x', issues: [''], actions: [], compliance: [] } },
+        2: { type: 'note', order: 2, data: { title: 'n', blocks: [{ id: 'b1', time: 't', text: 'IR @ 55C\nmore', images: [{ name: 'ir1.png', url: png }, { name: 'ir2.png', url: png }] }] } } }) } });
+      await openReport('A');
+      selectPage(2);
+      document.querySelector('[data-note-to-image="0"]').click();
+      await flushAllSaves();
+      const pages = Object.values(disk().thermal_reports.A.pages).sort((a, b) => a.order - b.order);
+      openPreview();
+      previewIdx = 0; renderPreviewPage();
+      document.querySelector('#preview-canvas-wrap > div').dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+      return { types: pages.map(p => p.type), img: pages[1].data, previewOpen: document.getElementById('preview-overlay').classList.contains('open'), active: state.activePage };
+    }, PNG1);
+    assert(r.types.join() === 'cover,image,conclusion,note' && r.img.title === 'IR @ 55C' && r.img.images.map(i => i.caption).join() === 'ir1,ir2', 'image page from note', r);
+    assert(!r.previewOpen && r.active === 0, 'preview dblclick → edit', r);
+  });
+
   console.log('New version → save, then reload');
 
   // Serve index.html stamped with `build.served` and version.json with `build.online`

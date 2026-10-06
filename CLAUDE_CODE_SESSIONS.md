@@ -16,7 +16,7 @@
 用以下 config 初始化 Firebase（Firestore + Storage），並啟用 offline persistence：
 
 const firebaseConfig = {
-  apiKey: "AIzaSyBBhIIGUe3yzxarC3OHoIhuFr5Yg8IfAoo",
+  apiKey: "<已移除：請至 Firebase Console 取得>",
   authDomain: "thermal-test-report-builder.firebaseapp.com",
   projectId: "thermal-test-report-builder",
   storageBucket: "thermal-test-report-builder.firebasestorage.app",

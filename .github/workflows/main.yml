@@ -22,7 +22,7 @@ jobs:
       - name: Check required files exist and are non-empty
         run: |
           set -e
-          for f in index.html config.js dbAdapter.js fileDb.js; do
+          for f in index.html dbAdapter.js fileDb.js; do
             if [ ! -s "$f" ]; then
               echo "::error file=$f::Required file '$f' is missing or empty"
               exit 1
@@ -30,10 +30,41 @@ jobs:
             echo "OK: $f"
           done
 
+      - name: Refuse committed report databases / backups
+        run: |
+          set -e
+          bad=$(git ls-files '*.json' | grep -v -E '(^|/)package(-lock)?\.json$' || true)
+          if [ -n "$bad" ]; then
+            echo "::error::Report database/backup JSON must not be committed: $bad"
+            exit 1
+          fi
+
       - name: Syntax-check JavaScript files
         run: |
           set -e
-          for f in config.js dbAdapter.js fileDb.js; do
+          for f in dbAdapter.js fileDb.js tests/smoke.js tests/check-inline-scripts.js; do
             node --check "$f"
             echo "Syntax OK: $f"
           done
+          node tests/check-inline-scripts.js
+
+  smoke:
+    name: Browser regression tests
+    runs-on: ubuntu-latest
+    needs: validate
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Playwright + Chromium
+        run: |
+          npm install --no-save --no-package-lock playwright@1.56.1
+          npx playwright install --with-deps chromium
+
+      - name: Run regression tests
+        run: node tests/smoke.js

@@ -33,7 +33,7 @@
 | **使用頻率** | 每個專案 Prototype / EVT / DVT / PVT 各一份，中高頻使用 |
 | **部署方式** | GitHub Pages（單一 `index.html`，無後端）|
 | **技術限制** | 無 Python、無後端、純瀏覽器執行，公司防火牆限制 |
-| **資料持久化** | Firebase Firestore + Firebase Storage |
+| **資料持久化** | 本機 JSON 資料庫檔案（File System Access API，可放共用磁碟）＋ 每日自動備份資料夾（保留 30 份）。原規劃的 Firebase 已停用，見 §4 |
 | **輸出格式** | PDF（Phase 1）/ PPTX（Phase 2）|
 
 ---
@@ -281,6 +281,15 @@ Step 6  可移動標籤框位置 / 刪除標記點 / 刪除標籤框
 | < 0% | ❌ Fail | 紅色 |
 
 > **Pass/Fail 邏輯：** 任一 Ta 條件下 Margin < 0% → 整列 Pass/Fail 欄顯示 ❌ Fail，該列整行背景變淡紅。
+> 所有 Ta 都沒有量測值的列顯示「—」（未量測），**不判定為 Pass**；停用（斷線）列顯示「斷線 N/A」且不參與判定。
+
+##### Margin 定義（數據頁與 PDF 皆印出此定義）
+
+| 項目 | 公式 |
+|------|------|
+| Derated Tc | `Tc Spec × Derating` |
+| Margin (%) | `(Derated Tc − Tc實測) / Derated Tc × 100`（判定依據）|
+| ΔT Margin (°C) | `Derated Tc − Tc實測`（與 % 一併顯示於 Margin 格第二行，供工程判讀）|
 
 ##### 數據表示意（預設 25°C + 55°C）
 
@@ -314,8 +323,8 @@ Step 6  可移動標籤框位置 / 刪除標記點 / 刪除標籤框
 #### 設計邏輯
 
 ```
-Module 4b（Ta = 55°C 實測 Tc）
-        ↓ 自動帶入（元件名 + 實測 Tc @ 55°C）
+Module 4b（使用者選定的比對 Ta，預設 55°C；無 55°C 時預設為最高 Ta）
+        ↓ 自動帶入（元件名 + 該 Ta 的實測 Tc）
 Module 5 比對表
         ↓ 使用者手動填入 Sim Tc（從 FloTHERM Monitor Point 抄入）
         ↓ 自動計算 Dev(°C) 與 Dev(%)
@@ -329,7 +338,10 @@ Step 1  進入 Module 5 頁面
 Step 2  點選「從 Module 4b 選取元件」按鈕
 Step 3  彈出 Checklist：列出 Module 4b 所有元件
 Step 4  使用者勾選關鍵元件（如 PA × N 顆、FPGA 等）
-Step 5  確認後自動帶入：元件名稱 + Tc Spec Derated + Meas Tc @ 55°C
+Step 5  確認後自動帶入：元件名稱 + Tc Spec Derated + Meas Tc @ 比對 Ta
+        （以「數據頁 id + 元件 uid」連結來源元件；改名、重排、刪除都不會錯接。
+          來源元件被刪除時該列顯示「⚠ 來源元件已變更」，不會改抓其他元件的數值）
+        （比對 Ta 可在頁面右上角切換；來源數據頁沒有該 Ta 時顯示「無此 Ta」，不會改用其他 Ta 的讀值）
 Step 6  Sim Tc 欄留空，等待手動填入
 ```
 
@@ -340,8 +352,8 @@ Step 6  Sim Tc 欄留空，等待手動填入
 | A | 類別 | Module 4b 自動帶入 | 唯讀 |
 | B | 元件名稱 | Module 4b 自動帶入 | 唯讀 |
 | C | Tc Spec Derated (°C) | Module 4b 自動帶入 | 唯讀，參考用 |
-| D | **Sim Tc @ 55°C (°C)** | **手動輸入** | 從 FloTHERM Monitor Point 抄入 |
-| E | **Meas Tc @ 55°C (°C)** | Module 4b 自動帶入 | 唯讀 |
+| D | **Sim Tc @ 比對 Ta (°C)** | **手動輸入** | 從 FloTHERM Monitor Point 抄入 |
+| E | **Meas Tc @ 比對 Ta (°C)** | Module 4b 自動帶入 | 唯讀 |
 | F | **Dev (°C)** | 自動計算 | `= D - E`，正值代表 Sim 高估 |
 | G | **Dev (%)** | 自動計算 | `= (D - E) / E × 100` |
 | H | 判斷 | 自動 | 依 Dev% 顏色警示（見下方）|
@@ -351,9 +363,11 @@ Step 6  Sim Tc 欄留空，等待手動填入
 
 | \|Dev %\| | 判斷 | 顏色 |
 |----------|------|------|
-| ≤ 10% | ✅ Acceptable | 綠色 |
-| 10% ~ 20% | ⚠️ Review | 黃色 |
-| > 20% | ❌ Check Model | 紅色 |
+| ≤ 5% | ✅ Acceptable | 綠色 |
+| 5% ~ 10% | ⚠️ Review | 黃色 |
+| > 10% | ❌ Check Model | 紅色 |
+
+> 實作判定門檻為 5% / 10%（頁面備註 1 同步顯示）。
 
 > **注意：** Dev 為負值（Sim 低估實測）比正值更危險，建議在備註欄說明低估原因。
 
@@ -386,13 +400,19 @@ Step 6  Sim Tc 欄留空，等待手動填入
 | 區塊 | 型態 | 說明 |
 |------|------|------|
 | 結論摘要（Summary）| 富文本 | 支援粗體 / 條列 |
-| 合規性總表 | 自動彙總（Phase 2）| 從 Module 4b 帶入：元件 / 最高量測 Tc / Derated Spec / 判斷 |
+| 合規性總表 | 從數據頁選取 | 元件 / **Max Tc（所有 Ta 中最高的實測值，並標示其 Ta）** / Derated Spec / Margin（% 與 ΔT°C）/ 判斷 |
+| Overall Result | 自動 | 依**所有數據頁**中已啟用且有 Spec 的元件判定：任一 Fail → ❌ FAIL；否則任一 Warning → ⚠️ CONDITIONAL PASS；全部 Pass → ✅ PASS；皆無量測值 → 尚未判定。並顯示判定依據（元件數、Fail/Warning/未量測數）。合規性總表未列入的 Fail/Warning 元件會提示並可一鍵加入 |
 | 發現問題（Issues Found）| 條列輸入 | 每條一行，可新增 / 刪除 |
 | 後續行動（Next Action）| 條列輸入 | 每條附 Owner 欄 + Due Date 欄 |
 
 ---
 
-## 4. Firebase 資料架構
+## 4. Firebase 資料架構（已停用，保留供參考）
+
+> **現況：** 目前版本使用本機 JSON 資料庫檔案（`fileDb.js`）：
+> `{ thermal_reports: { [reportId]: { ...meta, pages: { "0": { id, type, order, data, updated_at }, ... } } }, tim_library }`。
+> 每頁有持久化的 `id`；數據頁元件有 `uid`，比對頁 / 結論頁以 `source_page + source_uid` 連結來源元件。
+> 寫入採單一佇列合併寫入；檔案被其他分頁 / 使用者修改時會停止儲存並提示，不會覆蓋；JSON 毀損時拒絕開啟。
 
 ### 專案設定
 

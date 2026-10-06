@@ -52,6 +52,15 @@ Thermal_Report_Builder/
 | 匯出前 | 匯出視窗的**報告檢查**列出漏填（未填實測值、未命名、缺 Sim Tc、Fail 未列入 Compliance…），點一下跳到該頁；可勾選同時上傳 PDF 到 SharePoint |
 | 隨時 | 數據頁上方摘要列（Pass / Warning / Fail 數、最小 Margin、最高 Tc，點名稱跳到該列）；頁面清單的狀態徽章（❌ / ⚠ / ✓ / 已量測數 / 空）；Ctrl+S 立即存檔並同步；首頁搜尋（按 /）、Stage 篩選、排序 |
 
+## 部署與自動更新
+
+網站由 `.github/workflows/pages.yml` 部署到 GitHub Pages（**一次性設定**：repo 的 Settings → Pages → Build and deployment →
+Source 選 **GitHub Actions**）。每次 push 到 main，部署會把建置版本號蓋進 `index.html` 與 `version.json`。
+
+開著的工具每 5 分鐘（以及切回視窗時）檢查 `version.json`：有新版本就跳出提示倒數 10 秒（沒開報告時 3 秒），
+**先強制存檔**（本機資料庫檔 + SharePoint 同步），再自動載入新版本並回到原本的報告與頁面。
+存檔失敗（例如檔案衝突）時不會更新，頂端會顯示原因與「重試」，不會蓋掉未存的資料。
+
 ## 開發
 
 ```
@@ -61,6 +70,7 @@ dbAdapter.js   報告 / 頁面 CRUD
 spSync.js      SharePoint 雙存檔（MSAL.js + Microsoft Graph，eTag）
 loggerCsv.js   記錄器 CSV / TXT 解析（分隔符號、標題列、時間欄、穩態統計）
 auth.html      Microsoft 登入重新導向頁
+version.json   建置版本號（佔位字串，部署時蓋上；不要手動改）
 tests/         Playwright 回歸測試（tests/fake-sharepoint.js 為假的 Graph / MSAL）
 ```
 

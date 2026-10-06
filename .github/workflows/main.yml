@@ -22,7 +22,7 @@ jobs:
       - name: Check required files exist and are non-empty
         run: |
           set -e
-          for f in index.html dbAdapter.js fileDb.js spSync.js loggerCsv.js auth.html; do
+          for f in index.html dbAdapter.js fileDb.js spSync.js loggerCsv.js auth.html version.json; do
             if [ ! -s "$f" ]; then
               echo "::error file=$f::Required file '$f' is missing or empty"
               exit 1
@@ -33,11 +33,17 @@ jobs:
       - name: Refuse committed report databases / backups
         run: |
           set -e
-          bad=$(git ls-files '*.json' | grep -v -E '(^|/)package(-lock)?\.json$' || true)
+          bad=$(git ls-files '*.json' | grep -v -E '(^|/)package(-lock)?\.json$' | grep -v -x 'version.json' || true)
           if [ -n "$bad" ]; then
             echo "::error::Report database/backup JSON must not be committed: $bad"
             exit 1
           fi
+
+      - name: Build-id placeholders are left for the Pages deploy to stamp
+        run: |
+          set -e
+          grep -q '"__BUILD_VERSION__"' version.json
+          grep -q 'name="trb-version" content="__BUILD_VERSION__"' index.html
 
       - name: Syntax-check JavaScript files
         run: |

@@ -20,6 +20,7 @@ const dbAdapter = {
   forceOverwrite() { return fileDb.forceOverwrite(); },
 
   getAllReports() { return fileDb.getAllReports(); },
+  getReportDigests() { return fileDb.getReportDigests(); },
   createReport(reportId, meta) { return fileDb.createReport(reportId, meta); },
   getReportMeta(reportId) { return fileDb.getReportMeta(reportId); },
   updateReportMeta(reportId, fields) { return fileDb.updateReportMeta(reportId, fields); },

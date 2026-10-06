@@ -4680,6 +4680,10 @@
       return p;
     }
 
+    // True if a save attempt that started after `seq` (from currentSaveSeq()) failed.
+    function currentSaveSeq() { return _saveSeq; }
+    function saveFailedSince(seq) { return _lastFailSeq > seq; }
+
     // Write every pending save now and wait for the file write to finish.
     // Used before leaving a report, switching database, and on tab close.
     async function flushAllSaves() {
@@ -6156,8 +6160,10 @@
       const list = files.slice().sort((a, b) => naturalCompare(a.name, b.name));
       const captions = userPrefs().batch_captions !== false;
       const free = Math.max(0, 4 - (page.data.images || []).length);
+      const rid = state.reportId;
       for (const f of list.slice(0, free)) {
         const url = await processImageCompressed(f, PHOTO_JPEG_QUALITY);
+        if (state.reportId !== rid || !state.pages.includes(page)) return;   // report switched meanwhile
         page.data.images.push({ position: page.data.images.length, url_or_base64: url, caption: captions ? fileStem(f.name) : '' });
       }
       const pageIdx = state.pages.indexOf(page);
@@ -8756,7 +8762,7 @@
         if (dp) {
           dp.classList.add('data-frozen');
           dp.querySelectorAll('input, select, textarea, button').forEach(el => {
-            if (el.hasAttribute('data-freeze-toggle')) return; // keep the unlock button usable
+            if (el.hasAttribute('data-freeze-toggle') || el.hasAttribute('data-freeze-keep')) return; // unlock button + summary jumps stay usable
             el.disabled = true;
           });
         }
@@ -11070,7 +11076,7 @@
               <span class="lv">${c.level === 'warn' ? '⚠️' : 'ℹ️'}</span><span class="pg">${escHtml(pageName(c.idx))}</span><span>${escHtml(c.text)}</span>
             </button>`).join('')}</div>
         </div>`;
-      const spOn = !!(window.spSync && spSync.isEnabled());
+      const spOn = !!(window.spSync && spSync.isEnabled() && spSync.account() && spSync.status().state !== 'needs-login');
       const spChecked = spOn && userPrefs().export_sp !== false;
       const spFolder = (() => {
         const cv = state.pages.find(p => p.type === 'cover');
@@ -11255,7 +11261,9 @@
             const url = await spSync.uploadExport(opts.folder || 'Report', filename + '.pdf', pdf.output('blob'));
             showToast(`PDF 已上傳到 SharePoint：Reports/${opts.folder || 'Report'}/`, 'ok', 8000, url ? { href: url, label: '開啟' } : null);
           } catch (e) {
-            showToast('PDF 已下載，但上傳 SharePoint 失敗：' + (e.message || e), 'err', 9000);
+            showToast(e && e.auth
+              ? 'PDF 已下載；SharePoint 登入已過期，請按工具列的 ☁ 重新登入後再匯出一次'
+              : 'PDF 已下載，但上傳 SharePoint 失敗：' + (e.message || e), 'err', 9000);
           }
         }
       } catch (err) {
@@ -11389,7 +11397,7 @@
       if (!s.n.total) return '';
       const nm = x => escHtml(x.c.name || '(未命名)');
       const chip = (cls, label, jump) => jump
-        ? `<button type="button" class="dt-sum-chip ${cls}" data-sum-jump="${jump}" title="跳到第一顆">${label}</button>`
+        ? `<button type="button" class="dt-sum-chip ${cls}" data-sum-jump="${jump}" data-freeze-keep title="跳到第一顆">${label}</button>`
         : `<span class="dt-sum-chip ${cls}">${label}</span>`;
       const parts = [chip('', `共 ${s.n.total} 顆`)];
       if (s.n.pass) parts.push(chip('dt-sum-pass', `✔ ${s.n.pass} Pass`));
@@ -11451,13 +11459,7 @@
     function loggerPrefs() { return Object.assign({}, LOGGER_DEFAULTS, userPrefs().logger || {}); }
     const AMBIENT_RE = /amb|ambient|環溫|環境|chamber|room|\bair\b|^\s*ta\s*$|\bta\b/i;
     // "101 <PA-1> (C)" → "PA-1"; "CH3: FPGA [°C]" → "FPGA".
-    function cleanChannelName(name) {
-      const s = String(name || '');
-      const tag = s.match(/<([^>]+)>/);
-      if (tag) return tag[1].trim();
-      const t = s.replace(/[([][^)\]]*[)\]]/g, '').replace(/^\s*(?:ch(?:annel)?\s*\d+|\d{3,4})\s*[:_\-.]?\s*/i, '').trim();
-      return t || s.trim();
-    }
+    const cleanChannelName = name => loggerCsv.channelLabel(name);
     async function readTextFile(file) {
       const buf = await file.arrayBuffer();
       let best = new TextDecoder('utf-8').decode(buf);
@@ -11523,10 +11525,13 @@
             if (st.map[c.uid] !== undefined || !String(c.name || '').trim()) return;
             chs.forEach((ch, ci) => { const sc = loggerCsv.nameScore(c.name, ch.name); if (sc) cands.push({ uid: c.uid, ci, sc }); });
           });
-          cands.sort((a, b) => b.sc - a.sc).forEach(x => {
-            if (st.map[x.uid] !== undefined || used.has(x.ci)) return;
-            st.map[x.uid] = x.ci; used.add(x.ci); matched++;
-          });
+          // a loose (score 1) match that several channels / components share is ambiguous → skip
+          const ones = (key, val) => cands.filter(x => x.sc === 1 && x[key] === val).length;
+          cands.filter(x => x.sc > 1 || (ones('uid', x.uid) === 1 && ones('ci', x.ci) === 1))
+            .sort((a, b) => b.sc - a.sc).forEach(x => {
+              if (st.map[x.uid] !== undefined || used.has(x.ci)) return;
+              st.map[x.uid] = x.ci; used.add(x.ci); matched++;
+            });
         }
         st.matchedBy = matched ? 'name' : '';
         // 3) nothing matched by name → in order (TC1 → first channel …)
@@ -11967,12 +11972,21 @@
       const firstNew = at;
       const t = showToast(`處理圖片中 0 / ${list.length}…`, '', 0);
       const created = [];
+      const rid = state.reportId, pagesRef = state.pages;
+      const switched = () => state.reportId !== rid || state.pages !== pagesRef;
       for (let i = 0; i < list.length; i += per) {
         const images = [];
         for (const f of list.slice(i, i + per)) {
           const url = await processImageCompressed(f, PHOTO_JPEG_QUALITY);
+          if (switched()) break;
           images.push({ position: images.length, url_or_base64: url, caption: opts.captions ? fileStem(f.name) : '' });
           t.firstChild.textContent = `處理圖片中 ${i + images.length} / ${list.length}…`;
+        }
+        if (switched()) {                        // report closed / switched meanwhile → don't write into another one
+          t.remove();
+          if (created.length) saveStructure();
+          showToast('已切換報告，批次圖片已停止' + (created.length ? `（已加入 ${created.length} 頁）` : ''), 'warn');
+          return created.length;
         }
         const page = makePage('image');
         if (opts.title) page.data.title = opts.title;
@@ -12049,7 +12063,7 @@
         title: '✎ 批次命名標註點',
         width: 460,
         body: `<div class="tool-hint" style="margin-bottom:8px;">每行一個名稱，依序套用到標註點 1、2、3…（可直接從 Excel 複製一欄貼上）。空白行保留原名稱。</div>
-          <textarea class="tool-textarea" id="ab-text" style="min-height:240px;">${escHtml(markers.map((mk, i) => mk.label || ('TC' + (i + 1))).join('\n'))}</textarea>
+          <textarea class="tool-textarea" id="ab-text" style="min-height:240px;" placeholder="${escapeAttr(markers.map((mk, i) => 'TC' + (i + 1)).join('\n'))}">${escHtml(markers.map(mk => mk.label || '').join('\n'))}</textarea>
           <div class="tool-hint" id="ab-info"></div>`,
         footer: `<button class="sim-modal-btn" id="ab-cancel">取消</button>
           <button class="sim-modal-btn primary" id="ab-ok">套用</button>`,
@@ -12066,7 +12080,7 @@
       m.$('#ab-ok').addEventListener('click', () => {
         const lines = ta.value.split(/\r?\n/).map(s => s.trim());
         let n = 0;
-        markers.forEach((mk, i) => { if (lines[i] && lines[i] !== mk.label) { mk.label = lines[i]; n++; } });
+        markers.forEach((mk, i) => { if (lines[i] && lines[i] !== (mk.label || '')) { mk.label = lines[i]; n++; } });
         m.close();
         if (!n) return;
         scheduleSave(pageIdx);
@@ -12434,6 +12448,7 @@
       // "/" jumps to the search box on the homepage
       document.addEventListener('keydown', (e) => {
         if (e.key !== '/' || $homepage.classList.contains('hidden') || $hpTools.style.display === 'none') return;
+        if (document.querySelector('.hp-modal-overlay, .sim-modal-overlay, .update-backdrop')) return;
         const ae = document.activeElement;
         if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.tagName === 'SELECT' || ae.isContentEditable)) return;
         e.preventDefault();
@@ -12855,8 +12870,13 @@
     // ━━━ Init ━━━
     async function saveNow() {
       if (!state.reportId || !dbAdapter.isReady()) return;
+      const seq = currentSaveSeq();
       await flushAllSaves();
       if (dbAdapter.hasConflict()) { showDbConflictDialog(true); return; }
+      if (saveFailedSince(seq) || dbAdapter.hasUnsavedChanges()) {
+        showToast('存檔失敗：' + (document.getElementById('status-text').textContent || '資料尚未寫入'), 'err', 6000);
+        return;
+      }
       if (window.spSync && spSync.isEnabled()) {
         showToast('已儲存到本機，正在同步 SharePoint…', 'ok', 2500);
         spSync.syncNow();
@@ -13309,8 +13329,9 @@ async function applyAppUpdate() {
   if (a && a.blur) a.blur();                                    // commit the field being edited
   await new Promise(r => setTimeout(r, 0));
   if (dbAdapter.isReady()) {
+    const seq = currentSaveSeq();
     try { await flushAllSaves(); } catch (e) { /* reported below */ }
-    if (hasPendingSaves() || dbAdapter.hasUnsavedChanges()) {
+    if (hasPendingSaves() || dbAdapter.hasUnsavedChanges() || saveFailedSince(seq)) {
       u.state = 'error';
       u.error = dbAdapter.hasConflict() ? '資料庫檔案已被其他視窗或使用者修改，請先處理衝突' : '資料尚未寫入本機資料庫檔';
       renderUpdateNotice();

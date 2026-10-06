@@ -56,6 +56,9 @@
   function cellTime(cell) {
     const s = stripQuotes(cell);
     if (!s) return NaN;
+    // Elapsed "mm:ss.f" (fraction, or minutes > 23) — not a clock time.
+    const ms = s.match(/^(\d{1,4}):(\d{2})([.,]\d+)?$/);
+    if (ms && (ms[3] || +ms[1] > 23)) return (+ms[1]) * 60 + parseFloat(ms[2] + (ms[3] || '').replace(',', '.'));
     const tm = s.match(/(\d{1,2}):(\d{2})(?::(\d{2}(?:[.,]\d+)?))?\s*(AM|PM|上午|下午)?/i);
     if (!tm) return NaN;
     let h = +tm[1];
@@ -117,17 +120,26 @@
       return nums >= 1 && nums + other >= Math.max(2, Math.ceil(row.length * 0.5));
     };
 
-    // Data block = the last run of data rows (preambles / footers are skipped).
+    // A row of units / blanks under the header ("", "degC", "°C", "V" …).
+    const UNIT_CELL = /^(?:°?\s*[CF]|℃|deg\s*[CF]?|[VAW]|mV|mA|%|s|sec|ms|min|h|unit|units|單位)?$/i;
+    const isUnitsRow = row => row.every(c => UNIT_CELL.test(stripQuotes(c)));
+
+    // Data block = the last run of data rows (preambles / footers are skipped);
+    // a shorter final line (logger still writing) is dropped.
     let end = cells.length - 1;
     while (end >= 0 && !isDataRow(cells[end])) end--;
     if (end < 0) return { error: '找不到數值資料列（請確認是記錄器匯出的 CSV / TXT）', channels: [], rows: [] };
+    while (end > 0 && isDataRow(cells[end - 1]) && cells[end].length < cells[end - 1].length) end--;
     const width = cells[end].length;
     let start = end;
     while (start - 1 >= 0 && isDataRow(cells[start - 1]) && Math.abs(cells[start - 1].length - width) <= 1) start--;
-    // Header = nearest non-data row above the block with about the same width.
-    let header = null;
+    // Header = nearest non-data, non-units row above the block with about the same width.
+    let header = null, unitsRow = null;
     for (let i = start - 1; i >= 0 && i >= start - 30; i--) {
-      if (cells[i].length >= width - 1 && cells[i].length <= width + 1 && !isDataRow(cells[i])) { header = cells[i].map(stripQuotes); break; }
+      if (cells[i].length < width - 1 || cells[i].length > width + 1 || isDataRow(cells[i])) continue;
+      if (isUnitsRow(cells[i])) { if (!unitsRow) unitsRow = cells[i].map(stripQuotes); continue; }
+      header = cells[i].map(stripQuotes);
+      break;
     }
     const data = cells.slice(start, end + 1);
     const names = Array.from({ length: width }, (_, c) => (header && header[c]) || '');
@@ -137,7 +149,9 @@
     if (timeCol < 0) timeCol = names.findIndex((_, ci) => data.slice(0, 20).filter(r => !isNaN(cellTime(r[ci]))).length >= Math.min(5, data.length));
     let elapsedCol = -1, elapsedScale = 1;
     if (timeCol < 0) {
-      elapsedCol = names.findIndex(n => TIME_HEADER.test(n));
+      const numericCol = ci => data.filter(r => !isNaN(cellNumber(r[ci], commaDecimal))).length >= data.length * 0.8;
+      const cands = names.map((n, ci) => ci).filter(ci => TIME_HEADER.test(names[ci]) && numericCol(ci));
+      elapsedCol = cands.find(ci => /elapsed|經過|\(s\)|\[s\]|sec|秒|min|分/i.test(names[ci])) ?? cands[0] ?? -1;
       if (elapsedCol >= 0) {
         const n = names[elapsedCol];
         elapsedScale = /\bms\b|毫秒/i.test(n) ? 0.001 : /\bmin|分/i.test(n) ? 60 : /\bh(?:ou)?r|小時/i.test(n) ? 3600 : 1;
@@ -157,7 +171,7 @@
       const errs = data.filter(r => ERROR_TOKEN.test(stripQuotes(r[ci]))).length;
       if (nums === 0 || (nums + errs) < data.length * 0.6) continue;
       if (isIndexLike(ci)) continue;
-      channels.push({ col: ci, name: names[ci] || ('CH' + (channels.length + 1)), unit: unitOf(names[ci]) });
+      channels.push({ col: ci, name: names[ci] || ('CH' + (channels.length + 1)), unit: unitOf(names[ci]) || (unitsRow && unitsRow[ci]) || '' });
     }
     if (!channels.length) return { error: '找不到溫度通道欄位', channels: [], rows: [] };
 
@@ -192,8 +206,8 @@
     let win = rows, info;
     if (parsed.timeMode === 'time') {
       const timed = rows.filter(r => !isNaN(r.t));
-      const tEnd = Math.max(...timed.map(r => r.t));
-      const tStart = Math.min(...timed.map(r => r.t));
+      let tEnd = -Infinity, tStart = Infinity;
+      timed.forEach(r => { if (r.t > tEnd) tEnd = r.t; if (r.t < tStart) tStart = r.t; });
       win = timed.filter(r => r.t >= tEnd - o.minutes * 60);
       info = { mode: 'time', minutes: o.minutes, rows: win.length, totalMinutes: (tEnd - tStart) / 60 };
     } else {
@@ -205,7 +219,8 @@
       if (!pts.length) return { name: ch.name, n: 0, avg: NaN, min: NaN, max: NaN, range: NaN, last: NaN, slope: NaN, stable: false };
       const vals = pts.map(p => p.v);
       const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
-      const min = Math.min(...vals), max = Math.max(...vals);
+      let min = Infinity, max = -Infinity;
+      vals.forEach(v => { if (v < min) min = v; if (v > max) max = v; });
       let slope = NaN;   // °C per minute (least squares), time mode only
       if (info.mode === 'time' && pts.length >= 3) {
         const mt = pts.reduce((a, p) => a + p.t, 0) / pts.length;
@@ -218,18 +233,29 @@
     return { info, stats };
   }
 
-  // Token-aware name match: "PA-1" matches "101 PA-1 (C)" but not "PA-10".
-  const loose = s => ' ' + String(s || '').toLowerCase().replace(/[([][^)\]]*[)\]]/g, ' ').replace(/[^a-z0-9㐀-鿿]+/g, ' ').trim() + ' ';
+  // Channel label: the <tag> if there is one ("101 <PA-1> (C)" → "PA-1"), else
+  // the header without unit brackets ("[°C]", "(C)") and channel prefix
+  // ("CH3:", "101 "). Brackets that are part of a name ("DDR (U5)") are kept.
+  const UNIT_BRACKET = /[([]\s*(?:°?\s*[CF]|℃|deg\s*[CF]?|V|mV|mA|A|W|%)\s*[)\]]/gi;
+  function channelLabel(name) {
+    const s = String(name || '');
+    const tag = s.match(/<([^>]+)>/);
+    if (tag) return tag[1].trim();
+    const t = s.replace(UNIT_BRACKET, ' ').replace(/^\s*(?:ch(?:annel)?\s*\d+|\d{3,4})(?:\s*[:_\-.]\s*|\s+)/i, '').trim();
+    return t || s.trim();
+  }
+  // Token-aware name match: "PA-1" matches "101 PA-1 (C)" but not "PA-10";
+  // "DDR (U5)" does not match "DDR (U7)".
+  const loose = s => ' ' + String(s || '').replace(UNIT_BRACKET, ' ').toLowerCase().replace(/[^a-z0-9㐀-鿿]+/g, ' ').trim() + ' ';
   const compact = s => String(s || '').toLowerCase().replace(/[^a-z0-9㐀-鿿]+/g, '');
-  /** 0 = no match, 3 = same name, 2 = same after dropping channel prefix / unit, 1 = contained as whole tokens. */
+  /** 0 = no match, 3 = same name, 2 = same as the channel label, 1 = contained as whole tokens. */
   function nameScore(componentName, channelName) {
     const a = compact(componentName), b = compact(channelName);
     if (!a || !b) return 0;
     if (a === b) return 3;
-    const stripped = compact(String(channelName).replace(/[([][^)\]]*[)\]]/g, '').replace(/^\s*(?:ch(?:annel)?\s*\d+|\d{3,4})\s*[:_\-.]?\s*/i, ''));
-    if (stripped && stripped === a) return 2;
+    if (compact(channelLabel(channelName)) === a) return 2;
     return loose(channelName).includes(loose(componentName)) ? 1 : 0;
   }
 
-  window.loggerCsv = { parse, analyze, nameScore, cellNumber, cellTime };
+  window.loggerCsv = { parse, analyze, nameScore, channelLabel, cellNumber, cellTime };
 })();

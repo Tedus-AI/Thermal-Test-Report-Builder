@@ -3081,296 +3081,115 @@
       border-bottom-color: var(--color-primary);
     }
 
-    /* ━━━ Annotation Page Module ━━━ */
-    .annotation-page {
-      width: 100%;
-      height: 100%;
-      display: flex;
-      flex-direction: column;
-      font-family: var(--font-ui);
-      color: var(--text-on-white);
-      overflow: hidden;
-      position: relative;
+    /* ━━━ Annotation page editor (the page itself is the shared PDF layout) ━━━ */
+    .an-editor { width: 100%; height: 100%; display: flex; flex-direction: column; background: #F7F9FC; font-family: var(--font-ui); color: var(--text-on-white); }
+    .an-toolbar { flex-shrink: 0; display: flex; align-items: center; flex-wrap: wrap; gap: 6px; padding: 6px 10px; background: #fff; border-bottom: 1px solid rgba(15,23,42,0.08); position: relative; z-index: 5; }
+    .an-title { display: flex; align-items: center; gap: 6px; margin-right: 4px; }
+    .an-cat { font: 700 13px var(--font-ui); color: #0B3D7A; border: 1px solid rgba(15,23,42,0.14); border-radius: 4px; padding: 2px 4px; background: #fff; cursor: pointer; }
+    .an-title-fixed { font: 700 13px var(--font-ui); color: #0B3D7A; white-space: nowrap; }
+    .an-tgroup { display: flex; align-items: center; gap: 1px; padding: 2px; border: 1px solid rgba(15,23,42,0.08); border-radius: 7px; background: #F7F9FC; }
+    .an-tb { position: relative; width: 30px; height: 28px; display: inline-flex; align-items: center; justify-content: center; border: none; border-radius: 5px; background: transparent; color: #1A4E96; cursor: pointer; padding: 0; transition: background var(--transition-fast); }
+    .an-tb svg { width: 17px; height: 17px; stroke: currentColor; fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+    .an-tb:hover { background: rgba(35,87,167,0.10); }
+    .an-tb[aria-pressed="true"] { background: #2357A7; color: #fff; }
+    .an-tb[data-danger] { color: #b91c1c; }
+    .an-tb[data-danger]:hover { background: rgba(220,38,38,0.10); }
+    .an-tb:disabled { opacity: 0.32; cursor: default; background: transparent; }
+    .an-tb.txt { width: auto; min-width: 44px; padding: 0 6px; font: 600 11px var(--font-mono); color: #0B3D7A; }
+    .an-tb[data-tip]:hover::after, .an-tb[data-tip]:focus-visible::after {
+      content: attr(data-tip); position: absolute; top: calc(100% + 7px); left: 50%; transform: translateX(-50%);
+      white-space: nowrap; background: #0B3D7A; color: #fff; font: 500 11px var(--font-ui); padding: 4px 8px; border-radius: 4px;
+      pointer-events: none; z-index: 50; box-shadow: 0 2px 8px rgba(2,27,58,0.25);
     }
-
-
-    .annotation-title {
-      font-size: clamp(13px, 2vmin, 16px);
-      font-weight: 700;
-      border: none;
-      outline: none;
-      background: transparent;
-      color: var(--text-on-white);
-      width: 100%;
-      padding: 1.4% 1.9% 1%;
-      font-family: var(--font-ui);
-      flex-shrink: 0;
-      z-index: 5;
-    }
-
-    .annotation-title::placeholder {
-      color: rgba(15,23,42,0.28);
-    }
-
-    .annotation-title:hover {
-      background: rgba(56,189,248,0.04);
-    }
-
-    .annotation-title:focus {
-      background: rgba(56,189,248,0.06);
-    }
-
-    /* Title row: category dropdown + fixed "Thermocouple Location" text */
-    .annotation-header {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 10px 16px 8px;
-      flex-shrink: 0;
-      z-index: 5;
-    }
-    .annotation-cat-select {
-      font-family: var(--font-ui);
-      font-size: 15px;
-      font-weight: 700;
-      color: #0B3D7A;
-      border: 1px solid rgba(15,23,42,0.14);
-      border-radius: 4px;
-      background: #fff;
-      padding: 2px 6px;
-      cursor: pointer;
-      appearance: auto;
-    }
-    .annotation-title-fixed {
-      font-size: 15px;
-      font-weight: 700;
-      color: #0B3D7A;
-      letter-spacing: 0.02em;
-    }
-
-    /* Body = photo workspace + right-hand component list */
-    .annotation-body {
-      flex: 1;
-      min-height: 0;
-      display: flex;
-      align-items: stretch;
-    }
-    .annotation-side {
-      width: 190px;
-      flex-shrink: 0;
-      border-left: 1px solid rgba(15,23,42,0.08);
-      padding: 10px 12px 12px;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
-    .anno-side-title {
-      font-size: 10px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      color: rgba(15,23,42,0.45);
-      margin-bottom: 8px;
-      flex-shrink: 0;
-    }
-    .anno-comp-list { list-style: none; margin: 0; padding: 0; flex: 1; overflow-y: auto; }
-    .anno-comp-item {
-      display: flex;
-      align-items: baseline;
-      gap: 6px;
-      padding: 3px 0;
-      font-size: 11px;
-      border-bottom: 1px dashed rgba(15,23,42,0.06);
-    }
-    .anno-comp-idx {
-      flex-shrink: 0;
-      min-width: 16px;
-      font-family: var(--font-mono);
-      font-size: 10px;
-      color: #2357A7;
-      font-weight: 600;
-    }
-    .anno-comp-name { color: var(--text-on-white); word-break: break-word; }
-    .anno-comp-empty { color: rgba(15,23,42,0.30); font-size: 11px; padding: 4px 0; }
-    .anno-comp-count {
-      flex-shrink: 0;
-      margin-top: 8px;
-      padding-top: 8px;
-      border-top: 1px solid rgba(15,23,42,0.10);
-      font-size: 11px;
-      font-weight: 700;
-      color: #0B3D7A;
-    }
-
-    .annotation-workspace {
-      flex: 1;
-      min-height: 0;
-      position: relative;
-      overflow: hidden;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .annotation-workspace-inner {
-      position: relative;
-      overflow: hidden;
-    }
-
-    .annotation-photo-zone {
-      position: absolute;
-      border: 2px dashed rgba(15,23,42,0.15);
-      border-radius: 6px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      overflow: hidden;
-      transition: border-color var(--transition-fast), background var(--transition-fast);
-    }
-
-    .anno-photo-resize {
-      position: absolute;
-      bottom: 0;
-      right: 0;
-      width: 20px;
-      height: 20px;
-      cursor: nwse-resize;
-      z-index: 25;
-      display: none;
-    }
-    .anno-photo-resize::after {
-      content: '';
-      position: absolute;
-      bottom: 4px;
-      right: 4px;
-      width: 8px;
-      height: 8px;
-      border-right: 2px solid rgba(15,23,42,0.25);
-      border-bottom: 2px solid rgba(15,23,42,0.25);
-    }
-    .annotation-photo-zone.has-photo .anno-photo-resize {
-      display: block;
-    }
-    .annotation-photo-zone.has-photo:hover .anno-photo-resize::after {
-      border-color: rgba(56,189,248,0.6);
-    }
-
-    /* Left rail image tools (editor only — never emitted to the PDF) */
-    .annotation-tools {
-      width: 150px;
-      flex-shrink: 0;
-      border-right: 1px solid rgba(15,23,42,0.08);
-      padding: 10px 10px 12px;
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      overflow-y: auto;
-    }
-    .anno-tools-title {
-      font-size: 10px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      color: rgba(15,23,42,0.45);
-      margin-bottom: 2px;
-    }
-    .anno-tool-btn {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      padding: 6px 8px;
-      font-size: 12px;
-      font-family: var(--font-ui);
-      color: var(--text-on-white);
-      background: rgba(15,23,42,0.03);
-      border: 1px solid rgba(15,23,42,0.10);
-      border-radius: 5px;
-      cursor: pointer;
-      text-align: left;
-      transition: background var(--transition-fast), border-color var(--transition-fast);
-    }
-    .anno-tool-btn:hover { background: rgba(56,189,248,0.08); border-color: rgba(56,189,248,0.35); }
-    .anno-tool-btn.active { background: rgba(56,189,248,0.16); border-color: rgba(56,189,248,0.6); color: #0B3D7A; font-weight: 600; }
-    .anno-tool-btn.danger { color: #b91c1c; }
-    .anno-tool-btn.danger:hover { background: rgba(239,68,68,0.08); border-color: rgba(239,68,68,0.4); }
-    .anno-tools-hint { font-size: 11px; color: rgba(15,23,42,0.30); line-height: 1.5; }
-
-    /* Corner resize handles */
-    .anno-corner { position: absolute; width: 16px; height: 16px; z-index: 26; display: none; }
-    .annotation-photo-zone.has-photo .anno-corner { display: block; }
-    .anno-corner::after {
-      content: '';
-      position: absolute;
-      width: 9px;
-      height: 9px;
-      border: 2px solid rgba(15,23,42,0.35);
-    }
-    .anno-corner.nw { top: -2px; left: -2px; cursor: nwse-resize; }
-    .anno-corner.nw::after { top: 3px; left: 3px; border-right: none; border-bottom: none; }
-    .anno-corner.ne { top: -2px; right: -2px; cursor: nesw-resize; }
-    .anno-corner.ne::after { top: 3px; right: 3px; border-left: none; border-bottom: none; }
-    .anno-corner.sw { bottom: -2px; left: -2px; cursor: nesw-resize; }
-    .anno-corner.sw::after { bottom: 3px; left: 3px; border-right: none; border-top: none; }
-    .anno-corner.se { bottom: -2px; right: -2px; cursor: nwse-resize; }
-    .anno-corner.se::after { bottom: 3px; right: 3px; border-left: none; border-top: none; }
-    .annotation-photo-zone.has-photo:hover .anno-corner::after { border-color: rgba(56,189,248,0.7); }
-
-    /* Move / edit mode: drag the photo box, annotation paused */
-    .annotation-photo-zone.anno-edit-mode {
-      cursor: move;
-      border-color: rgba(56,189,248,0.7);
-      background: rgba(56,189,248,0.04);
-    }
-
-    .anno-replace-photo-btn {
-      position: absolute;
-      top: 6px;
-      right: 6px;
-      z-index: 30;
-      background: rgba(15,23,42,0.65);
-      color: #fff;
-      border: none;
-      border-radius: 4px;
-      padding: 4px 10px;
-      font-size: 11px;
-      cursor: pointer;
-      opacity: 0;
-      transition: opacity 0.2s;
-      pointer-events: auto;
-    }
-    .annotation-photo-zone.has-photo:hover .anno-replace-photo-btn {
-      opacity: 1;
-    }
-    .anno-replace-photo-btn:hover {
-      background: rgba(15,23,42,0.85);
-    }
-
-    .annotation-photo-zone:hover {
-      border-color: rgba(56,189,248,0.4);
-      background: rgba(56,189,248,0.03);
-    }
-
-    .annotation-photo-zone.dragover {
-      border-color: var(--color-primary);
-      background: rgba(56,189,248,0.08);
-    }
-
-    .annotation-photo-zone.has-photo {
-      border: 1px solid rgba(15,23,42,0.08);
-      cursor: crosshair;
-    }
-
-    .annotation-photo-zone.has-photo:hover {
-      background: transparent;
-    }
-
-    .annotation-photo-zone img {
-      width: 100%;
-      height: 100%;
-      object-fit: contain;
-      pointer-events: none;
-    }
+    .an-zoom .an-tb[data-tip]:hover::after, .an-zoom .an-tb[data-tip]:focus-visible::after { left: auto; right: 0; transform: none; }
+    .an-tb:disabled::after { display: none; }
+    .an-main { flex: 1; min-height: 0; display: flex; }
+    .an-viewport { flex: 1; min-width: 0; overflow: auto; display: flex; background: #DDE6F1; position: relative; }
+    .an-viewport.dragover { box-shadow: inset 0 0 0 3px #2357A7; }
+    .an-sizer { margin: auto; position: relative; flex-shrink: 0; }
+    .an-paper { position: absolute; left: 0; top: 0; width: 842px; height: 595px; background: #fff; transform-origin: 0 0; box-shadow: 0 2px 16px rgba(11,61,122,0.20); overflow: hidden; user-select: none; touch-action: none; font-size: 16px; line-height: normal; color: #0f172a; }
+    .an-paper, .an-paper * { letter-spacing: 0; word-spacing: 0; text-transform: none; }
+    .an-paper img { pointer-events: none; }
+    .an-paper [data-an-img] { cursor: move; }
+    .an-paper.mode-add [data-an-img] { cursor: crosshair; }
+    .an-paper.panning, .an-paper.panning * { cursor: grab !important; }
+    .an-paper.dragging, .an-paper.dragging * { cursor: grabbing !important; }
+    .an-dot { cursor: grab; }
+    .an-dot::after { content: ''; position: absolute; left: -7px; top: -7px; right: -7px; bottom: -7px; border-radius: 50%; }
+    .an-dot.sel { outline: 2px solid #0ea5e9; outline-offset: 2px; }
+    .an-lbl { cursor: grab; }
+    .an-lbl.sel { outline: 2px solid #0ea5e9; outline-offset: 1px; }
+    .an-dot.hover, .an-lbl.hover { outline: 2px solid rgba(14,165,233,0.5); outline-offset: 1px; }
+    #an-ui { position: absolute; left: 0; top: 36px; width: 842px; height: 559px; pointer-events: none; z-index: 30; }
+    #an-ui-dyn { position: absolute; left: 0; top: 0; width: 100%; height: 100%; }
+    .an-frame { position: absolute; outline: 1px dashed rgba(35,87,167,0.55); pointer-events: none; }
+    .an-handle { position: absolute; width: 10px; height: 10px; margin: -5px 0 0 -5px; background: #fff; border: 1.5px solid #2357A7; border-radius: 2px; pointer-events: auto; box-sizing: border-box; }
+    .an-handle[data-an-handle="nw"], .an-handle[data-an-handle="se"] { cursor: nwse-resize; }
+    .an-handle[data-an-handle="ne"], .an-handle[data-an-handle="sw"] { cursor: nesw-resize; }
+    .an-handle:hover { background: #2357A7; }
+    .an-safe { position: absolute; border: 1px dashed rgba(35,87,167,0.28); display: none; pointer-events: none; }
+    .an-paper.dragging .an-safe { display: block; }
+    .an-guide { position: absolute; top: 0; bottom: 0; width: 0; border-left: 1px dashed #f97316; pointer-events: none; }
+    .an-rubber { position: absolute; left: 0; top: 0; pointer-events: none; overflow: visible; }
+    .an-rubber line { stroke: #dc2626; stroke-width: 1.2; stroke-dasharray: 4 3; }
+    .an-rename { position: absolute; pointer-events: auto; box-sizing: border-box; border: 2px solid #0ea5e9; border-radius: 3px; padding: 0 5px; font-family: 'DM Sans','Noto Sans TC',sans-serif; font-weight: 500; outline: none; background: #fff; color: #0f172a; z-index: 5; box-shadow: 0 2px 10px rgba(14,165,233,0.25); }
+    .an-drop { position: absolute; pointer-events: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; border: 2px dashed rgba(35,87,167,0.32); border-radius: 10px; color: rgba(15,23,42,0.55); font-size: 13px; background: rgba(232,240,250,0.55); box-sizing: border-box; }
+    .an-viewport.dragover .an-drop { border-color: #2357A7; background: rgba(35,87,167,0.08); }
+    .an-drop-icon svg { width: 40px; height: 40px; stroke: #5BA3E6; fill: none; stroke-width: 1.3; stroke-linecap: round; stroke-linejoin: round; }
+    .an-drop-btn { font: 600 12px var(--font-ui); color: #fff; background: #2357A7; border: none; border-radius: 5px; padding: 6px 14px; cursor: pointer; }
+    .an-drop-btn:hover { background: #0B3D7A; }
+    .an-side { width: 236px; flex-shrink: 0; display: flex; flex-direction: column; min-height: 0; background: #fff; border-left: 1px solid rgba(15,23,42,0.08); }
+    .an-sec { padding: 9px 12px; border-bottom: 1px solid rgba(15,23,42,0.07); }
+    .an-sec.grow { flex: 1; min-height: 0; display: flex; flex-direction: column; border-bottom: none; }
+    .an-sec-h { display: flex; align-items: center; gap: 6px; font: 700 10px var(--font-ui); letter-spacing: 0.06em; color: rgba(15,23,42,0.5); margin-bottom: 6px; }
+    .an-sec-h .sp { flex: 1; }
+    .an-count { font: 700 10px var(--font-mono); color: #2357A7; background: rgba(35,87,167,0.08); border-radius: 8px; padding: 0 6px; letter-spacing: 0; }
+    .an-mini { font: 600 10.5px var(--font-ui); letter-spacing: 0; color: #2357A7; background: rgba(35,87,167,0.07); border: 1px solid rgba(35,87,167,0.25); border-radius: 4px; padding: 1px 7px; cursor: pointer; }
+    .an-mini:hover { background: rgba(35,87,167,0.15); }
+    .an-select { width: 100%; font: 11.5px var(--font-ui); padding: 3px 4px; border: 1px solid rgba(15,23,42,0.18); border-radius: 4px; background: #fff; color: #0B3D7A; }
+    .an-legend { margin-top: 5px; font-size: 10.5px; color: rgba(15,23,42,0.6); display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+    .an-legend i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; }
+    .an-legend i.pass { background: #16a34a; } .an-legend i.warn { background: #d97706; } .an-legend i.fail { background: #dc2626; }
+    .an-chips { display: flex; flex-wrap: wrap; gap: 4px; max-height: 120px; overflow-y: auto; margin-top: 6px; }
+    .an-chip { font: 11px var(--font-ui); border: 1px solid rgba(35,87,167,0.3); background: #fff; color: #1A4E96; border-radius: 10px; padding: 1px 8px; cursor: pointer; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .an-chip:hover { background: rgba(35,87,167,0.08); }
+    .an-chip.armed { background: #2357A7; color: #fff; border-color: #2357A7; }
+    .an-seq { margin-top: 7px; width: 100%; font: 600 11.5px var(--font-ui); color: #fff; background: #2357A7; border: none; border-radius: 5px; padding: 5px 0; cursor: pointer; }
+    .an-seq:hover { background: #0B3D7A; }
+    .an-seq.on { background: #fff; color: #b91c1c; border: 1px solid rgba(185,28,28,0.4); }
+    .an-empty { font-size: 11px; color: rgba(15,23,42,0.45); padding: 4px 2px; line-height: 1.5; list-style: none; }
+    .an-list { list-style: none; margin: 0; padding: 0; overflow-y: auto; flex: 1; }
+    .an-row { display: flex; align-items: center; gap: 4px; padding: 1px 2px; border-radius: 4px; cursor: pointer; }
+    .an-row:hover { background: rgba(35,87,167,0.05); }
+    .an-row.sel { background: rgba(14,165,233,0.13); }
+    .an-idx { min-width: 18px; font: 600 10px var(--font-mono); color: #2357A7; text-align: right; }
+    .an-name { flex: 1; min-width: 0; font: 12px var(--font-ui); border: 1px solid transparent; border-radius: 3px; padding: 2px 4px; background: transparent; color: var(--text-on-white); }
+    .an-name:hover { border-color: rgba(15,23,42,0.12); background: #fff; }
+    .an-name:focus { border-color: #0ea5e9; background: #fff; outline: none; }
+    .an-temp { font: 700 10px var(--font-mono); padding: 1px 4px; border-radius: 3px; white-space: nowrap; border: 1px solid; }
+    .an-temp.pass { background: #dcfce7; color: #166534; border-color: #16a34a; }
+    .an-temp.warn { background: #fef3c7; color: #92400e; border-color: #d97706; }
+    .an-temp.fail { background: #fee2e2; color: #b91c1c; border-color: #dc2626; }
+    .an-temp.none { background: #f1f5f9; color: #334155; border-color: #94a3b8; }
+    .an-del { visibility: hidden; border: none; background: none; color: #b91c1c; cursor: pointer; font-size: 15px; line-height: 1; padding: 0 3px; }
+    .an-row:hover .an-del, .an-row.sel .an-del { visibility: visible; }
+    .an-status { flex-shrink: 0; padding: 5px 12px; font-size: 11.5px; color: rgba(15,23,42,0.68); background: #fff; border-top: 1px solid rgba(15,23,42,0.08); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .an-status b { color: #0B3D7A; margin-right: 6px; }
+    .an-status b.an-next { color: #fff; background: #2357A7; border-radius: 3px; padding: 0 6px; margin: 0; }
+    .an-status kbd, .an-ctx kbd { font: 600 10px var(--font-mono); border: 1px solid rgba(15,23,42,0.2); border-bottom-width: 2px; border-radius: 3px; padding: 0 4px; background: #F7F9FC; color: #0B3D7A; }
+    .an-ctx { position: fixed; z-index: 9000; min-width: 168px; background: #fff; border: 1px solid rgba(15,23,42,0.12); border-radius: 7px; box-shadow: 0 8px 26px rgba(2,27,58,0.22); padding: 4px; }
+    .an-ctx button { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 12px; border: none; background: none; padding: 6px 9px; font: 12.5px var(--font-ui); color: var(--text-on-white); border-radius: 4px; cursor: pointer; }
+    .an-ctx button:hover { background: rgba(35,87,167,0.08); }
+    .an-ctx button.danger { color: #b91c1c; }
+    .an-pop { position: fixed; z-index: 9000; width: 280px; background: #fff; border: 1px solid rgba(15,23,42,0.12); border-radius: 8px; box-shadow: 0 10px 30px rgba(2,27,58,0.25); padding: 10px 12px; font-family: var(--font-ui); color: var(--text-on-white); }
+    .an-pop-h { font: 700 11px var(--font-ui); color: #0B3D7A; margin-bottom: 8px; }
+    .an-pop-row { display: grid; grid-template-columns: 44px 1fr 34px; align-items: center; gap: 8px; font-size: 12px; margin-bottom: 4px; }
+    .an-pop-row input { width: 100%; accent-color: #2357A7; }
+    .an-pop-row output { font: 600 11px var(--font-mono); color: #2357A7; text-align: right; }
+    .an-pop-acts { display: flex; align-items: center; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+    .an-pop-acts button { font: 600 11.5px var(--font-ui); border: 1px solid rgba(15,23,42,0.15); background: #fff; color: #1A4E96; border-radius: 4px; padding: 3px 9px; cursor: pointer; }
+    .an-pop-acts button.primary { background: #2357A7; color: #fff; border-color: #2357A7; }
+    .an-pop-acts button:disabled { opacity: 0.6; cursor: wait; }
 
     /* ── Shared image cropper modal ── */
     .crop-modal {
@@ -3470,38 +3289,6 @@
       font-weight: 600;
     }
     .crop-btn.confirm:hover { background: #1d4ed8; }
-
-    .annotation-photo-placeholder {
-      text-align: center;
-      color: rgba(15,23,42,0.25);
-      font-size: 13px;
-      pointer-events: none;
-    }
-    .annotation-photo-placeholder .img-browse-btn {
-      pointer-events: auto;
-    }
-
-    .annotation-photo-placeholder .icon {
-      font-size: 32px;
-      display: block;
-      margin-bottom: 6px;
-    }
-
-    .annotation-svg-overlay {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      pointer-events: none;
-      z-index: 10;
-    }
-
-    .annotation-svg-overlay line {
-      stroke: #dc2626;
-      stroke-width: 1.5;
-      pointer-events: none;
-    }
 
     .marker-dot {
       position: absolute;
@@ -3648,22 +3435,6 @@
     .marker-resize-handle:hover,
     .marker-resize-handle:active {
       background: rgba(56,189,248,0.25);
-    }
-
-    .annotation-drag-line {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      pointer-events: none;
-      z-index: 12;
-    }
-
-    .annotation-drag-line line {
-      stroke: #dc2626;
-      stroke-width: 1.5;
-      stroke-dasharray: 4 3;
     }
 
     /* ━━━ Preview Overlay ━━━ */
@@ -4265,20 +4036,11 @@
     #sim-chart-img { width: 100%; max-width: 786px; height: auto; margin-top: 6px; border: 1px solid rgba(15,23,42,0.08); border-radius: 4px; }
     select.dt-sort-select { width: auto; cursor: pointer; }
     /* Annotation: measured-temperature overlay */
-    .marker-temp { display: inline-flex; align-items: center; padding: 0 6px; font-family: var(--font-mono); font-size: 10.5px; font-weight: 700; border: 1.5px solid #333; border-left: none; background: #fff; color: #334155; white-space: nowrap; }
-    .marker-temp-pass { background: #dcfce7; color: #166534; border-color: #16a34a; }
-    .marker-temp-warn { background: #fef3c7; color: #92400e; border-color: #d97706; }
-    .marker-temp-fail { background: #fee2e2; color: #b91c1c; border-color: #dc2626; }
-    .anno-temp-box { display: flex; flex-direction: column; gap: 4px; margin-top: 10px; padding-top: 8px; border-top: 1px dashed rgba(15,23,42,0.15); }
-    .anno-temp-box select { font-size: 11px; padding: 3px 4px; border: 1px solid rgba(15,23,42,0.2); border-radius: 4px; background: #fff; color: #0B3D7A; width: 100%; }
-    .anno-temp-legend { font-size: 10px; color: rgba(15,23,42,0.55); line-height: 1.5; }
     .data-page.csv-dragover { outline: 3px dashed rgba(35,87,167,0.45); outline-offset: -6px; }
 
     /* Small action buttons inside page section titles */
     .sec-tool-btn { margin-left: 10px; font-size: 10.5px; font-weight: 600; font-family: var(--font-ui); letter-spacing: 0; text-transform: none; color: #2357A7; background: rgba(35,87,167,0.07); border: 1px solid rgba(35,87,167,0.25); border-radius: 4px; padding: 1px 9px; cursor: pointer; vertical-align: middle; }
     .sec-tool-btn:hover { background: rgba(35,87,167,0.15); }
-    .anno-batch-btn { margin-top: 6px; width: 100%; font-size: 11px; color: #2357A7; background: rgba(35,87,167,0.06); border: 1px dashed rgba(35,87,167,0.35); border-radius: 4px; padding: 4px 0; cursor: pointer; }
-    .anno-batch-btn:hover { background: rgba(35,87,167,0.12); }
 
     /* Export picker: report check + SharePoint upload */
     .exp-check { margin: 8px 14px 0; border: 1px solid rgba(255,255,255,0.10); border-radius: 6px; overflow: hidden; }
@@ -4764,8 +4526,7 @@
       redoStacks = {};
       lastSavedSnapshots = {};
       dtSelectionRange = null;
-      annoEditMode = false;
-      annotationDragState = null;
+      annoResetUI(null);
       contextTarget = null;
     }
 
@@ -6279,8 +6040,6 @@
     }
 
     // ━━━ Annotation Page Module ━━━
-    let annotationDragState = null; // { markerId, startX, startY } during leader-line drag
-    let annoEditMode = false; // when true, dragging moves the photo instead of adding markers
 
     // CSS transform applied to the annotation photo (rotate / flip). Same string
     // is used in the editor and in the exported PDF so they always match.
@@ -6299,9 +6058,6 @@
       const oy = offY || 0;
       return `translate(${ox}%, ${oy}%) rotate(${r}deg) scale(${sx}, ${sy})`;
     }
-    function annoImgTransform(d) {
-      return cssImgTransform(d.anno_rotate, d.anno_flip_h, d.anno_flip_v);
-    }
     // Transform for a single image-page image (rotate/flip/zoom/pan).
     function imgPageTransform(im) {
       return cssImgTransform(im.rotate, im.flip_h, im.flip_v, im.zoom, im.off_x, im.off_y);
@@ -6311,7 +6067,6 @@
     // they never bloat the serialized state or the undo snapshots. Lets the user
     // restore ("還原裁切") within the session; a reload commits the crop.
     const imgCropOriginals = new WeakMap();  // image-page: key = image object
-    const annoCropOriginals = new WeakMap();  // annotation-page: key = page.data
 
     // Shared interactive image cropper. Loads `src`, bakes the given rotate/flip
     // so the user crops exactly what they see, lets them drag/resize a selection
@@ -6432,7 +6187,7 @@
           ctx.drawImage(oc, r.x * ow, r.y * oh, r.w * ow, r.h * oh, 0, 0, out.width, out.height);
           const url = out.toDataURL('image/jpeg', 0.9);
           cleanup();
-          onConfirm(url);
+          onConfirm(url, { ...r });          // r = kept part, in fractions of the oriented image
         });
       };
       baseImg.onerror = () => { /* ignore — leave image unchanged */ };
@@ -6441,551 +6196,88 @@
 
     function addAnnotationPage() { return addPageOfType('annotation'); }
 
-    function annoTempControlsHTML(d) {
-      const dataPages = state.pages.map((p, i) => ({ p, i })).filter(x => x.p.type === 'data');
-      if (!dataPages.length) return '';
-      const src = d.temp_src || {};
-      const cur = dataPages.find(x => x.p.id === src.page_id);
-      const tas = cur ? (cur.p.data.ta_conditions || []) : [];
-      return `<div class="anno-temp-box">
-          <div class="anno-tools-title">量測溫度</div>
-          <select data-anno-temp-page title="在標註點旁顯示數據頁的實測 Tc（依名稱對應）">
-            <option value="">不顯示</option>
-            ${dataPages.map(x => `<option value="${escapeAttr(x.p.id)}"${cur && cur.p.id === x.p.id ? ' selected' : ''}>${escHtml(pageBaseLabel(x.i) + (x.p.data.list_note ? ' · ' + x.p.data.list_note : ''))}</option>`).join('')}
-          </select>
-          ${cur ? `<select data-anno-temp-ta>${tas.map(t => `<option value="${t}"${t === src.ta ? ' selected' : ''}>Ta = ${t}°C</option>`).join('')}</select>
-          <div class="anno-temp-legend">綠 Pass · 黃 Warning · 紅 Fail<br>PDF 也會顯示</div>` : ''}
-        </div>`;
-    }
+    // ━━━ Annotation page (Thermocouple Location) ━━━
+    // One layout, two consumers: the editor shows the very page the PDF prints
+    // (same HTML from annoPageInnerHTML, scaled to fit) with the interactive
+    // handles layered on top, so what you place is exactly what gets exported.
+    //
+    // Geometry, all in page px. The stage is the 842 × 559 area below a fixed
+    // 36 px title band (the same stage the old version used, so old pages map 1:1):
+    //   d.img_box    { x, y, w, h }     photo frame on the stage (aspect = photo)
+    //   d.img_rot    0 | 90 | 180 | 270 display rotation (lossless CSS)
+    //   d.img_fh     bool               mirror, applied before the rotation
+    //   marker.x / y 0–100 % of img_box → points move and scale with the photo
+    //   marker.lx/ly label top-left on the stage
+    //   d.label_size 'S' | 'M' | 'L', d.show_idx (number badge), d.temp_src { page_id, ta }
+    const ANNO_TITLE_H = 36;
+    const ANNO_W = 842, ANNO_H = 595 - ANNO_TITLE_H;
+    const ANNO_SAFE = { l: 18, t: 4, r: ANNO_W - 18, b: ANNO_H - 26 };   // clear of the page bars and footer
+    const ANNO_LABEL_FS = { S: 9, M: 10.5, L: 12 };
+    const ANNO_GAP = 14;                                                  // photo ↔ label column gap (auto layout)
+    const ANNO_NAME_FONT = "'DM Sans','Noto Sans TC','PingFang TC','Microsoft JhengHei',sans-serif";
+    const ANNO_NUM_FONT = "'JetBrains Mono','Noto Sans TC',monospace";
+    const ANNO_TEMP_STYLE = {
+      pass: { bg: '#dcfce7', fg: '#166534', bd: '#16a34a' }, warn: { bg: '#fef3c7', fg: '#92400e', bd: '#d97706' },
+      fail: { bg: '#fee2e2', fg: '#b91c1c', bd: '#dc2626' }, none: { bg: '#f1f5f9', fg: '#334155', bd: '#94a3b8' },
+    };
+    const r1 = v => Math.round(v * 10) / 10;
+    const p2 = v => Math.round(v * 100) / 100;          // marker % (0.01)
+    const clampN = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
-    function renderAnnotationPage(page) {
-      const d = page.data;
-      if (!d.tc_category) d.tc_category = 'RF';
-      // Title is composed from the category dropdown; kept in d.title so the PDF
-      // (buildAnnotationHTML, which reads d.title) shows it too.
-      d.title = d.tc_category + ' Thermocouple Location';
-      const hasPhoto = !!d.photo_url_or_base64;
-      const annoW = d.anno_photo_w || 680;
-      const annoH = d.anno_photo_h || 430;
-
-      const pageW = 842;
-      const titleH = 36;
-      const wsH = 595 - titleH;
-      const annoX = (d.anno_photo_x != null) ? d.anno_photo_x : (pageW - annoW) / 2;
-      const annoY = (d.anno_photo_y != null) ? d.anno_photo_y : (wsH - annoH) / 2;
-      const pzWPct = (annoW / pageW) * 100;
-      const pzHPct = (annoH / wsH) * 100;
-      const pzLPct = (annoX / pageW) * 100;
-      const pzTPct = (annoY / wsH) * 100;
-
-      const catOptions = CATEGORY_OPTIONS.map(c =>
-        `<option value="${c}" ${c === d.tc_category ? 'selected' : ''}>${c}</option>`).join('');
-
-      // Left rail: image tools (editor only — never rendered into the PDF)
-      const toolsHTML = hasPhoto ? `
-        <button class="anno-tool-btn" data-tool="rotate-left" title="左轉 90°">↺&nbsp;左轉</button>
-        <button class="anno-tool-btn" data-tool="rotate-right" title="右轉 90°">↻&nbsp;右轉</button>
-        <button class="anno-tool-btn" data-tool="flip-h" title="水平翻轉">⇋&nbsp;水平翻轉</button>
-        <button class="anno-tool-btn" data-tool="flip-v" title="垂直翻轉">⇅&nbsp;垂直翻轉</button>
-        <button class="anno-tool-btn" data-tool="crop" title="裁切圖片">✂&nbsp;裁切</button>
-        ${annoCropOriginals.has(d) ? `<button class="anno-tool-btn" data-tool="uncrop" title="還原裁切">⤺&nbsp;還原裁切</button>` : ''}
-        <button class="anno-tool-btn" data-tool="move" id="anno-move-btn" title="移動圖片（啟用時暫停標註）">✥&nbsp;移動</button>
-        <button class="anno-tool-btn danger" data-tool="delete" title="刪除圖片">🗑&nbsp;刪除圖片</button>
-        ${annoTempControlsHTML(d)}
-      ` : `<div class="anno-tools-hint">加入圖片後<br>可在此編輯</div>`;
-
-      $canvas.innerHTML = editorPageWrapHTML(`
-        <div class="annotation-page">
-          <div class="annotation-header">
-            <select class="annotation-cat-select" data-field="tc_category">${catOptions}</select>
-            <span class="annotation-title-fixed">Thermocouple Location</span>
-          </div>
-          <div class="annotation-body">
-            <aside class="annotation-tools">
-              <div class="anno-tools-title">圖片工具</div>
-              ${toolsHTML}
-            </aside>
-            <div class="annotation-workspace">
-              <div class="annotation-workspace-inner" id="anno-workspace">
-                <div class="annotation-photo-zone ${hasPhoto ? 'has-photo' : ''}" id="anno-photo-zone"
-                     style="top:${pzTPct}%;left:${pzLPct}%;width:${pzWPct}%;height:${pzHPct}%;">
-                  ${hasPhoto
-                    ? `<img src="${escapeAttr(d.photo_url_or_base64)}" alt="Annotation photo" style="transform:${annoImgTransform(d)};">
-                       <button class="anno-replace-photo-btn" id="anno-replace-btn">📷 更換圖片</button>
-                       <div class="anno-corner nw" data-corner="nw"></div>
-                       <div class="anno-corner ne" data-corner="ne"></div>
-                       <div class="anno-corner sw" data-corner="sw"></div>
-                       <div class="anno-corner se" data-corner="se"></div>`
-                    : `<div class="annotation-photo-placeholder">
-                         <span class="icon">📷</span>
-                         拖拉圖片或 Ctrl+V 貼上照片
-                         <button class="img-browse-btn" data-browse="annotation">瀏覽檔案</button>
-                       </div>`
-                  }
-                  <input type="file" accept="image/*" id="anno-file-input" style="display:none">
-                </div>
-                <svg class="annotation-svg-overlay" id="anno-svg"></svg>
-                <svg class="annotation-drag-line" id="anno-drag-svg" style="display:none">
-                  <line x1="0" y1="0" x2="0" y2="0"/>
-                </svg>
-              </div>
-            </div>
-            <aside class="annotation-side">
-              <div class="anno-side-title">元件列表</div>
-              <ol class="anno-comp-list" id="anno-comp-list"></ol>
-              ${(d.markers || []).length ? '<button type="button" class="anno-batch-btn" id="anno-batch-name" title="一次輸入所有標註點名稱（可從 Excel 貼上一欄）">✎ 批次命名</button>' : ''}
-              <div class="anno-comp-count" id="anno-comp-count">標註數量：0</div>
-            </aside>
-          </div>
-        </div>
-      `);
-      $canvas.classList.add('anno-wide');
-      // Re-apply move/edit mode visuals after a re-render
-      const _zoneEl = document.getElementById('anno-photo-zone');
-      if (_zoneEl && annoEditMode && hasPhoto) _zoneEl.classList.add('anno-edit-mode');
-      const _moveBtn = document.getElementById('anno-move-btn');
-      if (_moveBtn && annoEditMode) _moveBtn.classList.add('active');
-
-      sizeAnnotationWorkspace(page);
-      updateAnnoCompList(page);
-      document.getElementById('anno-batch-name')?.addEventListener('click', () => showAnnoBatchNameModal(page));
-
-      // Measured-temperature overlay source (data page + Ta)
-      const tempPageSel = $canvas.querySelector('[data-anno-temp-page]');
-      if (tempPageSel) {
-        tempPageSel.addEventListener('change', () => {
-          const dp = state.pages.find(p => p.id === tempPageSel.value);
-          d.temp_src = dp ? { page_id: dp.id, ta: (dp.data.ta_conditions || []).slice(-1)[0] } : null;
-          scheduleSave(state.activePage);
-          renderAnnotationPage(page);
-        });
+    // Pages saved by the previous version kept the frame in anno_photo_* and the
+    // labels in % of the stage. Convert once, in place (idempotent).
+    function annoNormalize(d) {
+      if (!d) return false;
+      if (!Array.isArray(d.markers)) d.markers = [];
+      if (d.anno_v === 2) return false;
+      if (d.photo_url_or_base64) {
+        const w = d.anno_photo_w || 680, h = d.anno_photo_h || 430;
+        d.img_box = { x: d.anno_photo_x != null ? d.anno_photo_x : (ANNO_W - w) / 2, y: d.anno_photo_y != null ? d.anno_photo_y : (ANNO_H - h) / 2, w, h };
       }
-      $canvas.querySelector('[data-anno-temp-ta]')?.addEventListener('change', (e) => {
-        d.temp_src = Object.assign({}, d.temp_src, { ta: parseFloat(e.target.value) });
-        scheduleSave(state.activePage);
-        renderAnnotationPage(page);
+      // old CSS rotate + flips → (rotation, mirror); scaleY(−1) = rotate(180°)·scaleX(−1)
+      let rot = (((d.anno_rotate || 0) % 360) + 360) % 360, fh = !!d.anno_flip_h;
+      if (d.anno_flip_v) { rot = (rot + 180) % 360; fh = !fh; }
+      d.img_rot = rot; d.img_fh = fh;
+      d.markers.forEach(m => {
+        if (m.label_x >= 0 && m.label_y >= 0) { m.lx = r1(m.label_x / 100 * ANNO_W); m.ly = r1(m.label_y / 100 * ANNO_H); }
+        delete m.label_x; delete m.label_y; delete m.label_w;
       });
-
-      // Category dropdown binding (updates the composed title)
-      const catSel = $canvas.querySelector('[data-field="tc_category"]');
-      catSel?.addEventListener('change', () => {
-        d.tc_category = catSel.value;
-        d.title = catSel.value + ' Thermocouple Location';
-        scheduleSave(state.activePage);
-      });
-
-      // Photo upload handlers
-      setupAnnotationPhotoHandlers(page);
-
-      // Render existing markers
-      if (hasPhoto && d.markers.length > 0) {
-        renderAnnotationMarkers(page);
-      }
-
-      // Click-to-add-marker on photo
-      if (hasPhoto) {
-        setupAnnotationClickHandler(page);
-        setupAnnotationImageTools(page);
-      }
+      ['anno_photo_x', 'anno_photo_y', 'anno_photo_w', 'anno_photo_h', 'anno_rotate', 'anno_flip_h', 'anno_flip_v'].forEach(k => delete d[k]);
+      d.anno_v = 2;
+      return true;
     }
 
-    // Left-rail image tools: rotate / flip / move / delete + corner resize.
-    // Editor only — none of this is emitted by buildAnnotationHTML.
-    function setupAnnotationImageTools(page) {
-      const d = page.data;
-      const zone = document.getElementById('anno-photo-zone');
-      const ws = document.getElementById('anno-workspace');
-      if (!zone || !ws) return;
-      const img = zone.querySelector('img');
-      const applyTransform = () => { if (img) img.style.transform = annoImgTransform(d); };
-
-      // Toolbar buttons
-      document.querySelectorAll('.annotation-tools .anno-tool-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const tool = btn.dataset.tool;
-          if (tool === 'rotate-left')  { d.anno_rotate = (((d.anno_rotate || 0) - 90) % 360 + 360) % 360; applyTransform(); scheduleSave(state.activePage); }
-          else if (tool === 'rotate-right') { d.anno_rotate = ((d.anno_rotate || 0) + 90) % 360; applyTransform(); scheduleSave(state.activePage); }
-          else if (tool === 'flip-h') { d.anno_flip_h = !d.anno_flip_h; applyTransform(); scheduleSave(state.activePage); }
-          else if (tool === 'flip-v') { d.anno_flip_v = !d.anno_flip_v; applyTransform(); scheduleSave(state.activePage); }
-          else if (tool === 'crop') {
-            openImageCropper(d.photo_url_or_base64, { rotate: d.anno_rotate, flipH: d.anno_flip_h, flipV: d.anno_flip_v }, (url) => {
-              if (!annoCropOriginals.has(d)) {
-                annoCropOriginals.set(d, { url: d.photo_url_or_base64, rotate: d.anno_rotate || 0, flip_h: !!d.anno_flip_h, flip_v: !!d.anno_flip_v });
-              }
-              d.photo_url_or_base64 = url;
-              d.anno_rotate = 0; d.anno_flip_h = false; d.anno_flip_v = false;
-              scheduleSave(state.activePage);
-              renderAnnotationPage(page);
-            });
-          }
-          else if (tool === 'uncrop') {
-            const o = annoCropOriginals.get(d);
-            if (o) {
-              d.photo_url_or_base64 = o.url;
-              d.anno_rotate = o.rotate; d.anno_flip_h = o.flip_h; d.anno_flip_v = o.flip_v;
-              annoCropOriginals.delete(d);
-              scheduleSave(state.activePage);
-              renderAnnotationPage(page);
-            }
-          }
-          else if (tool === 'move') {
-            annoEditMode = !annoEditMode;
-            btn.classList.toggle('active', annoEditMode);
-            zone.classList.toggle('anno-edit-mode', annoEditMode);
-          }
-          else if (tool === 'delete') {
-            if (!confirm('確定要刪除此圖片？（標註也會一併移除）')) return;
-            annoEditMode = false;
-            annoCropOriginals.delete(d);
-            d.photo_url_or_base64 = '';
-            d.markers = [];
-            delete d.anno_photo_x; delete d.anno_photo_y;
-            delete d.anno_rotate; delete d.anno_flip_h; delete d.anno_flip_v;
-            scheduleSave(state.activePage);
-            renderAnnotationPage(page);
-          }
-        });
-      });
-
-      // Move: drag the photo box while in edit mode
-      zone.addEventListener('mousedown', (e) => {
-        if (!annoEditMode) return;
-        if (e.target.closest('.anno-corner') || e.target.closest('.anno-replace-photo-btn')) return;
-        e.preventDefault();
-        const innerW = ws.offsetWidth, innerH = ws.offsetHeight;
-        const startX = e.clientX, startY = e.clientY;
-        const startLeft = zone.offsetLeft, startTop = zone.offsetTop;
-        const onMove = (ev) => {
-          let nl = startLeft + (ev.clientX - startX);
-          let nt = startTop + (ev.clientY - startY);
-          nl = Math.max(0, Math.min(innerW - zone.offsetWidth, nl));
-          nt = Math.max(0, Math.min(innerH - zone.offsetHeight, nt));
-          zone.style.left = (nl / innerW * 100) + '%';
-          zone.style.top = (nt / innerH * 100) + '%';
-        };
-        const onUp = () => {
-          document.removeEventListener('mousemove', onMove);
-          document.removeEventListener('mouseup', onUp);
-          d.anno_photo_x = Math.round(zone.offsetLeft / ws.offsetWidth * 842);
-          d.anno_photo_y = Math.round(zone.offsetTop / ws.offsetHeight * 559);
-          scheduleSave(state.activePage);
-          renderAnnotationMarkers(page);
-        };
-        document.addEventListener('mousemove', onMove);
-        document.addEventListener('mouseup', onUp);
-      });
-
-      // Corner resize (keeps the opposite corner fixed, locks aspect ratio)
-      zone.querySelectorAll('.anno-corner').forEach(handle => {
-        handle.addEventListener('mousedown', (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          const corner = handle.dataset.corner; // nw/ne/sw/se
-          const innerW = ws.offsetWidth, innerH = ws.offsetHeight;
-          const startX = e.clientX;
-          const startLeft = zone.offsetLeft, startTop = zone.offsetTop;
-          const startW = zone.offsetWidth, startH = zone.offsetHeight;
-          const aspect = startW / startH;
-          const minW = innerW * 0.12;
-          const left = corner === 'nw' || corner === 'sw';
-          const top = corner === 'nw' || corner === 'ne';
-          const onMove = (ev) => {
-            const dx = ev.clientX - startX;
-            let newW = left ? (startW - dx) : (startW + dx);
-            newW = Math.max(minW, newW);
-            let newLeft = left ? (startLeft + (startW - newW)) : startLeft;
-            if (newLeft < 0) { newW += newLeft; newLeft = 0; }
-            if (newLeft + newW > innerW) newW = innerW - newLeft;
-            let newH = newW / aspect;
-            let newTop = top ? (startTop + (startH - newH)) : startTop;
-            if (newTop < 0) { newTop = 0; newH = (top ? (startTop + startH) : (innerH - startTop)); newH = Math.min(newH, newW / aspect); newW = newH * aspect; if (left) newLeft = startLeft + (startW - newW); }
-            if (newTop + newH > innerH) { newH = innerH - newTop; newW = newH * aspect; if (left) newLeft = startLeft + (startW - newW); }
-            zone.style.width = (newW / innerW * 100) + '%';
-            zone.style.height = (newH / innerH * 100) + '%';
-            zone.style.left = (newLeft / innerW * 100) + '%';
-            zone.style.top = (newTop / innerH * 100) + '%';
-          };
-          const onUp = () => {
-            document.removeEventListener('mousemove', onMove);
-            document.removeEventListener('mouseup', onUp);
-            d.anno_photo_w = Math.round(zone.offsetWidth / ws.offsetWidth * 842);
-            d.anno_photo_h = Math.round(zone.offsetHeight / ws.offsetHeight * 559);
-            d.anno_photo_x = Math.round(zone.offsetLeft / ws.offsetWidth * 842);
-            d.anno_photo_y = Math.round(zone.offsetTop / ws.offsetHeight * 559);
-            scheduleSave(state.activePage);
-            renderAnnotationMarkers(page);
-          };
-          document.addEventListener('mousemove', onMove);
-          document.addEventListener('mouseup', onUp);
-        });
+    // ── Label geometry (measured with the fonts the page prints with) ──
+    let _annoCtx = null;
+    function annoTextW(text, font) {
+      if (!_annoCtx) _annoCtx = document.createElement('canvas').getContext('2d');
+      _annoCtx.font = font;
+      return _annoCtx.measureText(String(text)).width;
+    }
+    const annoFs = d => ANNO_LABEL_FS[d.label_size] || ANNO_LABEL_FS.M;
+    const annoLabelH = d => Math.round(annoFs(d) * 1.9);
+    const annoPad = d => Math.round(annoFs(d) * 0.6);
+    function annoMarkerName(m, i) { return (m && m.label) || ('TC' + (i + 1)); }
+    function annoLabelSize(d, m, i, t) {
+      const fs = annoFs(d), pad = annoPad(d);
+      let w = 3 + annoTextW(annoMarkerName(m, i), `500 ${fs}px ${ANNO_NAME_FONT}`) + pad * 2;
+      if (d.show_idx) w += annoTextW(String(i + 1), `700 ${r1(fs * 0.85)}px ${ANNO_NUM_FONT}`) + pad * 1.4;
+      if (t) w += annoTextW(t.text, `700 ${fs}px ${ANNO_NUM_FONT}`) + pad * 1.4;
+      return { w: Math.ceil(w), h: annoLabelH(d) };
+    }
+    function annoClampLabel(x, y, w, h) {
+      return { x: clampN(x, ANNO_SAFE.l, Math.max(ANNO_SAFE.l, ANNO_SAFE.r - w)), y: clampN(y, ANNO_SAFE.t, Math.max(ANNO_SAFE.t, ANNO_SAFE.b - h)) };
+    }
+    const annoDot = (d, m) => ({ x: d.img_box.x + m.x / 100 * d.img_box.w, y: d.img_box.y + m.y / 100 * d.img_box.h });
+    // Label rectangles as drawn (clamped into the page).
+    function annoLabelRects(d, tv) {
+      return d.markers.map((m, i) => {
+        const s = annoLabelSize(d, m, i, tv && tv.byMarker.get(m.id));
+        const p = annoClampLabel(m.lx, m.ly, s.w, s.h);
+        return { m, i, x: p.x, y: p.y, w: s.w, h: s.h };
       });
     }
 
-    let _annoResizeObserver = null;
-    function sizeAnnotationWorkspace(page) {
-      const outer = document.querySelector('.annotation-workspace');
-      const inner = document.getElementById('anno-workspace');
-      if (!outer || !inner) return;
-
-      const TARGET_ASPECT = 842 / 559;
-      const fit = () => {
-        const availW = outer.clientWidth;
-        const availH = outer.clientHeight;
-        if (availW <= 0 || availH <= 0) return;
-        let w, h;
-        if (availW / availH > TARGET_ASPECT) {
-          h = availH;
-          w = h * TARGET_ASPECT;
-        } else {
-          w = availW;
-          h = w / TARGET_ASPECT;
-        }
-        inner.style.width = Math.floor(w) + 'px';
-        inner.style.height = Math.floor(h) + 'px';
-        if (page && page.data.photo_url_or_base64 && page.data.markers.length > 0) {
-          renderAnnotationMarkers(page);
-        }
-      };
-      fit();
-
-      if (_annoResizeObserver) _annoResizeObserver.disconnect();
-      _annoResizeObserver = new ResizeObserver(fit);
-      _annoResizeObserver.observe(outer);
-    }
-
-    function setupAnnotationPhotoHandlers(page) {
-      const zone = document.getElementById('anno-photo-zone');
-      const fileInput = document.getElementById('anno-file-input');
-      if (!zone || !fileInput) return;
-
-      // Browse button opens file dialog
-      const browseBtn = zone.querySelector('.img-browse-btn');
-      if (browseBtn) {
-        browseBtn.addEventListener('click', (e) => { e.stopPropagation(); fileInput.click(); });
-      }
-      // Double-click on empty zone opens file dialog
-      zone.addEventListener('dblclick', (e) => {
-        if (page.data.photo_url_or_base64) return;
-        fileInput.click();
-      });
-
-      fileInput.addEventListener('change', async () => {
-        if (fileInput.files.length > 0) {
-          await handleAnnotationPhoto(page, fileInput.files[0]);
-        }
-      });
-
-      // Replace photo button
-      const replaceBtn = document.getElementById('anno-replace-btn');
-      if (replaceBtn) {
-        replaceBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          fileInput.click();
-        });
-        replaceBtn.addEventListener('mousedown', (e) => {
-          e.stopPropagation(); // prevent marker creation
-        });
-      }
-
-      zone.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        zone.classList.add('dragover');
-      });
-      zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
-      zone.addEventListener('drop', async (e) => {
-        e.preventDefault();
-        zone.classList.remove('dragover');
-        const file = e.dataTransfer.files[0];
-        if (file && file.type.startsWith('image/')) {
-          await handleAnnotationPhoto(page, file);
-        }
-      });
-
-      // Resize handle
-      const resizeHandle = document.getElementById('anno-photo-resize');
-      if (resizeHandle) {
-        resizeHandle.addEventListener('mousedown', (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          const startX = e.clientX;
-          const startW = zone.offsetWidth;
-          const aspect = startW / zone.offsetHeight;
-          const ws = document.getElementById('anno-workspace');
-
-          const onMove = (ev) => {
-            const dx = ev.clientX - startX;
-            const innerW = ws ? ws.offsetWidth : 800;
-            const innerH = ws ? ws.offsetHeight : 531;
-            let newW = Math.max(innerW * 0.3, startW + dx * 2);
-            if (newW > innerW * 0.98) newW = innerW * 0.98;
-            const newH = newW / aspect;
-            zone.style.width = (newW / innerW * 100) + '%';
-            zone.style.height = (newH / innerH * 100) + '%';
-            zone.style.left = ((1 - newW / innerW) / 2 * 100) + '%';
-            zone.style.top = ((1 - newH / innerH) / 2 * 100) + '%';
-          };
-
-          const onUp = () => {
-            document.removeEventListener('mousemove', onMove);
-            document.removeEventListener('mouseup', onUp);
-            const innerW = ws ? ws.offsetWidth : 800;
-            const innerH = ws ? ws.offsetHeight : 531;
-            page.data.anno_photo_w = Math.round((zone.offsetWidth / innerW) * 842);
-            page.data.anno_photo_h = Math.round((zone.offsetHeight / innerH) * 559);
-            scheduleSave(state.activePage);
-            renderAnnotationMarkers(page);
-          };
-
-          document.addEventListener('mousemove', onMove);
-          document.addEventListener('mouseup', onUp);
-        });
-      }
-    }
-
-    async function handleAnnotationPhoto(page, file) {
-      const imageData = await processImageCompressed(file, PHOTO_JPEG_QUALITY);
-      annoCropOriginals.delete(page.data); // new bitmap → drop stale crop original
-      page.data.photo_url_or_base64 = imageData;
-      renderAnnotationPage(page);
-      scheduleSave(state.activePage);
-    }
-
-    function setupAnnotationClickHandler(page) {
-      const zone = document.getElementById('anno-photo-zone');
-      if (!zone) return;
-
-      zone.addEventListener('mousedown', (e) => {
-        if (e.button !== 0) return; // left click only
-        if (!page.data.photo_url_or_base64) return;
-        if (annoEditMode) return; // image edit/move mode: don't add markers
-        // Ignore if clicking an existing marker or label
-        if (e.target.closest('.marker-dot') || e.target.closest('.marker-label') || e.target.closest('.marker-label-wrap') || e.target.closest('.marker-resize-handle') || e.target.closest('.anno-replace-photo-btn') || e.target.closest('.anno-corner')) return;
-
-        const rect = zone.getBoundingClientRect();
-        const x = ((e.clientX - rect.left) / rect.width) * 100;
-        const y = ((e.clientY - rect.top) / rect.height) * 100;
-
-        // Generate marker
-        const id = 'm_' + Date.now();
-        const num = page.data.markers.length + 1;
-        const marker = {
-          id,
-          x: Math.round(x * 100) / 100,
-          y: Math.round(y * 100) / 100,
-          label: '',
-          label_x: -1, // unset → will be placed on drag release
-          label_y: -1,
-        };
-
-        page.data.markers.push(marker);
-
-        // Start drag to place label
-        const workspace = document.getElementById('anno-workspace');
-        const wsRect = workspace.getBoundingClientRect();
-        const dotAbsX = e.clientX - wsRect.left;
-        const dotAbsY = e.clientY - wsRect.top;
-
-        annotationDragState = { markerId: id, dotAbsX, dotAbsY };
-
-        // Show drag line
-        const dragSvg = document.getElementById('anno-drag-svg');
-        dragSvg.style.display = 'block';
-        const line = dragSvg.querySelector('line');
-        line.setAttribute('x1', dotAbsX);
-        line.setAttribute('y1', dotAbsY);
-        line.setAttribute('x2', dotAbsX);
-        line.setAttribute('y2', dotAbsY);
-
-        // Render markers (dot will appear)
-        renderAnnotationMarkers(page);
-        scheduleSave(state.activePage);
-      });
-
-      // Mouse move for drag line
-      const workspace = document.getElementById('anno-workspace');
-      workspace.addEventListener('mousemove', (e) => {
-        if (!annotationDragState) return;
-        const wsRect = workspace.getBoundingClientRect();
-        const mx = e.clientX - wsRect.left;
-        const my = e.clientY - wsRect.top;
-        const dragSvg = document.getElementById('anno-drag-svg');
-        const line = dragSvg.querySelector('line');
-        line.setAttribute('x2', mx);
-        line.setAttribute('y2', my);
-      });
-
-      // Mouse up for placing label
-      workspace.addEventListener('mouseup', (e) => {
-        if (!annotationDragState) return;
-        const ds = annotationDragState;
-        annotationDragState = null;
-
-        const dragSvg = document.getElementById('anno-drag-svg');
-        dragSvg.style.display = 'none';
-
-        const wsRect = workspace.getBoundingClientRect();
-        const labelAbsX = e.clientX - wsRect.left;
-        const labelAbsY = e.clientY - wsRect.top;
-
-        // Convert to % of workspace
-        const lxPct = (labelAbsX / wsRect.width) * 100;
-        const lyPct = (labelAbsY / wsRect.height) * 100;
-
-        // Update marker data
-        const marker = page.data.markers.find(m => m.id === ds.markerId);
-        if (marker) {
-          // If label was barely dragged, auto-place to the right/left
-          const dist = Math.sqrt((labelAbsX - ds.dotAbsX) ** 2 + (labelAbsY - ds.dotAbsY) ** 2);
-          if (dist < 15) {
-            // Auto place: if dot is in left half, place label right; else left
-            const zone = document.getElementById('anno-photo-zone');
-            const zRect = zone.getBoundingClientRect();
-            const dotClientX = ds.dotAbsX + wsRect.left;
-            const midX = zRect.left + zRect.width / 2;
-            if (dotClientX < midX) {
-              marker.label_x = 85;
-            } else {
-              marker.label_x = 2;
-            }
-            marker.label_y = Math.max(2, Math.min(90, lyPct));
-          } else {
-            marker.label_x = Math.max(0, Math.min(95, lxPct));
-            marker.label_y = Math.max(0, Math.min(95, lyPct));
-          }
-        }
-
-        renderAnnotationMarkers(page);
-        scheduleSave(state.activePage);
-
-        // Focus the new label
-        setTimeout(() => {
-          const labelEl = document.querySelector(`.marker-label[data-id="${ds.markerId}"]`);
-          if (labelEl) labelEl.focus();
-        }, 50);
-      });
-    }
-
-    // Right-hand component list — mirrors the markers (TC labels) + live count
-    function updateAnnoCompList(page) {
-      const list = document.getElementById('anno-comp-list');
-      const count = document.getElementById('anno-comp-count');
-      if (!list) return;
-      const markers = page.data.markers || [];
-      list.innerHTML = markers.length
-        ? markers.map((m, i) =>
-            `<li class="anno-comp-item"><span class="anno-comp-idx">${i + 1}</span><span class="anno-comp-name">${escHtml(m.label || ('TC' + (i + 1)))}</span></li>`).join('')
-        : '<li class="anno-comp-empty">尚無標註</li>';
-      if (count) count.textContent = '標註數量：' + markers.length;
-    }
-
-    // Label width that fits its text (used until the user drags a width).
-    let _labelCtx = null;
-    // editor = the editable input (11px UI font, wider padding); else the PDF label.
-    function annoAutoLabelWidth(text, editor) {
-      if (!_labelCtx) _labelCtx = document.createElement('canvas').getContext('2d');
-      _labelCtx.font = editor ? "11px 'DM Sans', 'Noto Sans TC', sans-serif" : "10px 'JetBrains Mono', 'Noto Sans TC', monospace";
-      return Math.round(Math.min(260, Math.max(40, _labelCtx.measureText(String(text || '')).width + (editor ? 26 : 20))));
-    }
     // Measured-temperature overlay: each marker shows the Tc of the data-page
     // component with the same name at the chosen Ta, coloured by its margin
     // status. d.temp_src = { page_id, ta } (null / absent = off).
@@ -7000,7 +6292,7 @@
       const comps = dp.data.components || [];
       const byMarker = new Map();
       (d.markers || []).forEach((m, i) => {
-        const name = m.label || ('TC' + (i + 1));
+        const name = annoMarkerName(m, i);
         let best = null, bestSc = 0;
         comps.forEach(c => {
           const sc = loggerCsv.nameScore(name, c.name) || loggerCsv.nameScore(c.name || '', name);
@@ -7018,278 +6310,1187 @@
       return { ta, byMarker, label: `Ta = ${ta}°C · ${pageBaseLabel(pageIdx)}${dp.data.list_note ? ' · ' + dp.data.list_note : ''}` };
     }
 
-    // Attach document-level move/up listeners for ONE drag gesture and remove
-    // them when it ends, so nothing accumulates across re-renders.
-    function trackDrag(onMove, onUp) {
-      const move = (e) => onMove(e);
-      const up = (e) => {
-        document.removeEventListener('mousemove', move);
-        document.removeEventListener('mouseup', up);
-        if (onUp) onUp(e);
-      };
-      document.addEventListener('mousemove', move);
-      document.addEventListener('mouseup', up);
+    // ── Shared page HTML (editor + preview + PDF) ──
+    // Fitted frames (img_fit: frame aspect = photo aspect) are filled exactly, small photos
+    // included; old frames not yet fitted keep the old layout (photo fitted into the
+    // unrotated frame, then rotated) so their points stay where they were drawn.
+    function annoImgInnerStyle(d) {
+      const B = d.img_box, rot = d.img_rot || 0, swap = !!d.img_fit && (rot === 90 || rot === 270);
+      const iw = swap ? B.h : B.w, ih = swap ? B.w : B.h;
+      const tf = (rot ? `rotate(${rot}deg)` : '') + (d.img_fh ? ' scaleX(-1)' : '');
+      return `position:absolute;left:${r1((B.w - iw) / 2)}px;top:${r1((B.h - ih) / 2)}px;width:${r1(iw)}px;height:${r1(ih)}px;display:flex;align-items:center;justify-content:center;${tf ? 'transform:' + tf.trim() + ';' : ''}`;
+    }
+    function annoImageHTML(d, editor) {
+      const B = d.img_box;
+      if (!d.photo_url_or_base64 || !B) return '';
+      return `<div ${editor ? 'data-an-img="1" id="an-img"' : ''} style="position:absolute;left:${r1(B.x)}px;top:${r1(B.y)}px;width:${r1(B.w)}px;height:${r1(B.h)}px;overflow:hidden;z-index:1;">
+          <div data-an-imgin style="${annoImgInnerStyle(d)}"><img src="${escapeAttr(d.photo_url_or_base64)}" draggable="false" style="${d.img_fit ? 'width:100%;height:100%;' : 'max-width:100%;max-height:100%;'}display:block;"></div>
+          <div style="position:absolute;left:0;top:0;right:0;bottom:0;border:1px solid #C2DFF8;"></div>
+        </div>`;
+    }
+    // Leader lines, points and labels. opts.editor adds hit-test attributes and
+    // selection classes only (no geometry differences).
+    function annoOverlayHTML(d, tv, opts = {}) {
+      if (!d.img_box || !d.photo_url_or_base64) return '';
+      const fs = annoFs(d), pad = annoPad(d);
+      let lines = '', dots = '', labels = '';
+      annoLabelRects(d, tv).forEach(r => {
+        const { m, i } = r;
+        const p = annoDot(d, m);
+        const t = tv && tv.byMarker.get(m.id);
+        const cls = opts.editor ? (opts.sel === m.id ? ' sel' : opts.hover === m.id ? ' hover' : '') : '';
+        lines += `<line x1="${r1(p.x)}" y1="${r1(p.y)}" x2="${r1(r.x + r.w / 2)}" y2="${r1(r.y + r.h / 2)}" stroke="#dc2626" stroke-width="1.1"/>`;
+        dots += `<div ${opts.editor ? `data-an-dot="${escapeAttr(m.id)}" class="an-dot${cls}"` : ''} style="position:absolute;left:${r1(p.x - 4)}px;top:${r1(p.y - 4)}px;width:8px;height:8px;border-radius:50%;background:#dc2626;border:1.5px solid #fff;box-sizing:border-box;z-index:3;"></div>`;
+        const ts = t && (ANNO_TEMP_STYLE[t.status] || ANNO_TEMP_STYLE.none);
+        labels += `<div ${opts.editor ? `data-an-lbl="${escapeAttr(m.id)}" class="an-lbl${cls}"` : ''} style="position:absolute;left:${r1(r.x)}px;top:${r1(r.y)}px;width:${r.w}px;height:${r.h}px;display:flex;align-items:stretch;box-sizing:border-box;border:1px solid #2357A7;border-radius:3px;background:#fff;overflow:hidden;white-space:nowrap;font-size:${fs}px;line-height:1;color:#0f172a;z-index:4;">`
+          + (d.show_idx ? `<span style="display:flex;align-items:center;padding:0 ${r1(pad * 0.7)}px;background:#2357A7;color:#fff;font-family:${ANNO_NUM_FONT};font-weight:700;font-size:${r1(fs * 0.85)}px;">${i + 1}</span>` : '')
+          + `<span style="flex:1;display:flex;align-items:center;padding:0 ${pad}px;font-family:${ANNO_NAME_FONT};font-weight:500;">${escHtml(annoMarkerName(m, i))}</span>`
+          + (t ? `<span style="display:flex;align-items:center;padding:0 ${r1(pad * 0.7)}px;background:${ts.bg};color:${ts.fg};border-left:1px solid ${ts.bd};font-family:${ANNO_NUM_FONT};font-weight:700;">${escHtml(t.text)}</span>` : '')
+          + '</div>';
+      });
+      return `<svg width="${ANNO_W}" height="${ANNO_H}" viewBox="0 0 ${ANNO_W} ${ANNO_H}" style="position:absolute;left:0;top:0;z-index:2;pointer-events:none;">${lines}</svg>${dots}${labels}`;
+    }
+    function annoPageInnerHTML(d, opts = {}) {
+      const tv = opts.tv !== undefined ? opts.tv : annoTempOverlay(d);
+      const legend = tv ? `<span style="margin-left:12px;font-family:'Noto Sans TC','DM Sans',sans-serif;font-size:10.5px;font-weight:500;color:rgba(15,23,42,0.6);">實測 Tc（${escHtml(tv.label)}）　<span style="color:#16a34a;">■</span> Pass　<span style="color:#d97706;">■</span> Warning　<span style="color:#dc2626;">■</span> Fail</span>` : '';
+      const layer = `position:absolute;left:0;top:0;width:${ANNO_W}px;height:${ANNO_H}px;`;
+      return `<div style="position:absolute;left:0;top:0;width:${ANNO_W}px;height:${ANNO_TITLE_H}px;box-sizing:border-box;padding:10px 18px 0;display:flex;align-items:center;white-space:nowrap;overflow:hidden;">
+          <span style="font-family:'Space Grotesk',sans-serif;font-size:16px;font-weight:600;color:#0B3D7A;">${escHtml(d.title || '')}</span>${legend}</div>
+        <div ${opts.editor ? 'id="an-stage"' : ''} style="position:absolute;left:0;top:${ANNO_TITLE_H}px;width:${ANNO_W}px;height:${ANNO_H}px;">
+          <div ${opts.editor ? 'id="an-imglayer"' : ''} style="${layer}">${annoImageHTML(d, opts.editor)}</div>
+          <div ${opts.editor ? 'id="an-ov"' : ''} style="${layer}">${annoOverlayHTML(d, tv, opts)}</div>
+        </div>`;
+    }
+    function buildAnnotationHTML(d) {
+      annoNormalize(d);
+      if (!d.title) d.title = (d.tc_category || 'RF') + ' Thermocouple Location';
+      const tv = annoTempOverlay(d);
+      annoEnsureLabels(d, tv);
+      return wrapPageHTML(annoPageInnerHTML(d, { tv }));
     }
 
-    function renderAnnotationMarkers(page) {
-      const workspace = document.getElementById('anno-workspace');
-      const zone = document.getElementById('anno-photo-zone');
-      const svg = document.getElementById('anno-svg');
-      if (!workspace || !zone || !svg) return;
-      updateAnnoCompList(page);
-
-      // Remove old markers & labels (but keep photo zone and SVGs)
-      workspace.querySelectorAll('.marker-dot, .marker-label, .marker-label-wrap').forEach(el => el.remove());
-      svg.innerHTML = '';
-
-      const markers = page.data.markers;
-      const zoneRect = zone.getBoundingClientRect();
-      const wsRect = workspace.getBoundingClientRect();
-      const tempOverlay = annoTempOverlay(page.data);
-
-      // Compute zone offset relative to workspace
-      const zoneOffX = zoneRect.left - wsRect.left;
-      const zoneOffY = zoneRect.top - wsRect.top;
-
-      markers.forEach((m, idx) => {
-        // Dot position: x,y are % of photo zone
-        const dotX = zoneOffX + (m.x / 100) * zoneRect.width;
-        const dotY = zoneOffY + (m.y / 100) * zoneRect.height;
-
-        // Create dot
-        const dot = document.createElement('div');
-        dot.className = 'marker-dot';
-        dot.style.left = dotX + 'px';
-        dot.style.top = dotY + 'px';
-        dot.dataset.id = m.id;
-
-        // Right-click to delete
-        dot.addEventListener('contextmenu', (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          if (confirm(`刪除標記 #${idx + 1}？`)) {
-            page.data.markers = page.data.markers.filter(mk => mk.id !== m.id);
-            renderAnnotationMarkers(page);
-            scheduleSave(state.activePage);
-          }
+    // ── Layout helpers ──
+    function annoFitInSafe(b) {
+      const sw = ANNO_SAFE.r - ANNO_SAFE.l, sh = ANNO_SAFE.b - ANNO_SAFE.t;
+      let { x, y, w, h } = b;
+      const s = Math.min(1, sw / w, sh / h);
+      if (s < 1) { x += (w - w * s) / 2; y += (h - h * s) / 2; w *= s; h *= s; }
+      return { x: r1(clampN(x, ANNO_SAFE.l, ANNO_SAFE.r - w)), y: r1(clampN(y, ANNO_SAFE.t, ANNO_SAFE.b - h)), w: r1(w), h: r1(h) };
+    }
+    // Default frame for a new photo: centred, leaving ~150 px each side for labels.
+    function annoDefaultBox(ar) {
+      const maxW = ANNO_SAFE.r - ANNO_SAFE.l - 300, maxH = ANNO_SAFE.b - ANNO_SAFE.t - 20;
+      let w = maxW, h = w / ar;
+      if (h > maxH) { h = maxH; w = h * ar; }
+      return annoFitInSafe({ x: (ANNO_W - w) / 2, y: ANNO_SAFE.t + (ANNO_SAFE.b - ANNO_SAFE.t - h) / 2, w, h });
+    }
+    // 1-D spreading: keep each item as close to its wish as possible, no overlap, inside [lo, hi].
+    function annoSpread(items, lo, hi, gap) {
+      let cur = lo;
+      items.forEach(it => { it.p = Math.max(it.want, cur); cur = it.p + it.size + gap; });
+      let lim = hi;
+      for (let k = items.length - 1; k >= 0; k--) { const it = items[k]; it.p = Math.min(it.p, lim - it.size); lim = it.p - gap; }
+      cur = lo;
+      items.forEach(it => { it.p = Math.max(it.p, cur); cur = it.p + it.size + gap; });
+    }
+    // Put every label in a column left / right of the photo (rows above / below when
+    // the columns are full or too narrow), ordered like their points so lines don't cross.
+    // opt.overlap: columns / rows may sit over the photo's edge (never over a point);
+    // returns false when that covers a point or a label found no place.
+    function annoAutoArrange(d, tv, opt = {}) {
+      const B = d.img_box;
+      if (!B || !d.markers.length) return true;
+      const H = annoLabelH(d), vg = 4, over = !!opt.overlap;
+      const items = d.markers.map((m, i) => {
+        const p = annoDot(d, m);
+        return { m, i, px: p.x, py: p.y, w: annoLabelSize(d, m, i, tv && tv.byMarker.get(m.id)).w };
+      });
+      const colX = (s, w) => s === 'L' ? Math.max(ANNO_SAFE.l, B.x - ANNO_GAP - w) : Math.min(ANNO_SAFE.r - w, B.x + B.w + ANNO_GAP);
+      const rowY = s => s === 'T' ? Math.max(ANNO_SAFE.t, B.y - ANNO_GAP - H) : Math.min(ANNO_SAFE.b - H, B.y + B.h + ANNO_GAP);
+      const room = (s, it) => over || (s === 'L' ? B.x - ANNO_GAP - it.w >= ANNO_SAFE.l : s === 'R' ? B.x + B.w + ANNO_GAP + it.w <= ANNO_SAFE.r
+        : s === 'T' ? B.y - ANNO_GAP - H >= ANNO_SAFE.t : B.y + B.h + ANNO_GAP + H <= ANNO_SAFE.b);
+      const colCap = Math.floor((ANNO_SAFE.b - ANNO_SAFE.t + vg) / (H + vg));
+      const rowW = B.w + ANNO_GAP * 2;
+      const used = { L: 0, R: 0, T: 0, B: 0 };
+      const sides = { L: [], R: [], T: [], B: [] };
+      const fits = (s, it) => room(s, it) && ((s === 'L' || s === 'R') ? used[s] < colCap : used[s] + it.w + 8 <= rowW);
+      // columns are preferred (a column holds many labels); rows only for points close to the top / bottom edge
+      const cost = (s, it) => s === 'L' ? it.px - B.x : s === 'R' ? B.x + B.w - it.px : s === 'T' ? (it.py - B.y) * 2 + 30 : (B.y + B.h - it.py) * 2 + 30;
+      let placedAll = true;
+      // most constrained first: points near an edge pick their side before the middle ones
+      items.map(it => ({ it, best: Math.min(...['L', 'R', 'T', 'B'].map(s => cost(s, it))) }))
+        .sort((a, b) => a.best - b.best)
+        .forEach(({ it }) => {
+          const s = ['L', 'R', 'T', 'B'].filter(k => fits(k, it)).sort((a, b) => cost(a, it) - cost(b, it))[0];
+          if (!s) { placedAll = false; return; }                // no room anywhere: keep where it is
+          sides[s].push(it);
+          used[s] += (s === 'L' || s === 'R') ? 1 : it.w + 8;
         });
+      ['L', 'R'].forEach(s => {
+        const list = sides[s].sort((a, b) => a.py - b.py).map(it => ({ it, want: it.py - H / 2, size: H }));
+        annoSpread(list, ANNO_SAFE.t, ANNO_SAFE.b, vg);
+        list.forEach(({ it, p }) => { it.m.lx = r1(colX(s, it.w)); it.m.ly = r1(p); });
+      });
+      // Untangle: two labels of one column swap places while their leader lines cross.
+      const orient = (p, q, r) => Math.sign((q.x - p.x) * (r.y - p.y) - (q.y - p.y) * (r.x - p.x));
+      const crosses = (a1, a2, b1, b2) => orient(a1, a2, b1) * orient(a1, a2, b2) < 0 && orient(b1, b2, a1) * orient(b1, b2, a2) < 0;
+      ['L', 'R'].forEach(s => {
+        const list = sides[s];
+        const seg = it => [{ x: it.px, y: it.py }, { x: it.m.lx + it.w / 2, y: it.m.ly + H / 2 }];
+        for (let pass = 0; pass < 8; pass++) {
+          let swapped = false;
+          for (let a = 0; a < list.length; a++) for (let b = a + 1; b < list.length; b++) {
+            const [a1, a2] = seg(list[a]), [b1, b2] = seg(list[b]);
+            if (crosses(a1, a2, b1, b2)) { const t = list[a].m.ly; list[a].m.ly = list[b].m.ly; list[b].m.ly = t; swapped = true; }
+          }
+          if (!swapped) break;
+        }
+      });
+      // Rows run between the two label columns.
+      const lo = Math.max(ANNO_SAFE.l, ...sides.L.map(it => it.m.lx + it.w + 6)), hi = Math.min(ANNO_SAFE.r, ...sides.R.map(it => it.m.lx - 6));
+      ['T', 'B'].forEach(s => {
+        const list = sides[s].sort((a, b) => a.px - b.px).map(it => ({ it, want: it.px - it.w / 2, size: it.w }));
+        annoSpread(list, Math.min(lo, B.x), Math.max(hi, B.x + B.w), 8);
+        list.forEach(({ it, p }) => { it.m.lx = r1(p); it.m.ly = r1(rowY(s)); });
+      });
+      if (!placedAll) return false;
+      if (!over) return true;
+      // no label may cover a measuring point
+      const rects = items.map(it => ({ x: it.m.lx - 6, y: it.m.ly - 6, w: it.w + 12, h: H + 12 }));
+      return !items.some(it => rects.some(r => it.px > r.x && it.px < r.x + r.w && it.py > r.y && it.py < r.y + r.h));
+    }
+    // One-click layout: the largest photo for which every label still finds a place
+    // that covers no point (labels may sit over the photo's empty edges), then arrange.
+    function annoAutoLayout(d, tv) {
+      const B = d.img_box;
+      if (!B) return false;
+      const ar = B.w / B.h;
+      const sw = ANNO_SAFE.r - ANNO_SAFE.l, sh = ANNO_SAFE.b - ANNO_SAFE.t;
+      let fw = sw, fh = fw / ar;
+      if (fh > sh) { fh = sh; fw = fh * ar; }
+      const box = k => annoFitInSafe({ x: (ANNO_W - fw * k) / 2, y: ANNO_SAFE.t + (sh - fh * k) / 2, w: fw * k, h: fh * k });
+      if (!d.markers.length) { d.img_box = box(0.8); return true; }
+      for (let k = 1; k >= 0.3; k -= 0.025) {
+        d.img_box = box(k);
+        if (annoAutoArrange(d, tv, { overlap: true })) return true;
+      }
+      // nothing fits over the photo: keep the labels clear of it
+      const n = d.markers.length, H = annoLabelH(d);
+      const maxLw = Math.max(...d.markers.map((m, i) => annoLabelSize(d, m, i, tv && tv.byMarker.get(m.id)).w));
+      const side = Math.min(240, maxLw + ANNO_GAP + 4);
+      const perCol = Math.floor((sh + 4) / (H + 4));
+      const rows = n > perCol * 2 ? H + ANNO_GAP + 2 : 0;
+      let w = sw - side * 2, h = w / ar;
+      if (h > sh - rows * 2 - 4) { h = sh - rows * 2 - 4; w = h * ar; }
+      d.img_box = annoFitInSafe({ x: (ANNO_W - w) / 2, y: ANNO_SAFE.t + (sh - h) / 2, w, h });
+      annoAutoArrange(d, tv);
+      return true;
+    }
+    // Spot for one new label: the nearest free slot beside the photo.
+    function annoPlaceLabel(d, m, tv) {
+      const B = d.img_box, i = d.markers.indexOf(m);
+      const s = annoLabelSize(d, m, i, tv && tv.byMarker.get(m.id));
+      const p = annoDot(d, m);
+      const others = annoLabelRects(d, tv).filter(r => r.m !== m && r.m.lx != null);
+      const free = (x, y) => x >= ANNO_SAFE.l - 0.5 && y >= ANNO_SAFE.t - 0.5 && x + s.w <= ANNO_SAFE.r + 0.5 && y + s.h <= ANNO_SAFE.b + 0.5
+        && !others.some(o => x < o.x + o.w + 2 && o.x < x + s.w + 2 && y < o.y + o.h + 2 && o.y < y + s.h + 2);
+      const cands = [
+        { x: B.x - ANNO_GAP - s.w, y: p.y - s.h / 2, axis: 'y', cost: p.x - B.x },
+        { x: B.x + B.w + ANNO_GAP, y: p.y - s.h / 2, axis: 'y', cost: B.x + B.w - p.x },
+        { x: p.x - s.w / 2, y: B.y - ANNO_GAP - s.h, axis: 'x', cost: (p.y - B.y) * 2 + 30 },
+        { x: p.x - s.w / 2, y: B.y + B.h + ANNO_GAP, axis: 'x', cost: (B.y + B.h - p.y) * 2 + 30 },
+      ].sort((a, b) => a.cost - b.cost);
+      for (const c of cands) {
+        const step = c.axis === 'y' ? s.h + 4 : 12;
+        for (let k = 0; k < 120; k++) {
+          const off = (k % 2 ? 1 : -1) * Math.ceil(k / 2) * step;
+          const x = c.axis === 'x' ? clampN(c.x + off, ANNO_SAFE.l, ANNO_SAFE.r - s.w) : c.x;
+          const y = c.axis === 'y' ? clampN(c.y + off, ANNO_SAFE.t, ANNO_SAFE.b - s.h) : c.y;
+          if (free(x, y)) { m.lx = r1(x); m.ly = r1(y); return; }
+        }
+      }
+      const q = annoClampLabel(p.x + 14, p.y - s.h - 10, s.w, s.h);   // no room beside the photo: next to the point
+      m.lx = r1(q.x); m.ly = r1(q.y);
+    }
+    // Markers without a label position (old data / new points) get one.
+    function annoEnsureLabels(d, tv) {
+      if (!d.img_box) return false;
+      let changed = false;
+      d.markers.forEach(m => { if (m.lx == null || m.ly == null) { annoPlaceLabel(d, m, tv); changed = true; } });
+      return changed;
+    }
+    // Persist the drawn (clamped) label positions so data = what is printed.
+    function annoCommitLabels(d, tv) {
+      annoLabelRects(d, tv).forEach(r => { r.m.lx = r1(r.x); r.m.ly = r1(r.y); });
+    }
+    // Old frames may not match the photo (letterboxed, or rotated after fitting).
+    // Make the frame exactly the photo as the old editor drew it — fitted into the
+    // unrotated frame, then rotated about its centre — keeping every point on the
+    // same spot of the photo.
+    function annoFitBoxToImage(d, nw, nh) {
+      const B = d.img_box;
+      if (!B || !nw || !nh) return false;
+      const swap = (d.img_rot || 0) % 180 !== 0;
+      const s = Math.min(B.w / nw, B.h / nh);
+      const cw = swap ? nh * s : nw * s, ch = swap ? nw * s : nh * s;
+      d.img_fit = true;
+      if (Math.abs(cw - B.w) < 0.5 && Math.abs(ch - B.h) < 0.5) return false;
+      const cx = B.x + (B.w - cw) / 2, cy = B.y + (B.h - ch) / 2;
+      d.markers.forEach(m => {
+        const X = B.x + m.x / 100 * B.w, Y = B.y + m.y / 100 * B.h;
+        m.x = p2(clampN((X - cx) / cw * 100, 0, 100));
+        m.y = p2(clampN((Y - cy) / ch * 100, 0, 100));
+      });
+      d.img_box = annoFitInSafe({ x: cx, y: cy, w: cw, h: ch });
+      return true;
+    }
+    // On open: fit every old frame once (in the background), so preview / export
+    // are right even for annotation pages that are never opened in the editor.
+    function annoFitAllPages() {
+      state.pages.filter(p => p.type === 'annotation' && !p.data.img_fit && p.data.photo_url_or_base64).forEach(p => {
+        annoEnsureFit(p.data).then(done => { if (done) { annoSaveNow(p); annoRerender(p); } });
+      });
+    }
+    async function annoEnsureFit(d) {
+      if (d.img_fit || !d.photo_url_or_base64 || !d.img_box) return false;
+      const im = await annoLoadImage(d.photo_url_or_base64);
+      if (!im || d.img_fit) return false;
+      annoFitBoxToImage(d, im.naturalWidth, im.naturalHeight);
+      return true;
+    }
+    function annoLoadImage(url) {
+      return new Promise(resolve => {
+        const im = new Image();
+        im.onload = () => resolve(im);
+        im.onerror = () => resolve(null);
+        im.src = url;
+      });
+    }
 
-        // Draggable dot (document listeners live only for the duration of a drag)
-        dot.addEventListener('mousedown', (e) => {
-          if (e.button !== 0) return;
+    // ── Photo operations (points stay on the same spot of the photo) ──
+    // Rotation / mirror are lossless display transforms (CSS in editor and PDF).
+    function annoRotate(d, dir) {           // dir +1 = 90° clockwise, −1 = counter-clockwise
+      const B = d.img_box;
+      d.img_rot = (((d.img_rot || 0) + 90 * dir) % 360 + 360) % 360;
+      d.markers.forEach(m => {
+        const u = m.x / 100, v = m.y / 100;
+        const [nu, nv] = dir > 0 ? [1 - v, u] : [v, 1 - u];
+        m.x = p2(nu * 100); m.y = p2(nv * 100);
+      });
+      const cx = B.x + B.w / 2, cy = B.y + B.h / 2;
+      d.img_box = annoFitInSafe({ x: cx - B.h / 2, y: cy - B.w / 2, w: B.h, h: B.w });
+    }
+    function annoFlip(d, axis) {            // mirror what is on screen: 'h' left↔right, 'v' top↔bottom
+      const rot = d.img_rot || 0;
+      d.img_rot = axis === 'h' ? (360 - rot) % 360 : (540 - rot) % 360;
+      d.img_fh = !d.img_fh;
+      d.markers.forEach(m => { if (axis === 'h') m.x = p2(100 - m.x); else m.y = p2(100 - m.y); });
+    }
+    // Crop keeps the remaining part of the photo exactly where it was on the page.
+    function annoApplyCrop(d, url, r) {
+      const B = d.img_box;
+      d.photo_url_or_base64 = url;
+      d.img_rot = 0; d.img_fh = false;
+      d.markers.forEach(m => {
+        m.x = p2(clampN((m.x / 100 - r.x) / r.w * 100, 0, 100));
+        m.y = p2(clampN((m.y / 100 - r.y) / r.h * 100, 0, 100));
+      });
+      d.img_box = { x: r1(B.x + r.x * B.w), y: r1(B.y + r.y * B.h), w: r1(B.w * r.w), h: r1(B.h * r.h) };
+      d.img_fit = true;
+    }
+    // Brightness / contrast / saturation, baked into the bitmap (html2canvas
+    // ignores CSS filters). Same maths as the CSS filters used for the live preview.
+    async function annoBakeAdjust(url, adj) {
+      const im = await annoLoadImage(url);
+      if (!im) return null;
+      const c = document.createElement('canvas');
+      c.width = im.naturalWidth; c.height = im.naturalHeight;
+      const ctx = c.getContext('2d');
+      ctx.drawImage(im, 0, 0);
+      const px = ctx.getImageData(0, 0, c.width, c.height);
+      const a = px.data, br = 1 + adj.b / 100, ct = 1 + adj.c / 100, s = 1 + adj.s / 100;
+      const m = [0.213 + 0.787 * s, 0.715 - 0.715 * s, 0.072 - 0.072 * s, 0.213 - 0.213 * s, 0.715 + 0.285 * s, 0.072 - 0.072 * s, 0.213 - 0.213 * s, 0.715 - 0.715 * s, 0.072 + 0.928 * s];
+      for (let k = 0; k < a.length; k += 4) {
+        const R = (a[k] * br - 128) * ct + 128, G = (a[k + 1] * br - 128) * ct + 128, Bc = (a[k + 2] * br - 128) * ct + 128;
+        a[k] = m[0] * R + m[1] * G + m[2] * Bc;            // Uint8ClampedArray clamps + rounds
+        a[k + 1] = m[3] * R + m[4] * G + m[5] * Bc;
+        a[k + 2] = m[6] * R + m[7] * G + m[8] * Bc;
+      }
+      ctx.putImageData(px, 0, 0);
+      return c.toDataURL('image/jpeg', 0.7);
+    }
+    // Auto-enhance = stretch the 1 %–99 % luminance range, expressed as the
+    // brightness + contrast slider values (so it previews live and stays editable).
+    async function annoAutoLevels(url) {
+      const im = await annoLoadImage(url);
+      if (!im) return null;
+      const sc = Math.min(1, 400 / Math.max(im.naturalWidth, im.naturalHeight));
+      const c = document.createElement('canvas');
+      c.width = Math.max(1, Math.round(im.naturalWidth * sc)); c.height = Math.max(1, Math.round(im.naturalHeight * sc));
+      const ctx = c.getContext('2d');
+      ctx.drawImage(im, 0, 0, c.width, c.height);
+      const a = ctx.getImageData(0, 0, c.width, c.height).data;
+      const hist = new Array(256).fill(0);
+      for (let k = 0; k < a.length; k += 4) hist[Math.round(0.299 * a[k] + 0.587 * a[k + 1] + 0.114 * a[k + 2])]++;
+      const n = a.length / 4;
+      let lo = 0, hi = 255, acc = 0;
+      for (let v = 0; v < 256; v++) { acc += hist[v]; if (acc >= n * 0.01) { lo = v; break; } }
+      acc = 0;
+      for (let v = 255; v >= 0; v--) { acc += hist[v]; if (acc >= n * 0.01) { hi = v; break; } }
+      if (hi - lo < 8) return { b: 0, c: 0 };
+      const ga = 255 / (hi - lo), off = -lo * ga;               // v' = ga·v + off
+      const ct = 1 - off / 128, br = ga / ct;                    // = contrast(brightness(v))
+      return { b: Math.round(clampN((br - 1) * 100, -40, 40)), c: Math.round(clampN((ct - 1) * 100, -40, 60)) };   // gentle: a starting point
+    }
+
+    // ── Editor ──
+    const annoUI = { pageId: null, mode: 'select', sel: null, hover: null, zoom: 1, armed: null, seq: false, tv: undefined, space: false, lastPress: null };
+    let _annoRO = null;
+    const annoCropUndo = new WeakMap();      // page.data → state before the last crop (this session)
+    const annoAdjOriginal = new WeakMap();   // page.data → bitmap before brightness / contrast (this session)
+    const ANNO_ZOOMS = [1, 1.5, 2, 3, 4];    // × fit
+    function annoResetUI(pageId) {
+      Object.assign(annoUI, { pageId, mode: 'select', sel: null, hover: null, zoom: 1, armed: null, seq: false, tv: undefined, lastPress: null });
+    }
+    function annoSave(page, opts) { scheduleSave(state.pages.indexOf(page), opts); }
+    // Data conversions (not user edits): write now, so the next edit still gets its undo step.
+    function annoSaveNow(page) { if (state.pages.includes(page)) { scheduleSave(state.pages.indexOf(page), { undo: false }); runPageSave(page.id); } }
+    // Async results (photo loaded, crop / adjust done) only redraw if the page is still open.
+    function annoRerender(page) { if (state.pages[state.activePage] === page && document.getElementById('an-paper')) renderAnnotationPage(page); }
+    function annoTv(d) { if (annoUI.tv === undefined) annoUI.tv = annoTempOverlay(d); return annoUI.tv; }
+    const ANNO_ICONS = {
+      select: '<path d="M5 3l11 6.5-4.6 1.3L9 15.6z"/>',
+      add: '<circle cx="10" cy="10" r="2.2"/><path d="M10 2.5V6M10 14v3.5M2.5 10H6M14 10h3.5"/>',
+      image: '<rect x="2.5" y="4" width="15" height="12" rx="1.5"/><circle cx="7" cy="8.3" r="1.4"/><path d="M17.5 13l-4-4-6.5 7"/>',
+      rotl: '<path d="M4.5 9A6 6 0 1 1 6 14.2"/><path d="M4.2 4v5h5"/>',
+      rotr: '<path d="M15.5 9A6 6 0 1 0 14 14.2"/><path d="M15.8 4v5h-5"/>',
+      fliph: '<path d="M10 2.5v15"/><path d="M7.5 5.5L3 14.5h4.5z"/><path d="M12.5 5.5l4.5 9h-4.5z"/>',
+      flipv: '<path d="M2.5 10h15"/><path d="M5.5 7.5L14.5 3v4.5z"/><path d="M5.5 12.5l9 4.5v-4.5z"/>',
+      crop: '<path d="M5.5 2.5v12h12"/><path d="M2.5 5.5h12v12"/>',
+      uncrop: '<path d="M4.5 7.5h8a3.75 3.75 0 0 1 0 7.5H8"/><path d="M7.5 4.5l-3 3 3 3"/>',
+      adjust: '<circle cx="10" cy="10" r="6.5"/><path d="M10 3.5a6.5 6.5 0 0 1 0 13z" fill="currentColor"/>',
+      center: '<rect x="5.5" y="6.5" width="9" height="7" rx="1"/><path d="M10 2v2.5M10 15.5V18M2 10h2.5M15.5 10H18"/>',
+      layout: '<rect x="7.5" y="5" width="5" height="10" rx="1"/><path d="M2.5 6h3M2.5 10h3M2.5 14h3M14.5 6h3M14.5 10h3M14.5 14h3"/>',
+      arrange: '<path d="M2.5 5h5M2.5 10h5M2.5 15h5"/><path d="M7.5 5l5 4M7.5 15l5-4M7.5 10h5"/><circle cx="14.5" cy="10" r="2"/>',
+      num: '<path d="M8 3L6.5 17M13.5 3L12 17M3.5 7.5h13M3 12.5h13"/>',
+      size: '<path d="M2.5 15.5L6.5 5l4 10.5M4 11.5h5"/><path d="M12 15.5l2.75-7 2.75 7M12.9 13h3.7"/>',
+      trash: '<path d="M3.5 5.5h13M8 5.5v-2h4v2M5.5 5.5l1 11h7l1-11"/>',
+      zoomin: '<circle cx="8.5" cy="8.5" r="5.5"/><path d="M12.5 12.5l5 5M6 8.5h5M8.5 6v5"/>',
+      zoomout: '<circle cx="8.5" cy="8.5" r="5.5"/><path d="M12.5 12.5l5 5M6 8.5h5"/>',
+    };
+    const annoIcon = k => `<svg viewBox="0 0 20 20" aria-hidden="true">${ANNO_ICONS[k]}</svg>`;
+    const annoBtn = (tool, icon, tip, extra = '') => `<button type="button" class="an-tb" data-an-tool="${tool}" data-tip="${escapeAttr(tip)}" aria-label="${escapeAttr(tip)}" ${extra}>${annoIcon(icon)}</button>`;
+
+    function annoTempControlsHTML(d) {
+      const dataPages = state.pages.map((p, i) => ({ p, i })).filter(x => x.p.type === 'data');
+      if (!dataPages.length) return '';
+      const src = d.temp_src || {};
+      const cur = dataPages.find(x => x.p.id === src.page_id);
+      const tas = cur ? (cur.p.data.ta_conditions || []) : [];
+      return `<section class="an-sec">
+          <div class="an-sec-h">量測溫度</div>
+          <select class="an-select" data-anno-temp-page title="在標籤旁顯示數據頁的實測 Tc（依名稱對應）">
+            <option value="">不顯示</option>
+            ${dataPages.map(x => `<option value="${escapeAttr(x.p.id)}"${cur && cur.p.id === x.p.id ? ' selected' : ''}>${escHtml(pageBaseLabel(x.i) + (x.p.data.list_note ? ' · ' + x.p.data.list_note : ''))}</option>`).join('')}
+          </select>
+          ${cur ? `<select class="an-select" data-anno-temp-ta style="margin-top:4px;">${tas.map(t => `<option value="${t}"${t === src.ta ? ' selected' : ''}>Ta = ${t}°C</option>`).join('')}</select>
+          <div class="an-legend"><i class="pass"></i>Pass <i class="warn"></i>Warning <i class="fail"></i>Fail · PDF 同步</div>` : ''}
+        </section>`;
+    }
+    // Data page whose components feed "待放置" and the name suggestions.
+    function annoSourcePage(d) {
+      const dps = state.pages.filter(p => p.type === 'data' && (p.data.components || []).length);
+      return dps.find(p => p.id === d.place_src) || dps.find(p => d.temp_src && p.id === d.temp_src.page_id) || dps[0] || null;
+    }
+    function annoUnplaced(d) {
+      const src = annoSourcePage(d);
+      if (!src) return [];
+      const have = new Set(d.markers.map(m => specKey(m.label)).filter(Boolean));
+      const seen = new Set();
+      return (src.data.components || []).map(c => String(c.name || '').trim()).filter(n => {
+        const k = specKey(n);
+        if (!k || have.has(k) || seen.has(k)) return false;
+        seen.add(k);
+        return true;
+      });
+    }
+    function annoPlaceHTML(d) {
+      const dps = state.pages.map((p, i) => ({ p, i })).filter(x => x.p.type === 'data' && (x.p.data.components || []).length);
+      if (!dps.length || !d.photo_url_or_base64) return '';
+      const src = annoSourcePage(d);
+      const left = annoUnplaced(d);
+      return `<section class="an-sec">
+          <div class="an-sec-h">待放置元件 <span class="an-count">${left.length}</span></div>
+          <select class="an-select" data-an-place-src title="從哪一個數據頁取元件名稱">${dps.map(x => `<option value="${escapeAttr(x.p.id)}"${src && x.p.id === src.id ? ' selected' : ''}>${escHtml(pageBaseLabel(x.i) + (x.p.data.list_note ? ' · ' + x.p.data.list_note : ''))}</option>`).join('')}</select>
+          ${left.length ? `<div class="an-chips">${left.map(n => `<button type="button" class="an-chip${annoUI.armed === n ? ' armed' : ''}" data-an-arm="${escapeAttr(n)}" title="點一下，再到照片上點元件位置">${escHtml(n)}</button>`).join('')}</div>
+            <button type="button" class="an-seq${annoUI.seq ? ' on' : ''}" id="an-seq">${annoUI.seq ? '■ 停止依序放置' : '▶ 依序放置（點照片上的元件）'}</button>`
+          : '<div class="an-empty">這個數據頁的元件都已放置 ✓</div>'}
+        </section>`;
+    }
+    function annoListHTML(d) {
+      const tv = annoTv(d);
+      return d.markers.length ? d.markers.map((m, i) => {
+        const t = tv && tv.byMarker.get(m.id);
+        return `<li class="an-row${annoUI.sel === m.id ? ' sel' : ''}" data-an-row="${escapeAttr(m.id)}">
+            <span class="an-idx">${i + 1}</span>
+            <input class="an-name" data-an-name="${escapeAttr(m.id)}" value="${escapeAttr(m.label || '')}" placeholder="TC${i + 1}" list="an-names" spellcheck="false">
+            ${t ? `<span class="an-temp ${t.status}">${escHtml(t.text)}</span>` : ''}
+            <button type="button" class="an-del" data-an-del="${escapeAttr(m.id)}" aria-label="刪除標註點" title="刪除">×</button>
+          </li>`;
+      }).join('') : '<li class="an-empty">尚無標註點：按 <b>＋</b>（A）後點照片上的元件</li>';
+    }
+    function annoSideHTML(d) {
+      return `${annoTempControlsHTML(d)}${annoPlaceHTML(d)}
+        <section class="an-sec grow">
+          <div class="an-sec-h">標註點 <span class="an-count">${d.markers.length}</span><span class="sp"></span>
+            ${d.markers.length ? '<button type="button" class="an-mini" id="anno-batch-name" title="一次輸入所有名稱（可從 Excel 貼上一欄）">✎ 批次命名</button>' : ''}</div>
+          <ol class="an-list" id="an-list">${annoListHTML(d)}</ol>
+        </section>`;
+    }
+    function annoStatusHTML(d) {
+      if (!d.photo_url_or_base64) return '先放入照片：拖曳圖片到頁面、Ctrl+V 貼上，或按「選擇檔案」';
+      if (annoUI.mode === 'add') {
+        return `<b>標註模式</b>點照片新增標註點；按住拖曳可直接拉出標籤位置${annoUI.armed ? ` · 下一個：<b class="an-next">${escHtml(annoUI.armed)}</b>` : ''} · <kbd>Esc</kbd> 結束`;
+      }
+      return '<b>選取模式</b>拖曳照片＝整組移動（按住 <kbd>Alt</kbd> 只移動照片）· 拖曳四角縮放 · 雙擊標籤改名 · <kbd>Del</kbd> 刪除 · 方向鍵微調 · <kbd>Ctrl</kbd>+滾輪縮放檢視';
+    }
+
+    function renderAnnotationPage(page) {
+      const d = page.data;
+      const oldVp = annoUI.pageId === page.id && document.getElementById('an-viewport');
+      const keepScroll = oldVp ? [oldVp.scrollLeft, oldVp.scrollTop] : null;
+      if (annoUI.pageId !== page.id) annoResetUI(page.id);
+      annoUI.tv = undefined;
+      annoNormalize(d);
+      if (!d.tc_category) d.tc_category = 'RF';
+      // Title is composed from the category dropdown; kept in d.title so the PDF shows it too.
+      d.title = d.tc_category + ' Thermocouple Location';
+      if (annoEnsureLabels(d, annoTv(d))) annoSaveNow(page);
+      if (annoUI.sel && !d.markers.some(m => m.id === annoUI.sel)) annoUI.sel = null;
+      const hasPhoto = !!d.photo_url_or_base64;
+      const names = Array.from(new Set(state.pages.filter(p => p.type === 'data').flatMap(p => (p.data.components || []).map(c => String(c.name || '').trim())).filter(Boolean)));
+      const dis = hasPhoto ? '' : 'disabled';
+      const sizeName = { S: '小', M: '中', L: '大' }[d.label_size || 'M'];
+
+      $canvas.innerHTML = `
+        <div class="an-editor">
+          <div class="an-toolbar">
+            <div class="an-title">
+              <select class="an-cat" data-field="tc_category" aria-label="類別">${CATEGORY_OPTIONS.map(c => `<option value="${c}"${c === d.tc_category ? ' selected' : ''}>${c}</option>`).join('')}</select>
+              <span class="an-title-fixed">Thermocouple Location</span>
+            </div>
+            <div class="an-tgroup" aria-label="模式">
+              ${annoBtn('select', 'select', '選取 / 移動（V）', `aria-pressed="${annoUI.mode === 'select'}"`)}
+              ${annoBtn('add', 'add', '新增標註點（A）', `aria-pressed="${annoUI.mode === 'add'}" ${dis}`)}
+            </div>
+            <div class="an-tgroup" aria-label="照片">
+              ${annoBtn('replace', 'image', hasPhoto ? '更換照片（標註點保留）' : '選擇照片')}
+              ${annoBtn('rotl', 'rotl', '向左旋轉 90°（標註點跟著轉）', dis)}
+              ${annoBtn('rotr', 'rotr', '向右旋轉 90°（標註點跟著轉）', dis)}
+              ${annoBtn('fliph', 'fliph', '左右翻轉', dis)}
+              ${annoBtn('flipv', 'flipv', '上下翻轉', dis)}
+              ${annoBtn('crop', 'crop', '裁切（標註點留在原位）', dis)}
+              ${annoCropUndo.has(d) ? annoBtn('uncrop', 'uncrop', '還原裁切') : ''}
+              ${annoBtn('adjust', 'adjust', '亮度 / 對比 / 自動增強', dis)}
+              ${annoBtn('center', 'center', '置中（整組移動）', dis)}
+              ${annoBtn('delimg', 'trash', '刪除照片', dis + ' data-danger="1"')}
+            </div>
+            <div class="an-tgroup" aria-label="標籤">
+              ${annoBtn('layout', 'layout', '一鍵排版：調整照片大小並把標籤排在兩側', dis)}
+              ${annoBtn('arrange', 'arrange', '自動排列標籤（照片不動）', dis)}
+              ${annoBtn('size', 'size', `標籤字級：${sizeName}（點擊切換 小 / 中 / 大）`)}
+              ${annoBtn('num', 'num', '標籤顯示編號', `aria-pressed="${!!d.show_idx}"`)}
+            </div>
+            <div class="an-tgroup an-zoom" aria-label="檢視">
+              ${annoBtn('zoomout', 'zoomout', '縮小檢視（−）')}
+              <button type="button" class="an-tb txt" data-an-tool="zoomfit" data-tip="符合視窗（0）" aria-label="符合視窗">${Math.round(annoUI.zoom * 100)}%</button>
+              ${annoBtn('zoomin', 'zoomin', '放大檢視（+）')}
+            </div>
+          </div>
+          <div class="an-main">
+            <div class="an-viewport" id="an-viewport">
+              <div class="an-sizer" id="an-sizer">
+                <div class="an-paper mode-${annoUI.mode}" id="an-paper" style="font-family:${PDF_FONT};">
+                  ${wrapPageHTML(annoPageInnerHTML(d, { editor: true, tv: annoTv(d), sel: annoUI.sel }))}
+                  <div id="an-ui"><div id="an-ui-dyn"></div></div>
+                </div>
+              </div>
+            </div>
+            <aside class="an-side" id="an-side">${annoSideHTML(d)}</aside>
+          </div>
+          <div class="an-status" id="an-status">${annoStatusHTML(d)}</div>
+          <datalist id="an-names">${names.map(n => `<option value="${escapeAttr(n)}"></option>`).join('')}</datalist>
+          <input type="file" accept="image/*" id="anno-file-input" style="display:none">
+        </div>`;
+      $canvas.classList.add('anno-wide');
+      annoRenderUI(page);
+      annoFitView(page);
+      if (keepScroll) { const vp = document.getElementById('an-viewport'); vp.scrollLeft = keepScroll[0]; vp.scrollTop = keepScroll[1]; }
+      annoBindEditor(page);
+      // Re-measure once the label fonts are in (the PDF export waits for them too).
+      if (document.fonts && document.fonts.load) {
+        Promise.all([`500 10px 'DM Sans'`, `700 10px 'JetBrains Mono'`].map(f => document.fonts.load(f).catch(() => {}))).then(() => {
+          if (state.pages[state.activePage] === page && document.getElementById('an-ov')) annoRenderOverlay(page);
+        });
+      }
+      // Old pages: match the frame to the photo once its size is known.
+      if (hasPhoto && !d.img_fit) {
+        annoEnsureFit(d).then(done => { if (done) { annoSaveNow(page); annoRerender(page); } });
+      }
+    }
+
+    // Overlay (points / lines / labels) + editor handles, re-rendered cheaply while dragging.
+    function annoRenderOverlay(page) {
+      const d = page.data;
+      const ov = document.getElementById('an-ov');
+      if (!ov) return;
+      ov.innerHTML = annoOverlayHTML(d, annoTv(d), { editor: true, sel: annoUI.sel, hover: annoUI.hover });
+      annoRenderUI(page);
+    }
+    function annoApplyImgBox(d) {
+      const el = document.getElementById('an-img');
+      if (!el || !d.img_box) return;
+      const B = d.img_box;
+      Object.assign(el.style, { left: r1(B.x) + 'px', top: r1(B.y) + 'px', width: r1(B.w) + 'px', height: r1(B.h) + 'px' });
+      const inner = el.querySelector('[data-an-imgin]');
+      if (inner) inner.setAttribute('style', annoImgInnerStyle(d));
+    }
+    // Editor-only layer: frame handles, drop zone, safe-area guide.
+    function annoRenderUI(page) {
+      const d = page.data;
+      const ui = document.getElementById('an-ui-dyn');
+      if (!ui) return;
+      let html = `<div class="an-safe" style="left:${ANNO_SAFE.l}px;top:${ANNO_SAFE.t}px;width:${ANNO_SAFE.r - ANNO_SAFE.l}px;height:${ANNO_SAFE.b - ANNO_SAFE.t}px;"></div><div class="an-guide" style="display:none"></div>
+        <svg class="an-rubber" width="${ANNO_W}" height="${ANNO_H}" style="display:none"><line/></svg>`;
+      if (!d.photo_url_or_base64) {
+        const b = annoDefaultBox(4 / 3);
+        html += `<div class="an-drop" id="an-drop" style="left:${b.x}px;top:${b.y}px;width:${b.w}px;height:${b.h}px;">
+            <div class="an-drop-icon">${annoIcon('image')}</div>
+            <div>拖曳照片到這裡，或 Ctrl+V 貼上</div>
+            <button type="button" class="an-drop-btn">選擇檔案</button></div>`;
+      } else if (annoUI.mode === 'select' && d.img_box) {
+        const B = d.img_box;
+        html += `<div class="an-frame" style="left:${r1(B.x)}px;top:${r1(B.y)}px;width:${r1(B.w)}px;height:${r1(B.h)}px;"></div>`
+          + ['nw', 'ne', 'sw', 'se'].map(c => `<div class="an-handle" data-an-handle="${c}" style="left:${r1(B.x + (c[1] === 'e' ? B.w : 0))}px;top:${r1(B.y + (c[0] === 's' ? B.h : 0))}px;"></div>`).join('');
+      }
+      ui.innerHTML = html;
+    }
+    function annoRefreshSide(page) {
+      const d = page.data;
+      const side = document.getElementById('an-side');
+      if (side && !side.contains(document.activeElement)) {
+        const sc = side.querySelector('.an-list')?.scrollTop || 0;
+        side.innerHTML = annoSideHTML(d);
+        const list = side.querySelector('.an-list');
+        if (list) list.scrollTop = sc;
+      } else if (side) side.querySelectorAll('[data-an-row]').forEach(li => li.classList.toggle('sel', li.dataset.anRow === annoUI.sel));
+      const st = document.getElementById('an-status');
+      if (st) st.innerHTML = annoStatusHTML(d);
+    }
+    function annoRefresh(page) { annoRenderOverlay(page); annoRefreshSide(page); }
+    function annoSelect(page, id) {
+      annoUI.sel = id;
+      annoRenderOverlay(page);
+      document.querySelectorAll('#an-list [data-an-row]').forEach(li => li.classList.toggle('sel', li.dataset.anRow === id));
+      const row = id && document.querySelector(`#an-list [data-an-row="${CSS.escape(id)}"]`);
+      if (row) row.scrollIntoView({ block: 'nearest' });
+    }
+    function annoSetMode(page, mode) {
+      if (mode === 'add' && !page.data.photo_url_or_base64) return;
+      annoUI.mode = mode;
+      if (mode === 'select') { annoUI.armed = null; annoUI.seq = false; }
+      renderAnnotationPage(page);
+    }
+    function annoArm(page, name, seq) {
+      annoUI.armed = name || null;
+      annoUI.seq = !!seq && !!name;
+      annoUI.mode = name ? 'add' : annoUI.mode;
+      renderAnnotationPage(page);
+    }
+
+    // ── View: fit / zoom ──
+    function annoFitView(page) {
+      const vp = document.getElementById('an-viewport');
+      if (!vp) return;
+      const apply = () => {
+        const sizer = document.getElementById('an-sizer'), paper = document.getElementById('an-paper');
+        if (!sizer || !paper || !vp.clientWidth) return;
+        const fit = Math.max(0.2, Math.min((vp.clientWidth - 28) / 842, (vp.clientHeight - 28) / 595));
+        const k = fit * annoUI.zoom;
+        sizer.style.width = Math.round(842 * k) + 'px';
+        sizer.style.height = Math.round(595 * k) + 'px';
+        paper.style.transform = `scale(${k})`;
+      };
+      apply();
+      if (_annoRO) _annoRO.disconnect();
+      _annoRO = new ResizeObserver(apply);
+      _annoRO.observe(vp);
+    }
+    function annoZoom(page, dir, at) {
+      const vp = document.getElementById('an-viewport');
+      const zi = ANNO_ZOOMS.indexOf(annoUI.zoom);
+      const nz = dir === 0 ? 1 : ANNO_ZOOMS[clampN((zi < 0 ? 0 : zi) + dir, 0, ANNO_ZOOMS.length - 1)];
+      if (nz === annoUI.zoom || !vp) return;
+      // keep the point under the cursor (or the centre) in place
+      const r = vp.getBoundingClientRect();
+      const cx = at ? at.x - r.left : vp.clientWidth / 2, cy = at ? at.y - r.top : vp.clientHeight / 2;
+      const fx = (vp.scrollLeft + cx) / Math.max(1, vp.scrollWidth), fy = (vp.scrollTop + cy) / Math.max(1, vp.scrollHeight);
+      annoUI.zoom = nz;
+      annoFitView(page);
+      const btn = document.querySelector('[data-an-tool="zoomfit"]');
+      if (btn) btn.textContent = Math.round(nz * 100) + '%';
+      vp.scrollLeft = fx * vp.scrollWidth - cx;
+      vp.scrollTop = fy * vp.scrollHeight - cy;
+    }
+
+    // ── Pointer helpers ──
+    function annoPt(paper, e) {
+      const r = paper.getBoundingClientRect();
+      const k = r.width / 842;
+      return { x: (e.clientX - r.left) / k, y: (e.clientY - r.top) / k - ANNO_TITLE_H, k };
+    }
+    // One drag gesture; listeners live on the paper (re-created on every render), so nothing leaks.
+    function annoDrag(paper, e, onMove, onEnd) {
+      try { paper.setPointerCapture(e.pointerId); } catch (_) {}
+      paper.classList.add('dragging');
+      const move = ev => onMove(ev);
+      const up = ev => {
+        paper.removeEventListener('pointermove', move);
+        paper.removeEventListener('pointerup', up);
+        paper.removeEventListener('pointercancel', up);
+        paper.classList.remove('dragging');
+        onEnd(ev);
+      };
+      paper.addEventListener('pointermove', move);
+      paper.addEventListener('pointerup', up);
+      paper.addEventListener('pointercancel', up);
+    }
+    function annoNewId() { return 'm_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6); }
+
+    function annoDeleteMarker(page, id) {
+      const d = page.data;
+      d.markers = d.markers.filter(m => m.id !== id);
+      if (annoUI.sel === id) annoUI.sel = null;
+      annoUI.tv = undefined;
+      annoSave(page);
+      renderAnnotationPage(page);
+    }
+    function annoDuplicate(page, id) {
+      const d = page.data;
+      const m = d.markers.find(x => x.id === id);
+      if (!m) return;
+      const dup = { id: annoNewId(), x: Math.min(100, m.x + 3), y: Math.min(100, m.y + 3), label: m.label || '', lx: m.lx, ly: (m.ly || 0) + annoLabelH(d) + 4 };
+      d.markers.splice(d.markers.indexOf(m) + 1, 0, dup);
+      annoUI.sel = dup.id; annoUI.tv = undefined;
+      annoSave(page);
+      renderAnnotationPage(page);
+    }
+    // Inline rename on the label itself (Enter = done, Tab = next point, Esc = cancel).
+    function annoStartRename(page, id) {
+      const d = page.data;
+      const i = d.markers.findIndex(m => m.id === id);
+      const ui = document.getElementById('an-ui');
+      if (i < 0 || !ui) return;
+      ui.querySelector('.an-rename')?.blur();
+      ui.querySelector('.an-rename')?.remove();
+      const m = d.markers[i];
+      const r = annoLabelRects(d, annoTv(d))[i];
+      const inp = document.createElement('input');
+      inp.className = 'an-rename';
+      inp.value = m.label || '';
+      inp.placeholder = 'TC' + (i + 1);
+      inp.setAttribute('list', 'an-names');
+      inp.spellcheck = false;
+      Object.assign(inp.style, { left: r.x + 'px', top: r.y + 'px', width: Math.max(r.w, 150) + 'px', height: r.h + 'px', fontSize: annoFs(d) + 'px' });
+      ui.appendChild(inp);
+      annoSelect(page, id);
+      inp.focus();
+      inp.select();
+      let done = false;
+      const finish = (commit, next) => {
+        if (done) return;
+        done = true;
+        const v = inp.value.trim();
+        inp.remove();
+        if (commit && v !== (m.label || '')) { m.label = v; annoUI.tv = undefined; annoSave(page); }
+        if (annoUI.armed && specKey(annoUI.armed) === specKey(m.label)) annoNextArmed(page.data);
+        if (!document.getElementById('an-paper')) return;
+        annoRefresh(page);
+        if (next && d.markers[i + 1]) annoStartRename(page, d.markers[i + 1].id);
+      };
+      inp.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); finish(true, false); }
+        else if (e.key === 'Tab') { e.preventDefault(); finish(true, !e.shiftKey); }
+        else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); finish(false, false); }
+        e.stopPropagation();
+      });
+      inp.addEventListener('blur', () => finish(true, false));
+    }
+    function annoNextArmed(d) {
+      if (!annoUI.seq) { annoUI.armed = null; return; }
+      const left = annoUnplaced(d);
+      annoUI.armed = left[0] || null;
+      if (!annoUI.armed) { annoUI.seq = false; showToast('數據頁的元件都已放置 ✓', 'ok'); }
+    }
+    function annoShowMenu(page, id, cx, cy) {
+      document.querySelector('.an-ctx')?.remove();
+      const menu = document.createElement('div');
+      menu.className = 'an-ctx';
+      menu.innerHTML = `<button type="button" data-act="rename">重新命名<kbd>Enter</kbd></button>
+        <button type="button" data-act="dup">複製<kbd>Ctrl+D</kbd></button>
+        <button type="button" data-act="del" class="danger">刪除<kbd>Del</kbd></button>`;
+      document.body.appendChild(menu);
+      menu.style.left = Math.min(cx, window.innerWidth - menu.offsetWidth - 8) + 'px';
+      menu.style.top = Math.min(cy, window.innerHeight - menu.offsetHeight - 8) + 'px';
+      const close = () => { menu.remove(); document.removeEventListener('pointerdown', outside, true); };
+      menu._close = close;
+      const outside = (e) => { if (!menu.contains(e.target)) close(); };
+      document.addEventListener('pointerdown', outside, true);
+      menu.addEventListener('click', (e) => {
+        const act = e.target.closest('[data-act]')?.dataset.act;
+        if (!act) return;
+        close();
+        if (act === 'rename') annoStartRename(page, id);
+        else if (act === 'dup') annoDuplicate(page, id);
+        else if (act === 'del') annoDeleteMarker(page, id);
+      });
+    }
+    function annoShowAdjust(page, anchor) {
+      const d = page.data;
+      document.querySelector('.an-pop')?.remove();
+      const img = document.querySelector('#an-img img');
+      const adj = { b: 0, c: 0, s: 0 };
+      const pop = document.createElement('div');
+      pop.className = 'an-pop';
+      const row = (k, label, min, max) => `<label class="an-pop-row"><span>${label}</span><input type="range" min="${min}" max="${max}" value="0" data-adj="${k}"><output data-out="${k}">0</output></label>`;
+      pop.innerHTML = `<div class="an-pop-h">亮度 / 對比</div>
+        ${row('b', '亮度', -60, 60)}${row('c', '對比', -60, 100)}${row('s', '飽和度', -100, 100)}
+        <div class="an-pop-acts"><button type="button" data-a="auto">✨ 自動增強</button>${annoAdjOriginal.has(d) ? '<button type="button" data-a="orig">還原原圖</button>' : ''}<span style="flex:1"></span>
+          <button type="button" data-a="cancel">取消</button><button type="button" data-a="apply" class="primary">套用</button></div>`;
+      document.body.appendChild(pop);
+      const r = anchor.getBoundingClientRect();
+      pop.style.left = Math.min(r.left, window.innerWidth - pop.offsetWidth - 10) + 'px';
+      pop.style.top = (r.bottom + 8) + 'px';
+      const preview = () => {
+        pop.querySelectorAll('[data-adj]').forEach(inp => { inp.value = adj[inp.dataset.adj]; pop.querySelector(`[data-out="${inp.dataset.adj}"]`).textContent = adj[inp.dataset.adj]; });
+        if (img) img.style.filter = `brightness(${1 + adj.b / 100}) contrast(${1 + adj.c / 100}) saturate(${1 + adj.s / 100})`;
+      };
+      const close = () => { pop.remove(); if (img) img.style.filter = ''; document.removeEventListener('pointerdown', outside, true); };
+      pop._close = close;
+      const outside = (e) => { if (!pop.contains(e.target) && e.target !== anchor && !anchor.contains(e.target)) close(); };
+      document.addEventListener('pointerdown', outside, true);
+      pop.addEventListener('input', (e) => { const k = e.target.dataset.adj; if (k) { adj[k] = parseInt(e.target.value) || 0; preview(); } });
+      pop.addEventListener('click', async (e) => {
+        const a = e.target.closest('[data-a]')?.dataset.a;
+        if (a === 'cancel') close();
+        else if (a === 'auto') { const v = await annoAutoLevels(annoAdjOriginal.get(d) || d.photo_url_or_base64); if (v) { Object.assign(adj, v); preview(); } }
+        else if (a === 'orig') {
+          d.photo_url_or_base64 = annoAdjOriginal.get(d);
+          annoAdjOriginal.delete(d);
+          close(); annoSave(page); annoRerender(page);
+        } else if (a === 'apply') {
+          if (!adj.b && !adj.c && !adj.s) { close(); return; }
+          const base = annoAdjOriginal.get(d) || d.photo_url_or_base64;
+          e.target.disabled = true; e.target.textContent = '處理中…';
+          const url = await annoBakeAdjust(base, adj);
+          close();
+          if (!url) return;
+          if (!annoAdjOriginal.has(d)) annoAdjOriginal.set(d, base);
+          d.photo_url_or_base64 = url;
+          annoSave(page);
+          annoRerender(page);
+          showToast('已套用亮度 / 對比（工具列 ◐ →「還原原圖」可復原）', 'ok');
+        }
+      });
+      preview();
+    }
+
+    async function handleAnnotationPhoto(page, file) {
+      const url = await processImageCompressed(file, PHOTO_JPEG_QUALITY);
+      const im = url && await annoLoadImage(url);
+      if (!im) { showToast('無法讀取這張圖片', 'warn'); return; }
+      const d = page.data;
+      annoNormalize(d);
+      const ar = im.naturalWidth / im.naturalHeight;
+      annoCropUndo.delete(d); annoAdjOriginal.delete(d);
+      const hadPhoto = !!(d.photo_url_or_base64 && d.img_box);
+      if (hadPhoto) {                                   // replace: same width and centre, points kept
+        const B = d.img_box, h = B.w / ar;
+        d.img_box = annoFitInSafe({ x: B.x, y: B.y + (B.h - h) / 2, w: B.w, h });
+      } else {
+        d.img_box = annoDefaultBox(ar);
+      }
+      d.photo_url_or_base64 = url;
+      d.img_rot = 0; d.img_fh = false; d.img_fit = true;
+      annoUI.tv = undefined;
+      const tv = annoTempOverlay(d);
+      if (!hadPhoto && d.markers.length) annoAutoArrange(d, tv);   // e.g. a page copied from a template
+      annoEnsureLabels(d, tv);
+      annoSave(page);
+      annoRerender(page);
+    }
+
+    async function annoTool(page, tool, btn) {
+      const d = page.data;
+      const tv = annoTv(d);
+      const commit = () => { annoUI.tv = undefined; annoSave(page); annoRerender(page); };
+      const photoOps = ['rotl', 'rotr', 'fliph', 'flipv', 'crop', 'center', 'layout', 'arrange'];
+      if (photoOps.includes(tool) && !d.img_fit && await annoEnsureFit(d)) annoSaveNow(page);   // old frame: fit before remapping points
+      if (tool === 'select' || tool === 'add') annoSetMode(page, tool);
+      else if (tool === 'replace') document.getElementById('anno-file-input')?.click();
+      else if (tool === 'rotl' || tool === 'rotr') { annoRotate(d, tool === 'rotr' ? 1 : -1); annoAutoArrange(d, tv); commit(); }
+      else if (tool === 'fliph' || tool === 'flipv') { annoFlip(d, tool === 'fliph' ? 'h' : 'v'); annoAutoArrange(d, tv); commit(); }
+      else if (tool === 'crop') {
+        openImageCropper(d.photo_url_or_base64, { rotate: d.img_rot || 0, flipH: !!d.img_fh }, (url, r) => {
+          if (!r) return;
+          annoCropUndo.set(d, { url: d.photo_url_or_base64, box: { ...d.img_box }, rot: d.img_rot || 0, fh: !!d.img_fh, pts: d.markers.map(m => [m.id, m.x, m.y]) });
+          annoAdjOriginal.delete(d);
+          annoApplyCrop(d, url, r);
+          commit();
+        });
+      } else if (tool === 'uncrop') {
+        const o = annoCropUndo.get(d);
+        if (!o) return;
+        annoCropUndo.delete(d);
+        d.photo_url_or_base64 = o.url; d.img_box = o.box; d.img_rot = o.rot; d.img_fh = o.fh;
+        const pts = new Map(o.pts.map(p => [p[0], p]));
+        d.markers.forEach(m => { const p = pts.get(m.id); if (p) { m.x = p[1]; m.y = p[2]; } });
+        commit();
+      } else if (tool === 'adjust') annoShowAdjust(page, btn);
+      else if (tool === 'center') {
+        const B = d.img_box;
+        const dx = r1((ANNO_SAFE.l + ANNO_SAFE.r) / 2 - (B.x + B.w / 2)), dy = r1((ANNO_SAFE.t + ANNO_SAFE.b) / 2 - (B.y + B.h / 2));
+        d.img_box = { ...B, x: B.x + dx, y: B.y + dy };
+        d.markers.forEach(m => { m.lx += dx; m.ly += dy; });
+        annoCommitLabels(d, tv);
+        commit();
+      } else if (tool === 'delimg') {
+        if (!confirm(`刪除照片${d.markers.length ? `與 ${d.markers.length} 個標註點` : ''}？（可用 Ctrl+Z 復原）`)) return;
+        annoCropUndo.delete(d); annoAdjOriginal.delete(d);
+        d.photo_url_or_base64 = '';
+        d.markers = [];
+        delete d.img_box; delete d.img_fit;
+        d.img_rot = 0; d.img_fh = false;
+        annoUI.mode = 'select'; annoUI.sel = null;
+        commit();
+      } else if (tool === 'layout') { annoAutoLayout(d, tv); commit(); showToast('已排版（Ctrl+Z 可復原）', 'ok'); }
+      else if (tool === 'arrange') {
+        if (!d.markers.length) return;
+        annoAutoArrange(d, tv); commit();
+      } else if (tool === 'size') {
+        d.label_size = { S: 'M', M: 'L', L: 'S' }[d.label_size || 'M'];
+        annoCommitLabels(d, tv);
+        commit();
+      } else if (tool === 'num') { d.show_idx = !d.show_idx; annoCommitLabels(d, tv); commit(); }
+      else if (tool === 'zoomin') annoZoom(page, 1);
+      else if (tool === 'zoomout') annoZoom(page, -1);
+      else if (tool === 'zoomfit') annoZoom(page, 0);
+    }
+
+    function annoBindEditor(page) {
+      const d = page.data;
+      const paper = document.getElementById('an-paper');
+      const vp = document.getElementById('an-viewport');
+      const fileInput = document.getElementById('anno-file-input');
+
+      $canvas.querySelector('.an-toolbar').addEventListener('click', (e) => {
+        const b = e.target.closest('[data-an-tool]');
+        if (b && !b.disabled) { if (b.dataset.anTool !== 'adjust') b.blur(); annoTool(page, b.dataset.anTool, b); }
+      });
+      $canvas.querySelector('[data-field="tc_category"]').addEventListener('change', (e) => {
+        d.tc_category = e.target.value;
+        d.title = d.tc_category + ' Thermocouple Location';
+        annoSave(page);
+        renderAnnotationPage(page);
+      });
+      fileInput.addEventListener('change', async () => { if (fileInput.files[0]) await handleAnnotationPhoto(page, fileInput.files[0]); });
+
+      // Drop a photo anywhere on the page area
+      vp.addEventListener('dragover', (e) => { if (Array.from(e.dataTransfer?.types || []).includes('Files')) { e.preventDefault(); vp.classList.add('dragover'); } });
+      vp.addEventListener('dragleave', (e) => { if (e.target === vp) vp.classList.remove('dragover'); });
+      vp.addEventListener('drop', async (e) => {
+        vp.classList.remove('dragover');
+        const f = Array.from(e.dataTransfer?.files || []).find(x => x.type.startsWith('image/'));
+        if (!f) return;
+        e.preventDefault();
+        await handleAnnotationPhoto(page, f);
+      });
+      vp.addEventListener('wheel', (e) => {
+        if (!e.ctrlKey && !e.metaKey) return;
+        e.preventDefault();
+        annoZoom(page, e.deltaY < 0 ? 1 : -1, { x: e.clientX, y: e.clientY });
+      }, { passive: false });
+
+      // Side panel
+      const side = document.getElementById('an-side');
+      side.addEventListener('change', (e) => {
+        const t = e.target;
+        if (t.matches('[data-anno-temp-page]')) {
+          const dp = state.pages.find(p => p.id === t.value);
+          d.temp_src = dp ? { page_id: dp.id, ta: (dp.data.ta_conditions || []).slice(-1)[0] } : null;
+        } else if (t.matches('[data-anno-temp-ta]')) {
+          d.temp_src = Object.assign({}, d.temp_src, { ta: parseFloat(t.value) });
+        } else if (t.matches('[data-an-place-src]')) {
+          d.place_src = t.value;
+          if (annoUI.seq) annoUI.armed = annoUnplaced(d)[0] || null;
+          annoSave(page);
+          renderAnnotationPage(page);
+          return;
+        } else {
+          if (t.closest('[data-an-name]')) { annoUI.tv = undefined; annoRefreshSide(page); }
+          return;
+        }
+        annoUI.tv = undefined;
+        annoCommitLabels(d, annoTv(d));
+        annoSave(page);
+        renderAnnotationPage(page);
+      });
+      side.addEventListener('click', (e) => {
+        const chip = e.target.closest('[data-an-arm]');
+        if (chip) { annoArm(page, annoUI.armed === chip.dataset.anArm ? null : chip.dataset.anArm, false); return; }
+        if (e.target.closest('#an-seq')) { if (annoUI.seq) { annoUI.seq = false; annoUI.armed = null; renderAnnotationPage(page); } else annoArm(page, annoUnplaced(d)[0], true); return; }
+        const del = e.target.closest('[data-an-del]');
+        if (del) { annoDeleteMarker(page, del.dataset.anDel); return; }
+        if (e.target.closest('#anno-batch-name')) { showAnnoBatchNameModal(page); return; }
+        const row = e.target.closest('[data-an-row]');
+        if (row && !e.target.closest('input')) annoSelect(page, row.dataset.anRow);
+      });
+      side.addEventListener('focusin', (e) => { const n = e.target.closest('[data-an-name]'); if (n && annoUI.sel !== n.dataset.anName) annoSelect(page, n.dataset.anName); });
+      side.addEventListener('input', (e) => {
+        const n = e.target.closest('[data-an-name]');
+        if (!n) return;
+        const m = d.markers.find(x => x.id === n.dataset.anName);
+        if (!m) return;
+        m.label = n.value;
+        annoUI.tv = undefined;
+        annoRenderOverlay(page);
+        annoSave(page);
+      });
+      side.addEventListener('keydown', (e) => {
+        const n = e.target.closest('[data-an-name]');
+        if (n && e.key === 'Enter') { e.preventDefault(); const next = n.closest('li').nextElementSibling?.querySelector('[data-an-name]'); if (next) next.focus(); else n.blur(); }
+      });
+      side.addEventListener('mouseover', (e) => {
+        const row = e.target.closest('[data-an-row]');
+        const id = row ? row.dataset.anRow : null;
+        if (id !== annoUI.hover) { annoUI.hover = id; annoRenderOverlay(page); }
+      });
+      side.addEventListener('mouseleave', () => { if (annoUI.hover) { annoUI.hover = null; annoRenderOverlay(page); } });
+
+      // Page: drop zone button
+      paper.addEventListener('click', (e) => { const b = e.target.closest('.an-drop-btn'); if (b) fileInput.click(); });
+      paper.addEventListener('contextmenu', (e) => {
+        const t = e.target.closest('[data-an-lbl],[data-an-dot]');
+        if (!t) return;
+        e.preventDefault();
+        const id = t.dataset.anLbl || t.dataset.anDot;
+        annoSelect(page, id);
+        annoShowMenu(page, id, e.clientX, e.clientY);
+      });
+      paper.addEventListener('pointerdown', (e) => {
+        if (e.target.closest('.an-rename, .an-drop-btn')) return;
+        // pan: middle button, or Space + drag
+        if (e.button === 1 || (e.button === 0 && annoUI.space)) {
           e.preventDefault();
-          e.stopPropagation();
-          trackDrag((ev) => {
-            const zr = zone.getBoundingClientRect();
-            const wr = workspace.getBoundingClientRect();
-            // Clamp to photo zone
-            const cx = Math.max(zr.left, Math.min(zr.right, ev.clientX));
-            const cy = Math.max(zr.top, Math.min(zr.bottom, ev.clientY));
-            const newDotX = (cx - wr.left);
-            const newDotY = (cy - wr.top);
-            dot.style.left = newDotX + 'px';
-            dot.style.top = newDotY + 'px';
-            // Update SVG line if label exists
-            if (m.label_x >= 0 && m.label_y >= 0) {
-              const lbl = workspace.querySelector(`.marker-label-wrap[data-id="${m.id}"]`);
-              if (lbl) {
-                updateAnnotationLine(svg, m.id, newDotX, newDotY,
-                  parseFloat(lbl.style.left) + lbl.offsetWidth / 2,
-                  parseFloat(lbl.style.top) + lbl.offsetHeight / 2);
+          const sx = e.clientX, sy = e.clientY, sl = vp.scrollLeft, st = vp.scrollTop;
+          annoDrag(paper, e, ev => { vp.scrollLeft = sl - (ev.clientX - sx); vp.scrollTop = st - (ev.clientY - sy); }, () => {});
+          return;
+        }
+        if (e.button !== 0 || !d.photo_url_or_base64 || !d.img_box) return;
+        const handle = e.target.closest('[data-an-handle]');
+        const dot = e.target.closest('[data-an-dot]');
+        const lbl = e.target.closest('[data-an-lbl]');
+        const onImg = e.target.closest('[data-an-img]');
+        const tv = annoTv(d);
+        const p0 = annoPt(paper, e);
+        if (!handle && !dot && !lbl && !onImg) { if (annoUI.sel) annoSelect(page, null); return; }
+        e.preventDefault();
+        document.activeElement?.blur?.();
+        const hitId = (dot && dot.dataset.anDot) || (lbl && lbl.dataset.anLbl) || null;
+        const last = annoUI.lastPress;
+        annoUI.lastPress = hitId ? { id: hitId, t: e.timeStamp, x: e.clientX, y: e.clientY } : null;
+        if (hitId && last && last.id === hitId && e.timeStamp - last.t < 450 && Math.hypot(e.clientX - last.x, e.clientY - last.y) < 6) {
+          annoUI.lastPress = null;
+          annoStartRename(page, hitId);
+          return;
+        }
+
+        if (handle) {                                            // resize, aspect locked, opposite corner fixed
+          const c = handle.dataset.anHandle, B0 = { ...d.img_box }, ar = B0.w / B0.h;
+          const ax = c[1] === 'e' ? B0.x : B0.x + B0.w, ay = c[0] === 's' ? B0.y : B0.y + B0.h;
+          const sx = c[1] === 'e' ? 1 : -1, sy = c[0] === 's' ? 1 : -1;
+          const maxW = Math.min(sx > 0 ? ANNO_SAFE.r - ax : ax - ANNO_SAFE.l, (sy > 0 ? ANNO_SAFE.b - ay : ay - ANNO_SAFE.t) * ar);
+          const L0 = d.markers.map(m => { const s = annoLabelSize(d, m, d.markers.indexOf(m), tv && tv.byMarker.get(m.id)); return { m, cx: m.lx + s.w / 2, cy: m.ly + s.h / 2, w: s.w, h: s.h }; });
+          annoDrag(paper, e, (ev) => {
+            const p = annoPt(paper, ev);
+            const w = clampN(Math.max((p.x - ax) * sx, (p.y - ay) * sy * ar), 60, maxW), h = w / ar;
+            d.img_box = { x: r1(sx > 0 ? ax : ax - w), y: r1(sy > 0 ? ay : ay - h), w: r1(w), h: r1(h) };
+            if (!ev.altKey) {
+              const k = w / B0.w;
+              L0.forEach(o => { o.m.lx = r1(ax + (o.cx - ax) * k - o.w / 2); o.m.ly = r1(ay + (o.cy - ay) * k - o.h / 2); });
+            }
+            annoApplyImgBox(d);
+            annoRenderOverlay(page);
+          }, () => { annoCommitLabels(d, tv); annoSave(page); annoRenderOverlay(page); });
+          return;
+        }
+
+        if (dot) {                                               // move the point (stays on the photo)
+          const m = d.markers.find(x => x.id === dot.dataset.anDot);
+          if (!m) return;
+          annoSelect(page, m.id);
+          let moved = false;
+          annoDrag(paper, e, (ev) => {
+            const p = annoPt(paper, ev);
+            if (!moved && Math.hypot(p.x - p0.x, p.y - p0.y) * p.k < 3) return;
+            moved = true;
+            const B = d.img_box;
+            m.x = p2(clampN((p.x - B.x) / B.w * 100, 0, 100));
+            m.y = p2(clampN((p.y - B.y) / B.h * 100, 0, 100));
+            annoRenderOverlay(page);
+          }, () => { if (moved) annoSave(page); });
+          return;
+        }
+
+        if (lbl) {                                               // move the label (snaps to other labels' edges)
+          const m = d.markers.find(x => x.id === lbl.dataset.anLbl);
+          if (!m) return;
+          annoSelect(page, m.id);
+          const rects = annoLabelRects(d, tv);
+          const me = rects.find(r => r.m === m);
+          const edges = rects.filter(r => r.m !== m).flatMap(r => [r.x, r.x + r.w]);
+          let moved = false;
+          annoDrag(paper, e, (ev) => {
+            const p = annoPt(paper, ev);
+            if (!moved && Math.hypot(p.x - p0.x, p.y - p0.y) * p.k < 3) return;
+            moved = true;
+            let x = me.x + p.x - p0.x;
+            const y = me.y + p.y - p0.y;
+            let snap = null;
+            if (!ev.altKey) {
+              const tol = 5 / p.k;
+              for (const ex of edges) {
+                if (Math.abs(x - ex) < tol) { x = ex; snap = ex; break; }
+                if (Math.abs(x + me.w - ex) < tol) { x = ex - me.w; snap = ex; break; }
               }
             }
-          }, (ev) => {
-            const zr = zone.getBoundingClientRect();
-            const cx = Math.max(zr.left, Math.min(zr.right, ev.clientX));
-            const cy = Math.max(zr.top, Math.min(zr.bottom, ev.clientY));
-            // Convert back to % of photo zone
-            m.x = Math.round(((cx - zr.left) / zr.width) * 10000) / 100;
-            m.y = Math.round(((cy - zr.top) / zr.height) * 10000) / 100;
-            renderAnnotationMarkers(page);
-            scheduleSave(state.activePage);
+            const q = annoClampLabel(x, y, me.w, me.h);
+            m.lx = r1(q.x); m.ly = r1(q.y);
+            annoRenderOverlay(page);
+            const g = paper.querySelector('.an-guide');
+            if (g) { g.style.display = snap === null ? 'none' : 'block'; g.style.left = snap + 'px'; }
+          }, () => {
+            const g = paper.querySelector('.an-guide');
+            if (g) g.style.display = 'none';
+            if (moved) annoSave(page);
           });
-        });
+          return;
+        }
 
-        workspace.appendChild(dot);
-
-        // Label (only if placed)
-        if (m.label_x >= 0 && m.label_y >= 0) {
-          const labelX = (m.label_x / 100) * wsRect.width;
-          const labelY = (m.label_y / 100) * wsRect.height;
-
-          // Wrapper for label + resize handle
-          const wrap = document.createElement('div');
-          wrap.className = 'marker-label-wrap';
-          wrap.style.left = labelX + 'px';
-          wrap.style.top = labelY + 'px';
-          wrap.dataset.id = m.id;
-
-          const label = document.createElement('input');
-          label.type = 'text';
-          label.className = 'marker-label';
-          label.placeholder = `TC${idx + 1} - 元件名稱`;
-          label.value = m.label || '';
-          label.dataset.id = m.id;
-          // Saved width, else fitted to the name (long names are not cut off)
-          const savedW = m.label_w || annoAutoLabelWidth(m.label || `TC${idx + 1}`, true);
-          label.style.width = savedW + 'px';
-
-          // Resize handle
-          const resizeHandle = document.createElement('div');
-          resizeHandle.className = 'marker-resize-handle';
-
-          // Delete button
-          const deleteBtn = document.createElement('button');
-          deleteBtn.className = 'marker-delete-btn';
-          deleteBtn.type = 'button';
-          deleteBtn.textContent = '×';
-          deleteBtn.title = '刪除標籤';
-          deleteBtn.addEventListener('mousedown', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
+        if (onImg && annoUI.mode === 'add') {                     // new point; drag out to place its label
+          const B = d.img_box;
+          const m = { id: annoNewId(), x: p2(clampN((p0.x - B.x) / B.w * 100, 0, 100)), y: p2(clampN((p0.y - B.y) / B.h * 100, 0, 100)), label: annoUI.armed || '' };
+          d.markers.push(m);
+          annoUI.sel = m.id; annoUI.tv = undefined;
+          const tv2 = annoTv(d);
+          annoPlaceLabel(d, m, tv2);
+          annoRenderOverlay(page);
+          let moved = false;
+          annoDrag(paper, e, (ev) => {
+            const p = annoPt(paper, ev);
+            if (!moved && Math.hypot(p.x - p0.x, p.y - p0.y) * p.k < 6) return;
+            moved = true;
+            const s = annoLabelSize(d, m, d.markers.indexOf(m), tv2 && tv2.byMarker.get(m.id));
+            const q = annoClampLabel(p.x - s.w / 2, p.y - s.h / 2, s.w, s.h);
+            m.lx = r1(q.x); m.ly = r1(q.y);
+            annoRenderOverlay(page);
+            const rub = paper.querySelector('.an-rubber'), line = rub && rub.querySelector('line');
+            if (line) { rub.style.display = 'block'; line.setAttribute('x1', p0.x); line.setAttribute('y1', p0.y); line.setAttribute('x2', p.x); line.setAttribute('y2', p.y); }
+          }, () => {
+            const rub = paper.querySelector('.an-rubber');
+            if (rub) rub.style.display = 'none';
+            annoSave(page);
+            if (annoUI.armed) annoNextArmed(d);
+            annoUI.tv = undefined;
+            annoRefresh(page);
+            if (!m.label) annoStartRename(page, m.id);
           });
-          deleteBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            page.data.markers = page.data.markers.filter(mk => mk.id !== m.id);
-            renderAnnotationMarkers(page);
-            scheduleSave(state.activePage);
+          return;
+        }
+
+        if (onImg) {                                             // move the whole group (Alt: photo + points only)
+          const B0 = { ...d.img_box };
+          const L0 = d.markers.map(m => [m, m.lx, m.ly]);
+          let moved = false;
+          annoDrag(paper, e, (ev) => {
+            const p = annoPt(paper, ev);
+            if (!moved && Math.hypot(p.x - p0.x, p.y - p0.y) * p.k < 3) return;
+            moved = true;
+            const dx = clampN(p.x - p0.x, ANNO_SAFE.l - B0.x, Math.max(ANNO_SAFE.l - B0.x, ANNO_SAFE.r - B0.x - B0.w));
+            const dy = clampN(p.y - p0.y, ANNO_SAFE.t - B0.y, Math.max(ANNO_SAFE.t - B0.y, ANNO_SAFE.b - B0.y - B0.h));
+            d.img_box = { ...B0, x: r1(B0.x + dx), y: r1(B0.y + dy) };
+            L0.forEach(([m, lx, ly]) => { m.lx = ev.altKey ? lx : r1(lx + dx); m.ly = ev.altKey ? ly : r1(ly + dy); });
+            annoApplyImgBox(d);
+            annoRenderOverlay(page);
+          }, () => {
+            if (!moved) { if (annoUI.sel) annoSelect(page, null); return; }
+            annoCommitLabels(d, tv);
+            annoSave(page);
+            annoRenderOverlay(page);
           });
-
-          // Copy button — duplicate this marker (dot + label), offset slightly
-          const copyBtn = document.createElement('button');
-          copyBtn.className = 'marker-copy-btn';
-          copyBtn.type = 'button';
-          copyBtn.textContent = '⧉';
-          copyBtn.title = '複製此標籤';
-          copyBtn.addEventListener('mousedown', (e) => { e.preventDefault(); e.stopPropagation(); });
-          copyBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            const dup = {
-              id: 'm_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
-              x: Math.min(98, (m.x || 0) + 4),
-              y: Math.min(98, (m.y || 0) + 4),
-              label: m.label || '',
-              label_x: (m.label_x >= 0) ? Math.min(95, m.label_x + 3) : m.label_x,
-              label_y: (m.label_y >= 0) ? Math.min(95, m.label_y + 3) : m.label_y,
-              label_w: m.label_w,
-            };
-            page.data.markers.push(dup);
-            renderAnnotationMarkers(page);
-            scheduleSave(state.activePage);
-          });
-
-          wrap.appendChild(label);
-          const tv = tempOverlay && tempOverlay.byMarker.get(m.id);
-          if (tv) {
-            const badge = document.createElement('span');
-            badge.className = 'marker-temp marker-temp-' + tv.status;
-            badge.textContent = tv.text;
-            wrap.appendChild(badge);
-          }
-          wrap.appendChild(resizeHandle);
-          wrap.appendChild(deleteBtn);
-          wrap.appendChild(copyBtn);
-
-          // Editable
-          label.addEventListener('input', () => {
-            m.label = label.value;
-            updateAnnoCompList(page);
-            scheduleSave(state.activePage);
-          });
-
-          // Drag with movement threshold: single click focuses input,
-          // drag only starts after the cursor moves > 5px while held.
-          label.addEventListener('mousedown', (e) => {
-            if (e.target !== label || e.button !== 0) return;
-            const wr0 = wrap.getBoundingClientRect();
-            const startX = e.clientX, startY = e.clientY;
-            const offX = e.clientX - wr0.left, offY = e.clientY - wr0.top;
-            let dragging = false;
-            trackDrag((ev) => {
-              if (!dragging) {
-                if (Math.hypot(ev.clientX - startX, ev.clientY - startY) <= 5) return;
-                dragging = true;
-                label.blur();
-              }
-              const wsr = workspace.getBoundingClientRect();
-              const newX = ev.clientX - wsr.left - offX;
-              const newY = ev.clientY - wsr.top - offY;
-              wrap.style.left = newX + 'px';
-              wrap.style.top = newY + 'px';
-              updateAnnotationLine(svg, m.id, dotX, dotY, newX + wrap.offsetWidth / 2, newY + wrap.offsetHeight / 2);
-            }, () => {
-              if (!dragging) return;
-              const rect = workspace.getBoundingClientRect();
-              let lx = (parseFloat(wrap.style.left) / rect.width) * 100;
-              let ly = (parseFloat(wrap.style.top) / rect.height) * 100;
-              // Clamp so label doesn't overflow right/bottom edge
-              const lwPct = (label.offsetWidth / rect.width) * 100;
-              lx = Math.max(0, Math.min(100 - lwPct, lx));
-              ly = Math.max(0, Math.min(96, ly));
-              m.label_x = lx;
-              m.label_y = ly;
-              scheduleSave(state.activePage);
-              renderAnnotationMarkers(page);
-            });
-          });
-
-          // Resize handle drag
-          resizeHandle.addEventListener('mousedown', (e) => {
-            if (e.button !== 0) return;
-            e.preventDefault();
-            e.stopPropagation();
-            const resizeStartX = e.clientX, resizeStartW = label.offsetWidth;
-            trackDrag((ev) => {
-              const newW = Math.max(40, resizeStartW + (ev.clientX - resizeStartX));
-              label.style.width = newW + 'px';
-              // Update SVG line to track center
-              updateAnnotationLine(svg, m.id, dotX, dotY,
-                parseFloat(wrap.style.left) + wrap.offsetWidth / 2,
-                parseFloat(wrap.style.top) + wrap.offsetHeight / 2);
-            }, () => {
-              m.label_w = label.offsetWidth;
-              scheduleSave(state.activePage);
-            });
-          });
-
-          // Double-click to edit text
-          label.addEventListener('dblclick', (e) => {
-            e.stopPropagation();
-            label.focus();
-            label.select();
-          });
-
-          workspace.appendChild(wrap);
-
-          // Draw SVG leader line (use saved width + handle 6px for center calc)
-          const labelCenterX = labelX + (savedW + 6) / 2;
-          const labelCenterY = labelY + (wrap.offsetHeight || 24) / 2;
-          drawAnnotationLine(svg, m.id, dotX, dotY, labelCenterX, labelCenterY);
         }
       });
     }
 
-    function drawAnnotationLine(svg, markerId, x1, y1, x2, y2) {
-      const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-      line.setAttribute('x1', x1);
-      line.setAttribute('y1', y1);
-      line.setAttribute('x2', x2);
-      line.setAttribute('y2', y2);
-      line.dataset.markerId = markerId;
-      svg.appendChild(line);
-    }
-
-    function updateAnnotationLine(svg, markerId, x1, y1, x2, y2) {
-      const line = svg.querySelector(`line[data-marker-id="${markerId}"]`);
-      if (line) {
-        line.setAttribute('x1', x1);
-        line.setAttribute('y1', y1);
-        line.setAttribute('x2', x2);
-        line.setAttribute('y2', y2);
-      }
-    }
+    // Keyboard: V / A modes, Esc, Delete, arrows (label; Alt = point), Enter / F2 rename,
+    // Ctrl+D duplicate, + / − / 0 zoom, Space = pan. Only while an annotation page is open.
+    window.addEventListener('keydown', (e) => {
+      const page = state.pages[state.activePage];
+      if (!page || page.type !== 'annotation' || !document.getElementById('an-paper')) return;
+      if (document.querySelector('.tool-modal-overlay, .sim-modal-overlay, .hp-modal-overlay, .update-backdrop') || document.getElementById('preview-overlay')?.classList.contains('open')) return;
+      const t = e.target;
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
+      const d = page.data;
+      const k = e.key;
+      let handled = true;
+      if (e.ctrlKey || e.metaKey) {
+        if ((k === 'd' || k === 'D') && annoUI.sel) annoDuplicate(page, annoUI.sel);
+        else handled = false;
+      } else if (k === 'v' || k === 'V') annoSetMode(page, 'select');
+      else if (k === 'a' || k === 'A') annoSetMode(page, 'add');
+      else if (k === 'Escape') {
+        const pop = document.querySelector('.an-pop, .an-ctx');
+        if (pop) { if (pop._close) pop._close(); else pop.remove(); }
+        else if (annoUI.mode === 'add') annoSetMode(page, 'select');
+        else if (annoUI.sel) annoSelect(page, null);
+        else handled = false;
+      } else if ((k === 'Delete' || k === 'Backspace') && annoUI.sel) annoDeleteMarker(page, annoUI.sel);
+      else if ((k === 'Enter' || k === 'F2') && annoUI.sel) annoStartRename(page, annoUI.sel);
+      else if (k.startsWith('Arrow') && annoUI.sel) {
+        const m = d.markers.find(x => x.id === annoUI.sel);
+        if (!m) return;
+        const dx = k === 'ArrowLeft' ? -1 : k === 'ArrowRight' ? 1 : 0, dy = k === 'ArrowUp' ? -1 : k === 'ArrowDown' ? 1 : 0;
+        if (e.altKey) {
+          const st = e.shiftKey ? 1 : 0.2;
+          m.x = p2(clampN(m.x + dx * st, 0, 100)); m.y = p2(clampN(m.y + dy * st, 0, 100));
+        } else {
+          const st = e.shiftKey ? 10 : 1;
+          m.lx += dx * st; m.ly += dy * st;
+          annoCommitLabels(d, annoTv(d));
+        }
+        annoRenderOverlay(page);
+        annoSave(page);
+      } else if (k === '+' || k === '=') annoZoom(page, 1);
+      else if (k === '-' || k === '_') annoZoom(page, -1);
+      else if (k === '0') annoZoom(page, 0);
+      else if (k === ' ') { annoUI.space = true; document.getElementById('an-paper')?.classList.add('panning'); }
+      else handled = false;
+      if (handled) { e.preventDefault(); e.stopPropagation(); }
+    }, true);
+    window.addEventListener('keyup', (e) => {
+      if (e.key === ' ' && annoUI.space) { e.preventDefault(); annoUI.space = false; document.getElementById('an-paper')?.classList.remove('panning'); }
+    }, true);
+    window.addEventListener('blur', () => { annoUI.space = false; document.getElementById('an-paper')?.classList.remove('panning'); });   // missed keyup (Alt+Tab)
 
     // ━━━ Thermal data model (single source of truth) ━━━
     // Every place that shows a margin / pass-fail / comparison value — the data
@@ -10656,64 +10857,6 @@
       return wrapPageHTML(inner);
     }
 
-    function buildAnnotationHTML(d) {
-      const hasPhoto = !!d.photo_url_or_base64;
-      const markers = d.markers || [];
-      const overlay = annoTempOverlay(d);
-      const pzW = d.anno_photo_w || 680;
-      const pzH = d.anno_photo_h || 430;
-      // Title height ~36px out of 595px total → workspace height = 595-36 = 559px
-      const titleH = 36;
-      const pageW = 842;
-      const pageH = 595;
-      const wsH = pageH - titleH;
-      // Photo zone as % of workspace (position follows any move; default centred)
-      const pzX = (d.anno_photo_x != null) ? d.anno_photo_x : (pageW - pzW) / 2;
-      const pzY = (d.anno_photo_y != null) ? d.anno_photo_y : (wsH - pzH) / 2;
-      const pzWPct = (pzW / pageW) * 100;
-      const pzHPct = (pzH / wsH) * 100;
-      const pzLPct = (pzX / pageW) * 100;
-      const pzTPct = (pzY / wsH) * 100;
-
-      let dots = '', svgLines = '';
-      markers.forEach((m, idx) => {
-        // Dot: % of photo zone → convert to % of workspace
-        const dxPct = pzLPct + (m.x / 100) * pzWPct;
-        const dyPct = pzTPct + (m.y / 100) * pzHPct;
-        dots += `<div style="position:absolute;left:${dxPct}%;top:${dyPct}%;width:5px;height:5px;border-radius:50%;background:#dc2626;box-shadow:0 0 0 1px rgba(255,255,255,0.9);transform:translate(-50%,-50%);z-index:15;"></div>`;
-        if (m.label_x >= 0 && m.label_y >= 0) {
-          const lxPct = m.label_x;
-          const lyPct = m.label_y;
-          const tv = overlay && overlay.byMarker.get(m.id);
-          const name = m.label || 'TC' + (idx + 1);
-          const lw = m.label_w ? m.label_w + (tv ? annoAutoLabelWidth(tv.text) - 12 : 0) : annoAutoLabelWidth(tv ? `${name}  ${tv.text}` : name);
-          const tvStyle = !tv ? '' : tv.status === 'fail' ? 'background:#fee2e2;border-color:#dc2626;'
-            : tv.status === 'warn' ? 'background:#fef3c7;border-color:#d97706;' : tv.status === 'pass' ? 'background:#dcfce7;border-color:#16a34a;' : '';
-          const tvText = !tv ? '' : `<b style="margin-left:6px;color:${tv.status === 'fail' ? '#b91c1c' : tv.status === 'warn' ? '#92400e' : tv.status === 'pass' ? '#166534' : '#334155'};">${escHtml(tv.text)}</b>`;
-          // Clamp label so right edge doesn't exceed container
-          const maxLw = pageW * ((100 - lxPct) / 100) - 4; // 4px safety margin
-          const clampedLw = Math.min(lw, maxLw);
-          dots += `<div style="position:absolute;left:${lxPct}%;top:${lyPct}%;width:${clampedLw}px;min-width:40px;padding:4px 8px;background:#fff;border:1.5px solid #2357A7;font-family:'JetBrains Mono',monospace;font-size:10px;color:rgba(15,23,42,0.90);z-index:20;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:0 1px 4px rgba(0,0,0,0.12);box-sizing:border-box;${tvStyle}">${escHtml(name)}${tvText}</div>`;
-          // SVG line: use viewBox percentages (0-100 range)
-          const slxPct = lxPct + (clampedLw / pageW) * 50; // approximate label center X %
-          const slyPct = lyPct + 1.8; // approximate label center Y %
-          svgLines += `<line x1="${dxPct}" y1="${dyPct}" x2="${slxPct}" y2="${slyPct}" stroke="#dc2626" stroke-width="0.2"/>`;
-        }
-      });
-
-      const inner = `<div style="width:100%;height:100%;display:flex;flex-direction:column;position:relative;color:rgba(15,23,42,0.90);letter-spacing:0px;word-spacing:0px;">
-        <div style="font-family:'Space Grotesk',sans-serif;font-size:16px;font-weight:600;letter-spacing:0.02em;word-spacing:0px;padding:14px 18px 8px;flex-shrink:0;color:#0B3D7A;">${escHtml(d.title)}${overlay ? `<span style="margin-left:12px;font-family:'Noto Sans TC','DM Sans',sans-serif;font-size:10.5px;font-weight:500;letter-spacing:0;color:rgba(15,23,42,0.6);">實測 Tc（${escHtml(overlay.label)}）　<span style="color:#16a34a;">■</span> Pass　<span style="color:#d97706;">■</span> Warning　<span style="color:#dc2626;">■</span> Fail</span>` : ''}</div>
-        <div style="flex:1;position:relative;overflow:hidden;">
-          ${hasPhoto ? `<div style="position:absolute;top:${pzTPct}%;left:${pzLPct}%;width:${pzWPct}%;height:${pzHPct}%;border:1px solid #C2DFF8;overflow:hidden;display:flex;align-items:center;justify-content:center;">
-            <img src="${escapeAttr(d.photo_url_or_base64)}" style="max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;transform:${annoImgTransform(d)};">
-          </div>` : ''}
-          <svg viewBox="0 0 100 100" preserveAspectRatio="none" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:10;">${svgLines}</svg>
-          ${dots}
-        </div>
-      </div>`;
-      return wrapPageHTML(inner);
-    }
-
     // Returns an ARRAY of page HTML strings: the conclusion normally fits on one
     // page; when the Compliance Summary is long it continues on further pages
     // (header row repeated) instead of being clipped. Issues / Next Action go
@@ -12516,6 +12659,10 @@
         } else if (p.type === 'annotation') {
           if (!d.photo_url_or_base64) add(idx, 'warn', '標註頁沒有照片');
           else if (!(d.markers || []).length) add(idx, 'info', '標註頁沒有標註點');
+          else {
+            const unnamed = d.markers.filter(m => !String(m.label || '').trim()).length;
+            if (unnamed) add(idx, 'info', `${unnamed} 個標註點未命名（PDF 會顯示 TC 編號）`);
+          }
         } else if (p.type === 'data') {
           const comps = d.components || [];
           const tas = d.ta_conditions || [];
@@ -13342,6 +13489,7 @@
       migrateReportData();
       state.pages.forEach((p, i) => { p.order = i; initPageSnapshot(p); });
       await loadSpecMemory();
+      annoFitAllPages();
       saveStructure();
       showEditor();
       renderPageList();
@@ -13360,6 +13508,7 @@
         if (p.type !== 'data') return;
         (p.data.components || []).forEach(c => { if (!c.uid) { c.uid = newCompUid(); changed = true; } });
       });
+      state.pages.forEach(p => { if (p.type === 'annotation' && annoNormalize(p.data)) changed = true; });
       state.pages.forEach(p => {
         const rows = p.type === 'sim_vs_meas' ? (p.data.items || [])
           : p.type === 'conclusion' ? (p.data.compliance || []) : [];
@@ -13399,6 +13548,7 @@
       state.pages.forEach(p => initPageSnapshot(p));
       if (needsStructureSave) saveStructure();
       await loadSpecMemory();
+      annoFitAllPages();
 
       showEditor();
       renderPageList();

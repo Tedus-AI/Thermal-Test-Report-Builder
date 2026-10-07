@@ -10547,11 +10547,10 @@
     function numberVirtualPages(list) {
       const n = list.length;
       list = list.map(vp => vp.page.type === 'toc' ? { ...vp, html: buildTocHTML(list, vp.page) } : vp);
-      return list.map((vp, i) => (vp.page.type === 'cover') ? vp : {
-        ...vp,
-        html: `<div style="position:relative;width:100%;height:100%;">${vp.html}<div style="position:absolute;left:0;right:0;bottom:14px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:8px;color:rgba(15,23,42,0.45);letter-spacing:0;z-index:3;">${i + 1} / ${n}</div></div>`,
-      });
+      return list.map((vp, i) => (vp.page.type === 'cover') ? vp : { ...vp, html: pgNumbered(vp.html, `${i + 1} / ${n}`) });
     }
+    // The page number band (data-pg-foot: pagination keeps content above it, see pgMeasure).
+    const pgNumbered = (html, label) => `<div style="position:relative;width:100%;height:100%;">${html}<div data-pg-foot style="position:absolute;left:0;right:0;bottom:14px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:8px;color:rgba(15,23,42,0.45);letter-spacing:0;z-index:3;">${label}</div></div>`;
 
     // ━━━ Preview Mode ━━━
     let previewIdx = 0;
@@ -10889,11 +10888,16 @@
     // height: wrapped names, a second line with Δ / warnings …), every page is laid
     // out off-screen with the export fonts and must end above a limit, so no row
     // can ever slide under the footer, whatever the data. Builders put PG_END at
-    // the end of their content flow.
+    // the end of their content flow and mark what they pin above the page bottom
+    // (the margin definitions …) with data-pg-foot; the page number is measured
+    // too, so content always ends PG_FOOT_GAP above the highest footer line, even
+    // when a note wraps onto more lines.
     const PG_END = '<div data-pg-end style="height:0;margin:0;padding:0;"></div>';
-    const PG_LIMIT = 548;         // lowest content y: clear of the page number (~573) and corner marks
+    const PG_LIMIT = 548;         // lowest content y: clear of the corner marks (the page number is measured)
+    const PG_FOOT_GAP = 10;
     let _pgBox = null;
-    function pgBottom(pageHtml) {
+    /** { end: y of PG_END, room: lowest y content may reach on this page }. */
+    function pgMeasure(pageHtml) {
       if (!_pgBox || !_pgBox.isConnected) {
         _pgBox = document.createElement('div');
         _pgBox.className = 'pg-measure';
@@ -10901,12 +10905,15 @@
         _pgBox.style.cssText = `position:fixed;left:-10000px;top:0;width:842px;height:595px;background:#fff;z-index:-1;overflow:hidden;font-family:${PDF_FONT};letter-spacing:0;word-spacing:0;pointer-events:none;`;
         document.body.appendChild(_pgBox);
       }
-      _pgBox.innerHTML = '<style>.pg-measure *{letter-spacing:0!important;word-spacing:0!important;text-transform:none!important}</style><div style="width:100%;height:100%;">' + pageHtml + '</div>';
+      _pgBox.innerHTML = '<style>.pg-measure *{letter-spacing:0!important;word-spacing:0!important;text-transform:none!important}</style><div style="width:100%;height:100%;">' + pgNumbered(pageHtml, '00 / 00') + '</div>';
+      const top = _pgBox.getBoundingClientRect().top;
       const end = _pgBox.querySelector('[data-pg-end]');
-      const y = end ? end.getBoundingClientRect().top - _pgBox.getBoundingClientRect().top : 0;
+      const foot = Math.min(...Array.from(_pgBox.querySelectorAll('[data-pg-foot]'), el => el.getBoundingClientRect().top - top));
+      const res = { end: end ? end.getBoundingClientRect().top - top : 0, room: Math.min(PG_LIMIT, foot - PG_FOOT_GAP) };
       _pgBox.innerHTML = '';
-      return y;
+      return res;
     }
+    const pgFits = (pageHtml) => { const m = pgMeasure(pageHtml); return m.end <= m.room; };
     // Largest e in [lo, hi] with ok(e) true (ok must be monotone: true … true false … false); lo − 1 if none.
     function pgMax(lo, hi, ok) {
       if (lo > hi || !ok(lo)) return lo - 1;
@@ -10917,13 +10924,13 @@
       return good;
     }
     // Split n rows into pages: page(start, end, pageNo) → page HTML. Each page takes as
-    // many rows as fit above limit (at least one). Returns [[start, end], …].
-    function pgSplit(n, page, limit = PG_LIMIT) {
+    // many rows as fit (pgFits; at least one). Returns [[start, end], …].
+    function pgSplit(n, page) {
       const out = [];
       let i = 0;
       while (i < n) {
         const no = out.length;
-        const e = Math.max(i + 1, pgMax(i + 1, n, e => pgBottom(page(i, e, no)) <= limit));
+        const e = Math.max(i + 1, pgMax(i + 1, n, e => pgFits(page(i, e, no))));
         out.push([i, e]);
         i = e;
       }
@@ -11056,7 +11063,7 @@
 
       // Margin definitions, pinned just above the page footer on every page
       // that carries component rows (outside the paginated content area).
-      const defNoteHtml = `<div style="position:absolute;left:32px;right:32px;bottom:27px;font-size:7px;line-height:1.35;color:rgba(15,23,42,0.5);">※ ${escHtml(MARGIN_DEFINITION_TEXT)}</div>`;
+      const defNoteHtml = `<div data-pg-foot style="position:absolute;left:32px;right:32px;bottom:27px;font-size:7px;line-height:1.35;color:rgba(15,23,42,0.5);">※ ${escHtml(MARGIN_DEFINITION_TEXT)}</div>`;
 
       const sensors = d.sensors || [];
       const sensorsWithData = sensors.filter(s => s.name || Object.values(s.readings || {}).some(v => v));
@@ -11123,15 +11130,14 @@
           ${sensor}${PG_END}
         </div>${rows ? defNoteHtml : ''}`;
 
-      // Pages are filled by measurement (see pgBottom): component rows first, then
+      // Pages are filled by measurement (see pgMeasure): component rows first, then
       // the sensor rows (their table header repeats on every page they continue to).
-      // Pages carrying component rows end higher, above the margin definitions.
-      const LIMIT_WITH_NOTE = 532;
+      // Pages carrying component rows end above the margin definitions (data-pg-foot).
       const headerBlocks = infoGridHtml + taTagsHtml + powerHtml;
       const nC = rowsHtml.length, nS = sensorRowArr.length;
       const html = sp => wrapPageHTML(makeInner(titleHtml, sp.first ? headerBlocks : '',
         rowsHtml.slice(sp.c0, sp.c1).join(''), sp.s1 > sp.s0 ? buildSensorBlock(sensorRowArr.slice(sp.s0, sp.s1)) : ''));
-      const fits = sp => pgBottom(html(sp)) <= (sp.c1 > sp.c0 ? LIMIT_WITH_NOTE : PG_LIMIT);
+      const fits = sp => pgFits(html(sp));
       const specs = [];
       let ci = 0, si = 0;
       do {
@@ -11224,7 +11230,7 @@
       const pages = chunks.map(([a, b]) => tableBlock(rowStrs.slice(a, b).join('')));
       // notes / chart / 結論敘述 go under the last rows, or onto their own final page
       const last = pages.length - 1;
-      if (pgBottom(pageShell(pages[last] + extrasHtml)) <= PG_LIMIT) pages[last] += extrasHtml;
+      if (pgFits(pageShell(pages[last] + extrasHtml))) pages[last] += extrasHtml;
       else pages.push(extrasHtml);
       return pages.map(pageShell);
     }
@@ -11342,6 +11348,20 @@
       });
     }
 
+    // Loads the export fonts for exactly these glyphs (Google Fonts serves CJK in
+    // unicode-range subsets, fetched only for the characters asked for).
+    async function loadPdfFonts(doc, glyphs, timeoutMs = 0) {
+      if (!doc.fonts || !doc.fonts.load) return;
+      const specs = [];
+      ["'Space Grotesk'", "'DM Sans'", "'Noto Sans TC'", "'JetBrains Mono'"].forEach(fam => {
+        ['400', '500', '600', '700'].forEach(w => specs.push(`${w} 12px ${fam}`));
+      });
+      const text = Array.from(new Set(String(glyphs || ''))).join('') || 'A';
+      const all = Promise.all(specs.map(sp => doc.fonts.load(sp, text).catch(() => {})))
+        .then(() => doc.fonts.ready).catch(() => {});
+      await (timeoutMs ? Promise.race([all, new Promise(r => setTimeout(r, timeoutMs))]) : all);
+    }
+
     async function exportPDF(selectedPageIdxs, opts = {}) {
       if (state.pages.length === 0) return;
       if (typeof html2canvas === 'undefined' || typeof jspdf === 'undefined') {
@@ -11380,19 +11400,10 @@
         if (document.fonts && document.fonts.load) {
           let glyphs = '類別元件名稱備註類型實測頁THERMAL TEST DATA EMBEDDED SENSOR READINGS SensorLocalRemoteRFDigitalPWRRecAbs0123456789.-/%°C';
           try {
-            (state.pages || []).forEach(p => {
-              if (p.type === 'data' && p.data) {
-                (p.data.components || []).forEach(c => { glyphs += (c.name || '') + (c.note || '') + (c.tim_type || ''); });
-                (p.data.sensors || []).forEach(s => { glyphs += (s.name || '') + (s.note || ''); });
-              }
-            });
+            // every text of every page (sim / compare / conclusion paginate too); images left out
+            glyphs += JSON.stringify((state.pages || []).map(p => p.data), (k, v) => typeof v === 'string' && v.startsWith('data:') ? '' : v);
           } catch (_) {}
-          const specs = [];
-          ["'Space Grotesk'", "'DM Sans'", "'Noto Sans TC'", "'JetBrains Mono'"].forEach(fam => {
-            ['400', '500', '600', '700'].forEach(w => specs.push(`${w} 12px ${fam}`));
-          });
-          await Promise.all(specs.map(s => document.fonts.load(s, glyphs).catch(() => {}))).catch(() => {});
-          if (document.fonts.ready) await document.fonts.ready;
+          await loadPdfFonts(document, glyphs);
           // let layout pick up the freshly-applied fonts before we measure
           await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
         }
@@ -11449,6 +11460,10 @@
               width: w,
               height: h,
               logging: false,
+              // html2canvas lays the page out again in a cloned document, which loads
+              // the webfonts anew: wait for the glyphs of this page there too, or it
+              // can draw rows with fallback metrics, taller than the pagination measured.
+              onclone: (doc, el) => loadPdfFonts(doc, el.textContent, 4000),
             });
           } finally {
             offscreen.remove();   // always clean up, even when rendering fails
@@ -12702,7 +12717,7 @@
       // rows per page by measurement; notes / summaries under the last rows or on their own page
       const pages = pgSplit(t.rows.length, (a, b) => shell(compareTableHTML(t, t.rows.slice(a, b)))).map(([a, b]) => compareTableHTML(t, t.rows.slice(a, b)));
       const last = pages.length - 1;
-      if (pgBottom(shell(pages[last] + extras)) <= PG_LIMIT) pages[last] += extras;
+      if (pgFits(shell(pages[last] + extras))) pages[last] += extras;
       else pages.push(extras);
       return pages.map(shell);
     }
@@ -13887,9 +13902,18 @@ async function handlePickBackupDir() {
 // update until the user fixes it and presses 重試.
 // The deploy replaces EVERY occurrence of the placeholder in index.html, so the
 // code must never spell it out — it is assembled here.
+// Pages served straight from the branch (Settings → Pages → Source still
+// "Deploy from a branch") are never stamped, and that branch build lands after
+// the stamped one. Such a copy still notices a newer deploy by the page date:
+// document.lastModified is the Last-Modified of the copy that is running (also
+// when it came from the browser cache), a HEAD request returns the one online.
+// Local servers (localhost / 127.x) never check.
 const BUILD_PLACEHOLDER = '__BUILD_' + 'VERSION__';
 const APP_VERSION = (document.querySelector('meta[name="trb-version"]') || {}).content || 'dev';
 const APP_IS_DEV = APP_VERSION.includes(BUILD_PLACEHOLDER);
+const APP_IS_LOCAL = /^(localhost|127\.\d+\.\d+\.\d+|\[::1\]|0\.0\.0\.0)$/.test(location.hostname);
+const DOC_MODIFIED = (() => { const t = Date.parse(document.lastModified); return isFinite(t) ? t : 0; })();
+const TWIN_DEPLOY_GRACE = 5 * 60 * 1000;     // a stamped copy ignores the unstamped branch build of the same push
 const UPDATE_KEY = 'trb_update_attempt';     // sessionStorage { to, n } — stops reload loops
 const RESUME_KEY = 'trb_update_resume';      // sessionStorage { reportId, page } — reopen after reload
 const UPDATE_COUNTDOWN = 10;                 // seconds (3 when no report is open)
@@ -13909,12 +13933,43 @@ async function fetchAppVersion() {
   }
   return null;
 }
+/** Last-Modified (ms) of the page online, 0 when unknown. */
+async function fetchOnlineModified() {
+  const ctl = new AbortController();
+  const t = setTimeout(() => ctl.abort(), 8000);
+  try {
+    const res = await fetch(location.pathname + '?t=' + Date.now(), { method: 'HEAD', cache: 'no-store', signal: ctl.signal });
+    const lm = res.ok ? Date.parse(res.headers.get('Last-Modified') || '') : NaN;
+    return isFinite(lm) ? lm : 0;
+  } catch (e) { return 0; } finally { clearTimeout(t); }
+}
 function readSession(key) { try { return JSON.parse(sessionStorage.getItem(key) || 'null') || {}; } catch (e) { return {}; } }
 
+// Build ids: the stamp, or 'lm-<unix seconds>' for an unstamped deploy (its page date).
+const lmBuildTime = (id) => /^lm-\d+$/.test(id || '') ? Number(id.slice(3)) * 1000 : 0;
+function fmtBuildTime(t) {
+  const d = new Date(t), p = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}/${p(d.getMonth() + 1)}/${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+const buildLabel = (id) => lmBuildTime(id) ? fmtBuildTime(lmBuildTime(id)) + ' 版' : id;
+const appBuildLabel = () => APP_IS_DEV ? (DOC_MODIFIED ? fmtBuildTime(DOC_MODIFIED) + ' 版' : '目前版本') : APP_VERSION;
+
+/** Id of a newer build online, or null. */
+async function findNewerBuild() {
+  if (!APP_IS_DEV) {
+    const v = await fetchAppVersion();
+    if (!v) return null;                                        // offline / no version.json
+    if (!v.includes(BUILD_PLACEHOLDER)) return v === APP_VERSION ? null : v;
+  }
+  if (APP_IS_LOCAL || !DOC_MODIFIED) return null;
+  const lm = await fetchOnlineModified();
+  return lm > DOC_MODIFIED + (APP_IS_DEV ? 0 : TWIN_DEPLOY_GRACE) ? 'lm-' + Math.round(lm / 1000) : null;
+}
+
 async function checkAppVersion() {
-  if (APP_IS_DEV || !/^https?:/.test(location.protocol) || appUpdate) return;
-  const v = await fetchAppVersion();
-  if (!v || v === APP_VERSION || v.includes(BUILD_PLACEHOLDER) || appUpdate) return;
+  if ((APP_IS_DEV && APP_IS_LOCAL) || !/^https?:/.test(location.protocol) || appUpdate) return;
+  const v = await findNewerBuild();
+  if (!v || appUpdate) return;
   const att = readSession(UPDATE_KEY);
   if (att.to === v && att.n >= 2) { appUpdate = { to: v, state: 'failed' }; renderUpdateNotice(); return; }   // reloaded twice, still old
   appUpdate = { to: v, state: 'countdown', left: state.reportId ? UPDATE_COUNTDOWN : 3 };
@@ -13965,7 +14020,7 @@ function renderUpdateNotice() {
   if (!el) { el = document.createElement('div'); el.id = 'update-notice'; document.body.appendChild(el); }
   if (u.state === 'failed') {
     el.className = 'update-banner';
-    el.innerHTML = `新版本 <span style="font-family:var(--font-mono)">${escHtml(u.to)}</span> 尚未生效，請稍後按 Ctrl+Shift+R 重新整理
+    el.innerHTML = `新版本 <span style="font-family:var(--font-mono)">${escHtml(buildLabel(u.to))}</span> 尚未生效，請稍後按 Ctrl+Shift+R 重新整理
       <button class="hp-modal-btn primary" id="update-retry">再試一次</button>`;
     el.querySelector('#update-retry').addEventListener('click', () => {
       appUpdate = null;
@@ -13978,7 +14033,7 @@ function renderUpdateNotice() {
   if (u.state === 'error') {
     // Not blocking: the user has to be able to fix the save problem first.
     el.className = 'update-banner';
-    el.innerHTML = `<span>新版本 ${escHtml(u.to)}：存檔失敗（${escHtml(u.error || '')}）。資料還沒寫入，所以先不更新；處理後按「重試」。</span>
+    el.innerHTML = `<span>新版本 ${escHtml(buildLabel(u.to))}：存檔失敗（${escHtml(u.error || '')}）。資料還沒寫入，所以先不更新；處理後按「重試」。</span>
       <button class="hp-modal-btn primary" id="update-now">重試</button>`;
     el.querySelector('#update-now').addEventListener('click', () => applyAppUpdate());
     return;
@@ -13990,7 +14045,7 @@ function renderUpdateNotice() {
   el.className = 'update-backdrop';
   el.innerHTML = `<div class="update-box" role="alertdialog" aria-modal="true" aria-label="有新版本">
       <h3>工具有新版本</h3>
-      <div class="update-ver">${escHtml(APP_VERSION)} → ${escHtml(u.to)}</div>
+      <div class="update-ver">${escHtml(appBuildLabel())} → ${escHtml(buildLabel(u.to))}</div>
       <div>${escHtml(what)}${saving ? `<br><b>${escHtml(u.step || '')}</b>` : ` <b>${u.left}</b> 秒後自動更新。`}</div>
       <div class="update-foot">
         <button class="hp-modal-btn primary" id="update-now"${saving ? ' disabled' : ''}>${saving ? '儲存中…' : '立即更新'}</button>
@@ -14013,7 +14068,10 @@ async function resumeAfterUpdate() {
 
 // After an update reload: drop ?v= from the address bar; clear the loop guard once on the new build.
 if (/[?&]v=/.test(location.search)) { try { history.replaceState(null, '', location.pathname + location.hash); } catch (e) { /* ignore */ } }
-if (readSession(UPDATE_KEY).to === APP_VERSION) { try { sessionStorage.removeItem(UPDATE_KEY); } catch (e) { /* ignore */ } }
+{
+  const to = readSession(UPDATE_KEY).to;
+  if (to && (to === APP_VERSION || (lmBuildTime(to) && DOC_MODIFIED >= lmBuildTime(to)))) { try { sessionStorage.removeItem(UPDATE_KEY); } catch (e) { /* ignore */ } }
+}
 setTimeout(checkAppVersion, 3000);
 setInterval(checkAppVersion, 5 * 60 * 1000);
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkAppVersion(); });

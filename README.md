@@ -72,6 +72,11 @@ Source 選 **GitHub Actions**）。每次 push 到 main，部署會把建置版�
 **先強制存檔**（本機資料庫檔 + SharePoint 同步），再自動載入新版本並回到原本的報告與頁面。
 存檔失敗（例如檔案衝突）時不會更新，頂端會顯示原因與「重試」，不會蓋掉未存的資料。
 
+若 Source 還是「Deploy from a branch」，每次 push 會跑兩次部署（`pages.yml` 與 GitHub 內建的 pages build），
+較晚完成的分支部署沒有版本號、會蓋掉有版本號的那份。此時工具改用頁面的 `Last-Modified` 日期比對（HEAD 請求），
+仍然會偵測到新部署並走同樣的「先存檔再更新」流程；提示中的版本會顯示為部署日期（例如 `2026/10/07 11:28 版`）。
+建議還是把 Source 改成 GitHub Actions，只保留一次部署。本機（localhost / 127.x）開啟時不檢查更新。
+
 ## 開發
 
 ```

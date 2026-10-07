@@ -1648,6 +1648,38 @@ const assert = (cond, msg, detail) => { if (!cond) throw new Error(msg + (detail
     assert(r.dataRows === 14 + 45 && r.simRows === 14, 'every row printed exactly once', r);
   });
 
+  await T('PDF 頁尾：灰色註釋與頁碼都實際量測，PDF 渲染（html2canvas 複本）中表格列不會壓到', async (page) => {
+    const r = await page.evaluate(async () => {
+      const zh = ['功率放大器', '數位前端晶片', '電源模組', '低雜訊放大器', '收發器'];
+      const comps = Array.from({ length: 30 }, (_, i) => comp(zh[i % 5] + ' U' + i + (i % 4 ? '' : ' 長名稱測試元件'), { ta_25: '60', ta_55: '90' }, 125, '0.90', { uid: 'u' + i, note: i % 3 ? '' : '備註：散熱片接觸' }));
+      const sensors = Array.from({ length: 40 }, (_, i) => ({ name: i % 2 ? 'Temp Sensor(LA' + i + ')' : 'H-RF sensor 49281-' + i, type: i % 3 ? 'Remote' : 'Local', readings: { ta_25: '61', ta_55: '91' }, ref: i % 2 ? null : { uid: 'u' + (i % 30) }, note: i % 5 ? '' : '溫度感測器備註' }));
+      await useDb({ thermal_reports: { A: report('A', { 0: cover('A'), 1: { id: 'dp', ...dataPage(1, comps, [25, 55], { sensors }) } }) } });
+      await openReport('A');
+      // a footer that wraps onto several lines lowers the room by itself
+      const tall = pgMeasure(wrapPageHTML(`<div style="padding:28px;">x${PG_END}</div><div data-pg-foot style="position:absolute;left:32px;right:32px;bottom:27px;font-size:7px;line-height:10px;">a<br>b<br>c<br>d</div>`));
+      // what html2canvas lays out (its cloned document), page by page
+      const clone = [];
+      const orig = html2canvas;
+      window.html2canvas = (el, opts) => orig(el, { ...opts, onclone: async (doc, ref) => {
+        await opts.onclone(doc, ref);
+        const t = ref.getBoundingClientRect().top;
+        const trs = Array.from(ref.querySelectorAll('tbody tr'));
+        const foots = Array.from(ref.querySelectorAll('[data-pg-foot]'), f => f.getBoundingClientRect().top - t);
+        clone.push({ rows: trs.length, last: Math.max(0, ...trs.map(tr => tr.getBoundingClientRect().bottom - t)), foot: Math.min(999, ...foots), nFoot: foots.length });
+      } });
+      const Orig = jspdf.jsPDF;
+      window.jspdf = { jsPDF: function (...a) { const inst = new Orig(...a); inst.save = () => {}; return inst; } };
+      await exportPDF();
+      window.html2canvas = orig;
+      return { tall, clone };
+    });
+    assert(Math.abs(r.tall.room - (595 - 27 - 40 - 10)) < 1.5, 'room follows the footer height', r.tall);
+    const data = r.clone.slice(1);
+    assert(data.length >= 4 && data.every(p => p.nFoot >= 1) && data.slice(0, 3).every(p => p.nFoot === 2), 'note + page number marked', r.clone);
+    assert(data.every(p => p.last <= p.foot - 8), 'no row under a footer line', r.clone);
+    assert(data.reduce((a, p) => a + p.rows, 0) === 30 + 40, 'every row printed once', r.clone);
+  });
+
 
   await T('圖片頁：舊標註依舊版格子換算位置；側欄排序在點選後仍可用；還原裁切保留之後的標註；方向鍵不超出', async (page) => {
     await page.evaluate(ANNO_SETUP);
@@ -1802,7 +1834,76 @@ const assert = (cond, msg, detail) => { if (!cond) throw new Error(msg + (detail
     }, { __setup: versionRoutes(build) });
   }
 
-  await T('開發版（未蓋版本號）不檢查更新', async (page) => {
+  // A real host (not 127.x) serving the repo files with a Last-Modified date of
+  // `site.online`, index.html stamped with `site.stamp` (null = unstamped, i.e.
+  // the branch build) and version.json reporting `site.versionJson`.
+  const pagesSite = (site) => async (ctx) => {
+    await ctx.route(/^https:\/\/trb\.test\//, async (route) => {
+      const req = route.request();
+      const rel = req.url().replace(/^https:\/\/trb\.test\/app\//, '').replace(/[?#].*$/, '') || 'index.html';
+      const headers = { 'last-modified': new Date(site.online).toUTCString(), 'cache-control': 'max-age=600' };
+      if (req.method() === 'HEAD') { site.heads++; return route.fulfill({ status: 200, headers: { ...headers, 'content-type': 'text/html' }, body: '' }); }
+      if (rel === 'version.json') return route.fulfill({ status: 200, contentType: 'application/json', headers, body: JSON.stringify({ version: site.versionJson }) });
+      const resp = await route.fetch({ url: site.local + rel });
+      let body = await resp.body();
+      if (rel === 'index.html') { site.loads.push(req.url()); if (site.stamp) body = body.toString('utf8').replace(/__BUILD_VERSION__/g, site.stamp); }
+      route.fulfill({ status: resp.status(), headers: { ...resp.headers(), ...headers }, body });
+    });
+  };
+  const PLACEHOLDER = '__BUILD_' + 'VERSION__';
+  const T0 = Date.parse('2026-10-07T03:28:05Z');
+
+  {
+    const site = { online: T0, stamp: null, versionJson: PLACEHOLDER, local: '', loads: [], heads: 0 };
+    await T('未蓋版本號的線上版（Pages 從分支部署）：以頁面日期偵測新部署 → 重新載入新版', async (page) => {
+      site.local = page.__url.replace(/index\.html$/, '');
+      await page.goto('https://trb.test/app/', { waitUntil: 'load' });
+      await page.evaluate(SETUP);
+      const r1 = await page.evaluate(async () => {
+        await checkAppVersion();
+        return { dev: APP_IS_DEV, local: APP_IS_LOCAL, doc: DOC_MODIFIED, notice: !!document.getElementById('update-notice') };
+      });
+      assert(r1.dev && !r1.local && r1.doc === T0 && !r1.notice && site.heads === 1, 'same deploy → nothing', { ...r1, heads: site.heads });
+      site.online = T0 + 3600e3;                    // next push deployed
+      const r2 = await page.evaluate(async () => {
+        await checkAppVersion();
+        return { to: appUpdate && appUpdate.to, notice: document.getElementById('update-notice').textContent.replace(/\s+/g, ' ') };
+      });
+      assert(r2.to === 'lm-' + (site.online / 1000) && /\d{4}\/\d\d\/\d\d \d\d:\d\d 版 → \d{4}\/\d\d\/\d\d \d\d:\d\d 版/.test(r2.notice) && !r2.notice.includes(PLACEHOLDER), 'notice', r2);
+      await Promise.all([
+        page.waitForURL(/[?&]v=lm-\d+/, { waitUntil: 'commit' }),
+        page.evaluate(() => document.getElementById('update-now').click()),
+      ]);
+      await page.waitForLoadState('load');
+      await page.waitForTimeout(300);
+      const r3 = await page.evaluate(async () => {
+        await checkAppVersion();
+        return { doc: DOC_MODIFIED, guard: sessionStorage.getItem('trb_update_attempt'), notice: !!document.getElementById('update-notice'), search: location.search };
+      });
+      assert(r3.doc === site.online && r3.guard === null && !r3.notice && r3.search === '' && site.loads.length === 2, 'reloaded on the new deploy', { ...r3, loads: site.loads });
+    }, { __setup: pagesSite(site) });
+  }
+
+  {
+    const site = { online: T0, stamp: 'build-A', versionJson: PLACEHOLDER, local: '', loads: [], heads: 0 };
+    await T('已蓋版本號但線上版沒蓋（同一次 push 的分支部署較晚到）→ 不重載同一版；之後的部署才更新', async (page) => {
+      site.local = page.__url.replace(/index\.html$/, '');
+      await page.goto('https://trb.test/app/', { waitUntil: 'load' });
+      await page.evaluate(SETUP);
+      site.online = T0 + 30e3;                      // the branch build of the same push
+      const r1 = await page.evaluate(async () => { await checkAppVersion(); return { v: APP_VERSION, notice: !!document.getElementById('update-notice') }; });
+      assert(r1.v === 'build-A' && !r1.notice, 'twin deploy ignored', r1);
+      site.online = T0 + 3600e3;                    // a later push, again only unstamped online
+      const r2 = await page.evaluate(async () => { await checkAppVersion(); return { to: appUpdate && appUpdate.to, notice: document.getElementById('update-notice').textContent.replace(/\s+/g, ' ') }; });
+      assert(r2.to === 'lm-' + (site.online / 1000) && /build-A → /.test(r2.notice), 'later deploy', r2);
+      // a stamped build online always wins
+      site.versionJson = 'build-B';
+      const r3 = await page.evaluate(async () => { appUpdate = null; renderUpdateNotice(); await checkAppVersion(); return appUpdate && appUpdate.to; });
+      assert(r3 === 'build-B', 'stamp first', r3);
+    }, { __setup: pagesSite(site) });
+  }
+
+  await T('本機開發版（未蓋版本號、localhost）不檢查更新', async (page) => {
     const r = await page.evaluate(async () => { await checkAppVersion(); return { dev: APP_IS_DEV, notice: !!document.getElementById('update-notice') }; });
     assert(r.dev && !r.notice, 'dev build', r);
   }, { __setup: async (ctx) => { await ctx.route(/\/version\.json/, route => route.fulfill({ status: 200, contentType: 'application/json', body: '{"version":"build-Z"}' })); } });

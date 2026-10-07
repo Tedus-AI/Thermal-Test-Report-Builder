@@ -326,6 +326,7 @@
     /* ━━━ Sidebar ━━━ */
     .sidebar {
       width: 152px;
+      min-width: 0;
       flex-shrink: 0;
       display: flex;
       flex-direction: column;
@@ -336,7 +337,10 @@
     }
 
     .sidebar-header {
-      padding: 8px 12px 6px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 8px 6px 6px 12px;
       font-size: 9px;
       font-family: var(--font-mono);
       font-weight: 400;
@@ -350,6 +354,31 @@
       overflow-y: auto;
       padding: 0;
     }
+
+    /* Page list: drag the edge to resize, «/» to collapse into a rail of page numbers */
+    .sidebar-title { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+    .sidebar-toggle { flex-shrink: 0; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; padding: 0; border: 1px solid transparent; border-radius: 4px; background: transparent; color: var(--d-300); cursor: pointer; }
+    .sidebar-toggle:hover, .sidebar-toggle:focus-visible { background: rgba(91,163,230,0.14); border-color: rgba(91,163,230,0.3); color: #fff; outline: none; }
+    .sidebar-toggle svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; transition: transform var(--transition-fast); }
+    .sidebar-resizer { flex-shrink: 0; width: 7px; margin: 0 -3px; position: relative; z-index: 60; cursor: col-resize; touch-action: none; }
+    .sidebar-resizer::after { content: ''; position: absolute; top: 0; bottom: 0; left: 3px; width: 1px; background: transparent; transition: background var(--transition-fast); }
+    .sidebar-resizer:hover::after, .sidebar-resizer:focus-visible::after, .sidebar-resizer.dragging::after { background: rgba(91,163,230,0.7); width: 2px; left: 2.5px; }
+    .sidebar-resizer:focus-visible { outline: none; }
+    body.sidebar-resizing, body.sidebar-resizing * { cursor: col-resize !important; user-select: none !important; }
+    .sidebar.collapsed { width: 40px !important; }
+    .sidebar.collapsed .sidebar-header { padding: 4px 0 8px; justify-content: center; }
+    .sidebar.collapsed .sidebar-title, .sidebar.collapsed .sidebar-footer,
+    .sidebar.collapsed .page-label, .sidebar.collapsed .page-note-edit { display: none; }
+    .sidebar.collapsed .sidebar-toggle svg { transform: rotate(180deg); }
+    .sidebar.collapsed .page-item { justify-content: center; gap: 0; padding: 7px 0; position: relative; }
+    .sidebar.collapsed .page-item > span:first-child { width: auto !important; text-align: center !important; font-size: 10px !important; }
+    .sidebar.collapsed .page-item.active > span:first-child { color: #fff !important; }
+    .sidebar.collapsed .page-badge { position: absolute; top: 5px; right: 5px; width: 6px; height: 6px; padding: 0; font-size: 0; border-radius: 50%; }
+    .sidebar.collapsed .page-badge:not(.page-badge-fail):not(.page-badge-warn) { display: none; }
+    .sidebar.collapsed .page-badge-fail { background: #f87171; }
+    .sidebar.collapsed .page-badge-warn { background: #fbbf24; }
+    .sidebar.collapsed + .sidebar-resizer { display: none; }
+    .sidebar.will-collapse { opacity: 0.45; }
 
     .page-item {
       display: flex;
@@ -3835,8 +3864,10 @@
 
     <div class="body">
       <!-- Sidebar -->
-      <aside class="sidebar">
-        <div class="sidebar-header">頁面列表</div>
+      <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header"><span class="sidebar-title">頁面列表</span>
+          <button type="button" class="sidebar-toggle" id="sidebar-toggle" aria-expanded="true" aria-controls="page-list" title="收合頁面列表" aria-label="收合頁面列表"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3.5L5.5 8l4.5 4.5"/></svg></button>
+        </div>
         <div id="page-list"></div>
         <div class="sidebar-footer">
           <div class="dropdown-wrap">
@@ -3856,6 +3887,7 @@
           </div>
         </div>
       </aside>
+      <div class="sidebar-resizer" id="sidebar-resizer" role="separator" aria-orientation="vertical" aria-controls="sidebar" aria-label="調整頁面列表寬度" tabindex="0" title="拖曳調整頁面列表寬度（雙擊恢復預設；往左拖到底可收合）"></div>
 
       <!-- Editor -->
       <main class="editor-area">
@@ -3968,6 +4000,81 @@
     const $contextMenu = document.getElementById('context-menu');
     const $btnPrev = document.getElementById('btn-prev-page');
     const $btnNext = document.getElementById('btn-next-page');
+
+    // ━━━ Page list: drag its edge to resize, «/» to collapse it into a rail of page
+    // numbers (still clickable; Fail / Warning show as dots). Per user, in this browser;
+    // expanded by default. Double-click the edge = default width; dragging it all the
+    // way left collapses.
+    const SIDEBAR_W = { def: 152, min: 120, max: 520 };
+    const $sidebar = document.getElementById('sidebar');
+    const $sbResizer = document.getElementById('sidebar-resizer');
+    const sidebarMaxW = () => Math.max(SIDEBAR_W.min, Math.min(SIDEBAR_W.max, Math.round(window.innerWidth * 0.45)));
+    const sidebarClampW = (w) => Math.max(SIDEBAR_W.min, Math.min(sidebarMaxW(), Math.round(w)));
+    function setSidebarWidth(w) {
+      const v = sidebarClampW(w);
+      $sidebar.style.width = v + 'px';
+      $sbResizer.setAttribute('aria-valuenow', String(v));
+      $sbResizer.setAttribute('aria-valuemin', String(SIDEBAR_W.min));
+      $sbResizer.setAttribute('aria-valuemax', String(sidebarMaxW()));
+      return v;
+    }
+    const sidebarSavedW = () => +userPrefs().sidebar_w || SIDEBAR_W.def;
+    function setSidebarCollapsed(on, save = true) {
+      $sidebar.classList.toggle('collapsed', on);
+      if (!on) setSidebarWidth(sidebarSavedW());
+      const t = document.getElementById('sidebar-toggle');
+      const tip = on ? '展開頁面列表' : '收合頁面列表';
+      t.title = tip; t.setAttribute('aria-label', tip); t.setAttribute('aria-expanded', String(!on));
+      if (save) setUserPref('sidebar_collapsed', on);
+    }
+    function applySidebarPrefs() {
+      setSidebarWidth(sidebarSavedW());
+      setSidebarCollapsed(!!userPrefs().sidebar_collapsed, false);
+    }
+    document.getElementById('sidebar-toggle').addEventListener('click', () => setSidebarCollapsed(!$sidebar.classList.contains('collapsed')));
+    $sbResizer.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0 || $sidebar.classList.contains('collapsed')) return;
+      e.preventDefault();
+      const x0 = e.clientX, w0 = $sidebar.getBoundingClientRect().width;
+      const collapseAt = SIDEBAR_W.min - 50;                 // dragged this far past the minimum → collapse
+      try { $sbResizer.setPointerCapture(e.pointerId); } catch (_) {}
+      $sbResizer.classList.add('dragging');
+      document.body.classList.add('sidebar-resizing');
+      const move = (ev) => {
+        const raw = w0 + ev.clientX - x0;
+        setSidebarWidth(raw);
+        $sidebar.classList.toggle('will-collapse', raw < collapseAt);
+      };
+      const up = (ev) => {
+        $sbResizer.removeEventListener('pointermove', move);
+        $sbResizer.removeEventListener('pointerup', up);
+        $sbResizer.removeEventListener('pointercancel', up);
+        $sbResizer.classList.remove('dragging');
+        document.body.classList.remove('sidebar-resizing');
+        $sidebar.classList.remove('will-collapse');
+        const raw = w0 + ev.clientX - x0;
+        if (ev.type === 'pointerup' && raw < collapseAt) setSidebarCollapsed(true);   // the width to come back to is kept
+        else setUserPref('sidebar_w', setSidebarWidth(raw));
+      };
+      $sbResizer.addEventListener('pointermove', move);
+      $sbResizer.addEventListener('pointerup', up);
+      $sbResizer.addEventListener('pointercancel', up);
+    });
+    $sbResizer.addEventListener('dblclick', () => { setUserPref('sidebar_w', setSidebarWidth(SIDEBAR_W.def)); });
+    $sbResizer.addEventListener('keydown', (e) => {
+      const step = e.shiftKey ? 48 : 16, cur = $sidebar.getBoundingClientRect().width;
+      let w = null;
+      if (e.key === 'ArrowLeft') w = cur - step;
+      else if (e.key === 'ArrowRight') w = cur + step;
+      else if (e.key === 'Home') w = SIDEBAR_W.min;
+      else if (e.key === 'End') w = sidebarMaxW();
+      else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSidebarCollapsed(true); document.getElementById('sidebar-toggle').focus(); return; }
+      if (w === null) return;
+      e.preventDefault();
+      setUserPref('sidebar_w', setSidebarWidth(w));
+    });
+    window.addEventListener('resize', () => { if (!$sidebar.classList.contains('collapsed')) setSidebarWidth(sidebarSavedW()); });
+    document.addEventListener('DOMContentLoaded', applySidebarPrefs);   // prefs helpers are defined further down
 
     // ━━━ Page nav buttons ━━━
     function updatePageNavButtons() {
@@ -4444,6 +4551,7 @@
         noteSpan.textContent = page.data.list_note || '';
         labelSpan.appendChild(noteSpan);
         el.appendChild(labelSpan);
+        el.title = `${String(idx + 1).padStart(2, '0')} ${pageBaseLabel(idx)}${page.data.list_note || ''}`;   // full name (truncated label / collapsed list)
         const badge = pageBadgeHTML(page);
         if (badge) el.insertAdjacentHTML('beforeend', badge);
 
@@ -6320,6 +6428,8 @@
       P.photo_url_or_base64 = url;
       P.img_rot = rot; P.img_fh = !!(clip && clip.fh); P.img_fit = true;
       if (clip && clip.caption && !replacing && !annoCap(P)) P.caption = clip.caption;
+      const capH = annoCapH(P);                       // photo + caption band stay on the page
+      if (capH && P.img_box.y + P.img_box.h + capH > ANNO_SAFE.b + 0.5) P.img_box = annoFitInSafe(P.img_box, capH);
       annoUI.tv = undefined; annoUI.photo = pi;
       const tv = annoTempOverlay(d);
       if (!replacing && pi === 1) annoAutoLayout(d, tv);                           // second photo: apply the layout
@@ -6754,15 +6864,25 @@
     // 「複製」 keeps the stored bitmap plus its rotation / mirror and caption in photoClip,
     // and puts what is shown on the system clipboard as PNG (so Ctrl+V works on any
     // image / annotation page, or in PowerPoint …). Pasting that same picture back into
-    // the tool uses photoClip, so the photo is not compressed a second time. (The browser
-    // re-encodes clipboard images, so the match is by size + a 16 × 16 pixel signature.)
-    let photoClip = null;                    // { url, rot, fh, caption, sig: { w, h, px } }
-    function photoSig(src, w, h) {
-      const c = document.createElement('canvas');
-      c.width = 16; c.height = 16;
-      const g = c.getContext('2d');
-      g.drawImage(src, 0, 0, 16, 16);
-      return { w, h, px: g.getImageData(0, 0, 16, 16).data };
+    // the tool uses photoClip, so the photo is not compressed a second time.
+    let photoClip = null;                    // { url, rot, fh, caption, sig }
+    // Exact fingerprint: size + a hash of every pixel. The browser re-encodes clipboard
+    // images, but losslessly, so our copy comes back pixel for pixel; any other picture —
+    // even the same logger screen with one reading changed — does not match.
+    function photoPixelHash(src, w, h) {
+      let c = src;
+      if (!(src instanceof HTMLCanvasElement)) {
+        c = document.createElement('canvas');
+        c.width = w; c.height = h;
+        c.getContext('2d').drawImage(src, 0, 0);
+      }
+      const px = new Uint32Array(c.getContext('2d').getImageData(0, 0, w, h).data.buffer);
+      let a = 0x811c9dc5, b = 0x9747b28c;     // two FNV-1a style lanes
+      for (let i = 0; i < px.length; i++) {
+        a = Math.imul(a ^ px[i], 16777619);
+        b = Math.imul(b ^ px[i] ^ i, 2246822519);
+      }
+      return `${w}x${h}:${(a >>> 0).toString(16)}:${(b >>> 0).toString(16)}`;
     }
     async function photoBakePNG(url, rot, fh, clip) {
       const im = await annoLoadImage(url);
@@ -6775,28 +6895,33 @@
       g.rotate((rot || 0) * Math.PI / 180);   // same order as the CSS: mirror first, then rotate
       if (fh) g.scale(-1, 1);
       g.drawImage(im, -w / 2, -h / 2);
-      if (clip) clip.sig = photoSig(c, c.width, c.height);
+      if (clip) clip.sig = photoPixelHash(c, c.width, c.height);
       return new Promise(r => c.toBlob(r, 'image/png'));
     }
+    // → { clip, sys }: sys = it is on the system clipboard too. A copy made while an earlier
+    // one is still being drawn wins: the earlier write is dropped, not written over it.
     async function copyPhoto(src) {
-      const clip = photoClip = { url: src.url, rot: src.rot || 0, fh: !!src.fh, caption: src.caption || '', sig: null };
+      const clip = photoClip = { url: src.url, rot: src.rot || 0, fh: !!src.fh, caption: src.caption || '', sig: '' };
+      const blob = photoBakePNG(clip.url, clip.rot, clip.fh, clip).then(b => {
+        if (!b) throw new Error('image');
+        if (photoClip !== clip) throw new Error('superseded');
+        return b;
+      });
+      blob.catch(() => {});
       try {
-        const blob = photoBakePNG(clip.url, clip.rot, clip.fh, clip).then(b => { if (!b) throw new Error('image'); return b; });
         await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
-        return true;
-      } catch (e) { return false; }   // no clipboard access: still pastable inside the tool (menu / 📋 button)
+        return { clip, sys: true };
+      } catch (e) { return { clip, sys: false }; }   // no clipboard access: still pastable inside the tool (menu / 📋 button)
     }
-    // The pasted picture is the one copyPhoto put on the clipboard → the stored photo instead.
+    // The pasted picture is exactly the one copyPhoto put on the clipboard → the stored photo instead.
     async function photoClipFor(file) {
       const clip = photoClip;
       if (!clip || !clip.sig || !file || !(file.type || '').startsWith('image/')) return null;
       try {
         const bmp = await createImageBitmap(file);
-        if (bmp.width !== clip.sig.w || bmp.height !== clip.sig.h) return null;
-        const px = photoSig(bmp, bmp.width, bmp.height).px;
-        let diff = 0;
-        for (let k = 0; k < px.length; k++) diff += Math.abs(px[k] - clip.sig.px[k]);
-        return diff / px.length < 3 ? clip : null;
+        const same = clip.sig.startsWith(`${bmp.width}x${bmp.height}:`) && photoPixelHash(bmp, bmp.width, bmp.height) === clip.sig;
+        if (bmp.close) bmp.close();
+        return same && photoClip === clip ? clip : null;
       } catch (e) { return null; }
     }
     async function pastePhotoClipToNewPage(type, clip = photoClip) {
@@ -6815,7 +6940,9 @@
     // 「複製」: copy now, then offer to start a new page with it.
     async function showPhotoCopyMenu(anchor, src) {
       document.querySelector('.an-ctx')?.remove();
-      const sys = await copyPhoto(src);
+      const { clip, sys } = await copyPhoto(src);
+      if (photoClip !== clip) return sys;              // copied again meanwhile: that copy shows its own menu
+      document.querySelector('.an-ctx')?.remove();
       const menu = document.createElement('div');
       menu.className = 'an-ctx an-copy-menu';
       menu.innerHTML = `<div class="an-ctx-note">✓ 已複製${sys ? '：到任何圖片頁 / 標註頁按 <kbd>Ctrl</kbd>+<kbd>V</kbd> 貼上' : '：到任何圖片頁 / 標註頁按「📋 貼上複製的圖片」'}</div>
@@ -6833,12 +6960,13 @@
         const act = e.target.closest('[data-act]')?.dataset.act;
         if (!act) return;
         close();
-        pastePhotoClipToNewPage(act);
+        pastePhotoClipToNewPage(act, clip);
       });
       return sys;
     }
     async function copyPhotoKey(src) {
-      const sys = await copyPhoto(src);
+      const { clip, sys } = await copyPhoto(src);
+      if (photoClip !== clip) return;
       showToast(sys ? '已複製圖片：到任何圖片頁 / 標註頁按 Ctrl+V 貼上' : '已複製圖片：到任何圖片頁 / 標註頁按「📋 貼上複製的圖片」', 'ok');
     }
 
@@ -11066,6 +11194,16 @@
     let _virtualPages = [];
 
     let _previewSeq = 0;
+    // Same source page and the same sub-page within it (clamped) after a re-layout.
+    function previewKeepIndex(oldList, idx, newList) {
+      const at = oldList[idx];
+      if (!at) return Math.max(0, Math.min(newList.length - 1, idx));
+      const k = idx - oldList.findIndex(vp => vp.pageIdx === at.pageIdx);
+      const first = newList.findIndex(vp => vp.pageIdx === at.pageIdx);
+      if (first < 0) return Math.max(0, Math.min(newList.length - 1, idx));
+      const n = newList.filter(vp => vp.pageIdx === at.pageIdx).length;
+      return first + Math.min(k, n - 1);
+    }
     function openPreview() {
       if (state.pages.length === 0) return;
       const raw = buildVirtualPages();
@@ -11085,10 +11223,8 @@
         if (seq !== _previewSeq || !document.getElementById('preview-overlay').classList.contains('open')) return;
         const next = numberVirtualPages(vps);
         if (next.length === _virtualPages.length && next.every((vp, i) => vp.html === _virtualPages[i].html)) return;
-        const at = _virtualPages[previewIdx];
+        previewIdx = previewKeepIndex(_virtualPages, previewIdx, next);
         _virtualPages = next;
-        const same = at ? _virtualPages.findIndex(vp => vp.pageIdx === at.pageIdx) : -1;
-        previewIdx = Math.min(_virtualPages.length - 1, same >= 0 ? same : previewIdx);
         renderPreviewPage();
       }).catch(() => {});
     }
@@ -11552,9 +11688,9 @@
 
       const titleStyle = "font-family:'Space Grotesk',sans-serif;font-size:14px;font-weight:600;letter-spacing:0.02em;word-spacing:0px;color:#0B3D7A;margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid #C2DFF8;";
       const topNoteSpan = d.top_note ? `<span style="margin-left:auto;font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:400;letter-spacing:0px;color:rgba(15,23,42,0.7);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escHtml(d.top_note)}</span>` : '';
-      // The test condition (page label note) is printed next to the title.
-      const condSpan = d.list_note ? `<span style="font-family:'Noto Sans TC','DM Sans',sans-serif;font-size:12px;font-weight:600;letter-spacing:0;color:#2357A7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escHtml(d.list_note)}</span>` : '';
-      const titleHtml = `<div style="${titleStyle}display:flex;align-items:baseline;gap:12px;"><span style="flex-shrink:0;">THERMAL TEST DATA</span>${condSpan}${topNoteSpan}</div>`;
+      // Title + the 註記 typed at the top of the page (usually the test condition). The
+      // page-list label (list_note) is for finding the page in the editor: not printed here.
+      const titleHtml = `<div style="${titleStyle}display:flex;align-items:baseline;gap:12px;"><span style="flex-shrink:0;">THERMAL TEST DATA</span>${topNoteSpan}</div>`;
 
       const lblStyle = "font-family:'JetBrains Mono',monospace;font-size:8px;font-weight:500;color:#2357A7;letter-spacing:0.06em;";
       const infoGridHtml = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 20px;margin-bottom:10px;font-size:11px;background:#EDF2F8;padding:8px 10px;">
@@ -12767,7 +12903,9 @@
       const yMin = Math.floor(Math.min(base, ...vals) / 5) * 5;   // the Ta baseline sits on a grid line
       const yMax = Math.ceil((Math.max(...vals) + 4) / 10) * 10;
       const n = Math.ceil(pts.length / SIM_CHART_MAX), size = Math.ceil(pts.length / n);
-      return Array.from({ length: n }, (_, k) => simChartPNG(pts.slice(k * size, (k + 1) * size), { ta, base, yMin, yMax, part: n > 1 ? `${k + 1} / ${n}` : '' }));
+      // the charts of one set look alike: same Tc scale, bottom margin and name rotation
+      const rotate = (SIM_CHART_W - 56) / size < 60, B = size > 10 ? 50 : 34;
+      return Array.from({ length: n }, (_, k) => simChartPNG(pts.slice(k * size, (k + 1) * size), { ta, base, yMin, yMax, rotate, B, part: n > 1 ? `${k + 1} / ${n}` : '' }));
     }
     const simChartDataURL = d => simChartDataURLs(d)[0] || '';
     function simChartPNG(pts, o) {
@@ -12780,7 +12918,7 @@
       g.fillStyle = '#ffffff'; g.fillRect(0, 0, W, H);
       const C = { meas: '#2357A7', sim: '#EB6834', spec: '#334155', grid: '#E5E9F0', ink: '#334155', muted: '#64748B' };
       const font = (px, w) => `${w || 400} ${px}px 'DM Sans','Noto Sans TC','Microsoft JhengHei',sans-serif`;
-      const L = 44, R = 12, T = 42, B = pts.length > 10 ? 50 : 34, DEV_Y = 31;
+      const L = 44, R = 12, T = 42, B = o.B != null ? o.B : (pts.length > 10 ? 50 : 34), DEV_Y = 31;
       const pw = W - L - R, ph = H - T - B;
       const y = v => T + ph - (v - yMin) / (yMax - yMin) * ph;
       // grid + axis labels
@@ -12819,10 +12957,11 @@
         // x label (rotated when the groups are narrow)
         g.fillStyle = C.ink; g.font = font(9);
         let name = String(v.name || '');
-        const maxW = gw < 60 ? 70 : gw - 6;
+        const rotated = o.rotate != null ? o.rotate : gw < 60;
+        const maxW = rotated ? 70 : gw - 6;
         while (name.length > 1 && g.measureText(name).width > maxW) name = name.slice(0, -1);
         if (name !== String(v.name || '')) name = name.slice(0, -1) + '…';
-        if (gw < 60) { g.save(); g.translate(cx, yBase + 8); g.rotate(-Math.PI / 5); g.textAlign = 'right'; g.textBaseline = 'middle'; g.fillText(name, 0, 0); g.restore(); }
+        if (rotated) { g.save(); g.translate(cx, yBase + 8); g.rotate(-Math.PI / 5); g.textAlign = 'right'; g.textBaseline = 'middle'; g.fillText(name, 0, 0); g.restore(); }
         else { g.textAlign = 'center'; g.textBaseline = 'top'; g.fillText(name, cx, yBase + 6); }
       });
       g.strokeStyle = C.grid; g.lineWidth = 1; g.beginPath(); g.moveTo(L, DEV_Y + 7); g.lineTo(W - R, DEV_Y + 7); g.stroke();
@@ -13392,28 +13531,39 @@
       if (page.type === 'compare') return d.title || 'Comparison';
       return pageBaseLabel(pageIdx);
     }
+    // Second line of an entry: a data page's 註記 (top_note — usually the test condition).
+    const tocEntrySub = (page) => page.type === 'data' ? String((page.data && page.data.top_note) || '').trim() : '';
     function buildTocHTML(list, tocPage) {
       const seen = new Set();
       const entries = [];
       list.forEach((vp, i) => {
         if (vp.page === tocPage || vp.page.type === 'cover' || seen.has(vp.page)) return;
         seen.add(vp.page);
-        entries.push({ label: tocEntryLabel(vp.page, vp.pageIdx), num: i + 1 });
+        entries.push({ label: tocEntryLabel(vp.page, vp.pageIdx), sub: tocEntrySub(vp.page), num: i + 1 });
       });
-      const two = entries.length > 16;
-      const row = e => `<div style="display:flex;align-items:baseline;gap:6px;padding:5px 0;font-size:${two ? 11 : 12.5}px;color:rgba(15,23,42,0.88);">
-          <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:${two ? 300 : 620}px;">${escHtml(e.label)}</span>
-          <span style="flex:1;border-bottom:1px dotted rgba(15,23,42,0.35);transform:translateY(-3px);"></span>
-          <span style="font-family:'JetBrains Mono',monospace;color:#0B3D7A;font-weight:600;">${e.num}</span></div>`;
-      const half = Math.ceil(entries.length / 2);
-      const cols = two
-        ? `<div style="display:grid;grid-template-columns:1fr 1fr;gap:0 36px;"><div>${entries.slice(0, half).map(row).join('')}</div><div>${entries.slice(half).map(row).join('')}</div></div>`
-        : entries.map(row).join('');
-      return wrapPageHTML(`<div style="width:100%;height:100%;padding:34px 60px 40px;letter-spacing:0;">
-          <div style="font-family:'Space Grotesk',sans-serif;font-size:20px;font-weight:700;color:#0B3D7A;letter-spacing:0.04em;">${escHtml((tocPage.data && tocPage.data.title) || 'CONTENTS')}</div>
-          <div style="width:48px;height:2px;background:#2357A7;margin:8px 0 18px;"></div>
-          ${cols || '<div style="color:rgba(15,23,42,0.5);font-size:12px;">（沒有其他頁面）</div>'}
-        </div>`);
+      // One column (conditions wrap) → two columns (conditions on one line) → two columns
+      // without them: the first that fits on the page (measured, like the other pages).
+      const variants = [{ two: false, fs: 12.5, sub: 'wrap' }, { two: true, fs: 11, sub: 'line' }, { two: true, fs: 10.5, sub: '' }]
+        .slice(entries.length > 16 ? 1 : 0);
+      const page = (v) => {
+        const row = e => `<div style="padding:${v.two ? 4 : 5}px 0;">
+            <div style="display:flex;align-items:baseline;gap:6px;font-size:${v.fs}px;color:rgba(15,23,42,0.88);">
+              <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:${v.two ? 300 : 620}px;">${escHtml(e.label)}</span>
+              <span style="flex:1;border-bottom:1px dotted rgba(15,23,42,0.35);transform:translateY(-3px);"></span>
+              <span style="font-family:'JetBrains Mono',monospace;color:#0B3D7A;font-weight:600;">${e.num}</span></div>
+            ${v.sub && e.sub ? `<div data-toc-sub style="margin:2px 34px 0 14px;font-family:'JetBrains Mono','Noto Sans TC',monospace;font-size:${v.two ? 8.5 : 9.5}px;line-height:1.4;color:rgba(15,23,42,0.58);${v.sub === 'wrap' ? 'overflow-wrap:anywhere;' : 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;'}">${escHtml(e.sub)}</div>` : ''}
+          </div>`;
+        const half = Math.ceil(entries.length / 2);
+        const cols = v.two
+          ? `<div style="display:grid;grid-template-columns:1fr 1fr;gap:0 36px;"><div style="min-width:0;">${entries.slice(0, half).map(row).join('')}</div><div style="min-width:0;">${entries.slice(half).map(row).join('')}</div></div>`
+          : entries.map(row).join('');
+        return wrapPageHTML(`<div style="width:100%;height:100%;padding:34px 60px 40px;letter-spacing:0;">
+            <div style="font-family:'Space Grotesk',sans-serif;font-size:20px;font-weight:700;color:#0B3D7A;letter-spacing:0.04em;">${escHtml((tocPage.data && tocPage.data.title) || 'CONTENTS')}</div>
+            <div style="width:48px;height:2px;background:#2357A7;margin:8px 0 18px;"></div>
+            ${cols || '<div style="color:rgba(15,23,42,0.5);font-size:12px;">（沒有其他頁面）</div>'}${PG_END}
+          </div>`);
+      };
+      for (const v of variants) { const html = page(v); if (v === variants[variants.length - 1] || pgFits(html)) return html; }
     }
     function renderTocPage(page) {
       const d = page.data;

@@ -1043,12 +1043,12 @@ const assert = (cond, msg, detail) => { if (!cond) throw new Error(msg + (detail
 
   const PNG1 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
 
-  await T('PDF：頁碼（封面除外）、檔名含版本、數據頁標題印測試條件、功耗表不再造成最後一列壓到頁尾', async (page) => {
+  await T('PDF：頁碼（封面除外）、檔名含版本、數據頁標題印註記（不印頁面清單的標籤文字）、功耗表不再造成最後一列壓到頁尾', async (page) => {
     const r = await page.evaluate(async () => {
       const comps = Array.from({ length: 12 }, (_, i) => comp('C' + i, { ta_25: '50', ta_55: '80' }));
       await useDb({ thermal_reports: { A: report('A', {
         0: { ...cover('A'), data: { ...cover('A').data, report_version: 'v1.2' } },
-        1: dataPage(1, comps, [25, 55], { list_note: 'Full load 8x40W', machine_power: { ta_25: { v: '48', i: '9' }, ta_55: { v: '48', i: '9.2' } } }) }) } });
+        1: dataPage(1, comps, [25, 55], { list_note: 'LBL-RF無補償', top_note: 'Full load 8x40W', machine_power: { ta_25: { v: '48', i: '9' }, ta_55: { v: '48', i: '9.2' } } }) }) } });
       await openReport('A');
       openPreview();
       const vps = _virtualPages.map(vp => ({ type: vp.page.type, num: (vp.html.match(/>(\d+) \/ (\d+)</) || [])[0] || '' }));
@@ -1065,7 +1065,8 @@ const assert = (cond, msg, detail) => { if (!cond) throw new Error(msg + (detail
         d.remove();
         return res;
       });
-      const title = buildVirtualPages()[1].html.includes('Full load 8x40W');
+      const dHtml = buildVirtualPages()[1].html;
+      const title = dHtml.includes('Full load 8x40W') && !dHtml.includes('LBL-RF無補償');
       let name = '';
       const Orig = jspdf.jsPDF;
       window.jspdf = { jsPDF: function (...a) { const inst = new Orig(...a); inst.save = (n) => { name = n; }; return inst; } };
@@ -1223,6 +1224,66 @@ const assert = (cond, msg, detail) => { if (!cond) throw new Error(msg + (detail
     }, PNG1);
     assert(r.types.join() === 'cover,image,conclusion,note' && r.img.title === 'IR @ 55C' && r.img.images.map(i => i.caption).join() === 'ir1,ir2', 'image page from note', r);
     assert(!r.previewOpen && r.active === 0, 'preview dblclick → edit', r);
+  });
+
+  await T('目錄頁：數據頁標題下列出頁首註記（測試條件）；頁數多或註記長時改兩欄 / 單行，仍放得下', async (page) => {
+    const r = await page.evaluate(async () => {
+      const long = '無補償-@26degC-無蓋=63.65dBm/有蓋=62.75dBm/有蓋+chamber門=60.91dBm @55degC-有蓋+chamber門=52.55dBm';
+      const dp = (o, note, top) => ({ ...dataPage(o, [comp('PA', { ta_55: '80' })], [55]), data: { ...dataPage(o, [comp('PA', { ta_55: '80' })], [55]).data, list_note: note, top_note: top } });
+      await useDb({ thermal_reports: { A: report('A', { 0: cover('A'), 1: { type: 'toc', order: 1, data: { title: '' } }, 2: dp(2, 'RF無補償', long), 3: dp(3, 'RF補償', '') }) } });
+      await openReport('A');
+      const toc = () => numberVirtualPages(buildVirtualPages()).find(v => v.page.type === 'toc').html;
+      const t = document.createElement('template');
+      t.innerHTML = toc();
+      const subs = Array.from(t.content.querySelectorAll('[data-toc-sub]')).map(x => x.textContent);
+      const labels = Array.from(t.content.querySelectorAll('div')).filter(d => d.children.length === 3 && d.style.display === 'flex').map(d => d.children[0].textContent);
+      // 40 data pages, all with long conditions: two columns, still on the page
+      const many = { 0: cover('B'), 1: { type: 'toc', order: 1, data: { title: '' } } };
+      for (let i = 2; i < 42; i++) many[i] = dp(i, 'P' + i, long);
+      await useDb({ thermal_reports: { B: report('B', many) } });
+      await openReport('B');
+      const big = toc();
+      return { subs, labels, fits: pgFits(toc()), bigFits: pgFits(big), bigTwo: big.includes('grid-template-columns:1fr 1fr') };
+    });
+    assert(r.subs.length === 1 && r.subs[0].startsWith('無補償-@26degC') && r.labels[0] === 'Thermal Test Data — RF無補償', 'condition under the data entry', r);
+    assert(r.fits && r.bigFits && r.bigTwo, 'TOC always fits', r);
+  });
+
+  await T('頁面列表：拖曳邊界調整寬度（記住、雙擊恢復預設、往左拖到底收合）、收合 / 展開（預設展開，記住）', async (page) => {
+    await page.evaluate(async () => {
+      await useDb({ thermal_reports: { A: report('A', { 0: cover('A'), 1: dataPage(1, [comp('PA', {})], [55], { list_note: 'RF無補償很長很長的標籤文字' }) }) } });
+      await openReport('A');
+    });
+    const w0 = await page.evaluate(() => document.getElementById('sidebar').getBoundingClientRect().width);
+    const handle = async () => page.evaluate(() => { const b = document.getElementById('sidebar-resizer').getBoundingClientRect(); return { x: b.left + b.width / 2, y: b.top + 200 }; });
+    let h = await handle();
+    await page.mouse.move(h.x, h.y); await page.mouse.down(); await page.mouse.move(h.x + 100, h.y, { steps: 5 }); await page.mouse.up();
+    const r1 = await page.evaluate(() => ({ w: document.getElementById('sidebar').getBoundingClientRect().width, pref: userPrefs().sidebar_w, title: document.querySelector('.page-item[data-index="1"]').title }));
+    assert(w0 === 152 && Math.abs(r1.w - 252) <= 1 && r1.pref === Math.round(r1.w) && /RF無補償很長/.test(r1.title), 'dragged wider, remembered, full name as tooltip', { w0, ...r1 });
+    // collapse with the button: a rail of page numbers; remembered after a reload
+    await page.click('#sidebar-toggle');
+    const r2 = await page.evaluate(() => ({ collapsed: document.getElementById('sidebar').classList.contains('collapsed'), w: document.getElementById('sidebar').getBoundingClientRect().width, labelShown: getComputedStyle(document.querySelector('.page-item .page-label')).display !== 'none', pref: userPrefs().sidebar_collapsed, expanded: document.getElementById('sidebar-toggle').getAttribute('aria-expanded') }));
+    assert(r2.collapsed && r2.w === 40 && !r2.labelShown && r2.pref === true && r2.expanded === 'false', 'collapsed', r2);
+    await page.reload({ waitUntil: 'load' });
+    await page.waitForTimeout(200);
+    const r3 = await page.evaluate(() => ({ collapsed: document.getElementById('sidebar').classList.contains('collapsed') }));
+    await page.evaluate(SETUP);                       // the page was reloaded: open the report again
+    await page.evaluate(async () => {
+      await useDb({ thermal_reports: { A: report('A', { 0: cover('A'), 1: dataPage(1, [comp('PA', {})], [55], { list_note: 'RF無補償很長很長的標籤文字' }) }) } });
+      await openReport('A');
+    });
+    await page.click('#sidebar-toggle');
+    const r4 = await page.evaluate(() => ({ collapsed: document.getElementById('sidebar').classList.contains('collapsed'), w: document.getElementById('sidebar').getBoundingClientRect().width }));
+    assert(r3.collapsed && !r4.collapsed && Math.abs(r4.w - 252) <= 1, 'state kept across a reload; expands back to the saved width', { r3, r4 });
+    // drag all the way left → collapses (the width to come back to is kept); double-click → default width
+    h = await handle();
+    await page.mouse.move(h.x, h.y); await page.mouse.down(); await page.mouse.move(h.x - 300, h.y, { steps: 5 }); await page.mouse.up();
+    const r5 = await page.evaluate(() => ({ collapsed: document.getElementById('sidebar').classList.contains('collapsed'), pref: userPrefs().sidebar_w }));
+    await page.click('#sidebar-toggle');
+    h = await handle();
+    await page.mouse.dblclick(h.x, h.y);
+    const r6 = await page.evaluate(() => ({ w: document.getElementById('sidebar').getBoundingClientRect().width, pref: userPrefs().sidebar_w }));
+    assert(r5.collapsed && r5.pref === 252 && r6.w === 152 && r6.pref === 152, 'drag-to-collapse + double-click reset', { r5, r6 });
   });
 
   await T('目錄頁：插在封面後、頁碼依實際 PDF 頁數（只匯出部分頁面時重算）', async (page) => {
@@ -1712,21 +1773,30 @@ const assert = (cond, msg, detail) => { if (!cond) throw new Error(msg + (detail
     await page.waitForFunction(() => state.pages.length === 3 && state.pages[1].data.photo_url_or_base64);
     const r2 = await page.evaluate(async () => {
       const d = state.pages[1].data;
-      return { type: state.pages[1].type, active: state.activePage, same: d.photo_url_or_base64 === __url, rot: d.img_rot, cap: d.caption, ar: d.img_box.w / d.img_box.h, png: !!(photoClip.sig && photoClip.sig.w === 200) };
+      const F = annoFoot(d);
+      return { type: state.pages[1].type, active: state.activePage, same: d.photo_url_or_base64 === __url, rot: d.img_rot, cap: d.caption, ar: d.img_box.w / d.img_box.h, png: /^200x400:/.test(photoClip.sig), capFits: F.y + F.h <= ANNO_SAFE.b + 0.5 };
     });
     assert(/Ctrl/.test(note), 'copied to the system clipboard', note);
     assert(r2.type === 'annotation' && r2.active === 1 && r2.same && r2.rot === 90 && r2.cap === 'IR 熱像' && Math.abs(r2.ar - 0.5) < 0.02 && r2.png, 'new annotation page with the same photo, rotation, caption', r2);
+    assert(r2.capFits, 'photo + caption band stay on the page (clear of the page number)', r2);
     // Ctrl+V of that clipboard image on the (empty) annotation page → the stored photo, not a recompressed copy
     const r3 = await page.evaluate(async () => {
       const items = await navigator.clipboard.read();
       const blob = await items[0].getType('image/png');
       const file = new File([blob], 'image.png', { type: 'image/png' });
+      // the same picture with one small change (a reading on a logger screen …) is NOT the copy
+      const bmp = await createImageBitmap(blob);
+      const c = document.createElement('canvas'); c.width = bmp.width; c.height = bmp.height;
+      const g = c.getContext('2d'); g.drawImage(bmp, 0, 0); g.fillStyle = '#ff0000'; g.fillRect(150, 300, 4, 3);
+      const near = new File([await new Promise(r => c.toBlob(r, 'image/png'))], 'near.png', { type: 'image/png' });
+      window.__near = !!(await photoClipFor(near));
       selectPage(2);
       await routePastedImage(state.pages[2], file);
       const d = state.pages[2].data;
-      return { pngW: (await createImageBitmap(blob)).width, same: d.photo_url_or_base64 === __url, rot: d.img_rot };
+      return { pngW: (await createImageBitmap(blob)).width, same: d.photo_url_or_base64 === __url, rot: d.img_rot, near: __near };
     });
     assert(r3.pngW === 200 && r3.same && r3.rot === 90, 'clipboard PNG is the rotated view; paste uses the stored photo', r3);
+    assert(!r3.near, 'a near-identical picture is not taken for the copy', r3);
     // Ctrl+C on the annotation page, 📋 button on an image page → 貼到新的圖片頁 from the annotation copy
     await page.evaluate(() => { annoSelectPhoto(state.pages[2], 0); document.activeElement && document.activeElement.blur(); });
     await page.keyboard.press('Control+c');
@@ -1740,6 +1810,24 @@ const assert = (cond, msg, detail) => { if (!cond) throw new Error(msg + (detail
       return { n: ims.length, same: ims[1] && ims[1].url_or_base64 === __url, rot: ims[1] && ims[1].rot, cap: ims[1] && ims[1].caption };
     });
     assert(r4.n === 2 && r4.same && r4.rot === 90 && r4.cap === 'IR 熱像', 'pasted into the image page', r4);
+    // two quick copies: the later one owns the clipboard even when the earlier is slower to draw
+    const r5 = await page.evaluate(async () => {
+      const big = photo(3000, 2000), small = photo(300, 200);
+      const a = copyPhoto({ url: big });
+      await sleep(30);
+      const b = await copyPhoto({ url: small });
+      await a;
+      const items = await navigator.clipboard.read();
+      const bmp = await createImageBitmap(await items[0].getType('image/png'));
+      return { w: bmp.width, h: bmp.height, clip: photoClip === b.clip, url: photoClip.url === small };
+    });
+    assert(r5.w === 300 && r5.h === 200 && r5.clip && r5.url, 'latest copy wins', r5);
+    // preview re-layout keeps the sub-page
+    const r6 = await page.evaluate(() => {
+      const L = a => a.map(pageIdx => ({ pageIdx }));
+      return [previewKeepIndex(L([0, 1, 1, 1, 2]), 3, L([0, 1, 1, 2])), previewKeepIndex(L([0, 1, 1, 1, 2]), 3, L([0, 1, 1, 1, 1, 2])), previewKeepIndex(L([0, 1, 2]), 2, L([0, 1, 1, 2]))].join();
+    });
+    assert(r6 === '2,3,3', 'preview position kept within the source page', r6);
   }, { permissions: ['clipboard-read', 'clipboard-write'] });
 
   await T('圖片頁：舊資料轉換（版面、旋轉翻轉、平移縮放與標註），編輯器與 PDF 相同', async (page) => {

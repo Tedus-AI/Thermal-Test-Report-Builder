@@ -174,7 +174,7 @@ const assert = (cond, msg, detail) => { if (!cond) throw new Error(msg + (detail
       await useDb({ thermal_reports: { A: report('A', { 0: cover('A') }) } });
       await openReport('A');
       addImagePage();
-      const t = document.querySelector('.image-page-title');
+      const t = document.getElementById('im-title');
       t.value = 'IR images'; t.dispatchEvent(new Event('input'));
       await leaveEditor();
       const pages = disk().thermal_reports.A.pages;
@@ -825,17 +825,17 @@ const assert = (cond, msg, detail) => { if (!cond) throw new Error(msg + (detail
       await insertImagePagesFromFiles([f('IR_10.png'), f('IR_2.png'), f('IR_1.png'), f('Top.jpg.png'), new File(['x'], 'note.txt', { type: 'text/plain' })], { perPage: 2, captions: true, title: 'IR', afterIdx: 0 });
       const types = state.pages.map(p => p.type);
       const caps = state.pages.filter(p => p.type === 'image').map(p => p.data.images.map(im => im.caption).join('+'));
-      // drop 6 files on a fresh image page → fills 4, continues on a new page
+      // drop 8 files on a fresh image page → fills 6, continues on a new page
       selectPage(1);
       const pg = state.pages[1];
       pg.data.images = [];
-      await dropImagesOnImagePage(pg, [1, 2, 3, 4, 5, 6].map(i => f('S' + i + '.png')));
+      await dropImagesOnImagePage(pg, [1, 2, 3, 4, 5, 6, 7, 8].map(i => f('S' + i + '.png')));
       await flushAllSaves();
       const after = disk().thermal_reports.A.pages;
       return { types, caps, title: state.pages[1].data.title, n1: after['1'].data.images.length, n2: after['2'].data.images.map(im => im.caption).join(), total: Object.keys(after).length };
     });
     assert(r.types.join() === 'cover,image,image,conclusion' && r.caps.join('|') === 'IR_1+IR_2|IR_10+Top.jpg' && r.title === 'IR', 'batch pages', r);
-    assert(r.n1 === 4 && r.n2 === 'S5,S6' && r.total === 5, 'multi-drop overflow', r);
+    assert(r.n1 === 6 && r.n2 === 'S7,S8' && r.total === 5, 'multi-drop overflow', r);
   });
 
   await T('標註頁批次命名：每行一個名稱依序套用', async (page) => {
@@ -1095,12 +1095,13 @@ const assert = (cond, msg, detail) => { if (!cond) throw new Error(msg + (detail
     assert(!r.before && r.approved && !r.reviewed, 'sign-off rows printed only when filled', r);
   });
 
-  await T('圖片頁：◀ ▶ 交換圖片位置（說明跟著走）', async (page) => {
+  await T('圖片頁：往前 / 往後移一格（說明跟著走）', async (page) => {
     const r = await page.evaluate(async (png) => {
       await useDb({ thermal_reports: { A: report('A', { 0: { type: 'image', order: 0, data: { title: 'T', images: [{ position: 0, url_or_base64: png, caption: 'first' }, { position: 1, url_or_base64: png, caption: 'second' }] } } }) } });
       await openReport('A');
-      const prevOnFirst = !!document.querySelector('.img-edit-btn[data-pos="0"][data-edit="move-prev"]');
-      document.querySelector('.img-edit-btn[data-pos="0"][data-edit="move-next"]').click();
+      imSelect(state.pages[0], null, 0);
+      const prevOnFirst = !document.querySelector('[data-im-tool="up"]').disabled;
+      await imTool(state.pages[0], 'down');
       await flushAllSaves();
       return { prevOnFirst, caps: disk().thermal_reports.A.pages['0'].data.images.map(im => im.position + ':' + im.caption) };
     }, PNG1);
@@ -1530,6 +1531,121 @@ const assert = (cond, msg, detail) => { if (!cond) throw new Error(msg + (detail
     assert(guideDuring === 'block' && after.guide === 'none' && after.lx === 40, 'snap + guide cleared', { guideDuring, after });
     assert(filterOn.includes('brightness(1.4)') && !pop.open && pop.filter === '', 'Esc closes the adjust panel', { filterOn, pop });
     assert(kept === 2, 'shortcuts ignored under another dialog', kept);
+  });
+
+
+  console.log('Image page (shared editor / PDF layout) · pagination');
+
+  await T('圖片頁：舊資料轉換（版面、旋轉翻轉、平移縮放與標註），編輯器與 PDF 相同', async (page) => {
+    await page.evaluate(ANNO_SETUP);
+    const r = await page.evaluate(async () => {
+      const old = { title: 'IR', col_split: 60, images: [
+        { position: 0, url_or_base64: photo(400, 300), caption: 'A', zoom: 1.5, off_x: 10, markers: [{ id: 'm1', x: 50, y: 50, label: 'hot', label_x: 70, label_y: 10, label_w: 90 }], circles: [{ id: 'c1', x: 40, y: 40, w: 20, h: 20, label: 'zone', label_x: 5, label_y: 80 }] },
+        { position: 1, url_or_base64: '', caption: '' },
+        { position: 2, url_or_base64: photo(300, 400), caption: '', rotate: 90, flip_v: true } ] };
+      await useDb({ thermal_reports: { A: report('A', { 0: { type: 'image', order: 0, data: old } }) } });
+      await openReport('A');
+      await sleep(400);
+      await flushAllSaves();
+      const d = disk().thermal_reports.A.pages['0'].data;
+      const pdf = new DOMParser().parseFromString(buildImagePageHTML(state.pages[0].data), 'text/html');
+      const geo = el => [el.style.left, el.style.top, el.style.width, el.style.height].join(',');
+      const pick = (root, sel) => Array.from(root.querySelectorAll(sel)).map(geo);
+      return { v: d.im_v, layout: d.layout, split: d.split, n: d.images.length, rot: d.images[1].rot, fh: d.images[1].fh, nar: d.images.map(im => im.nar), z: d.images[0].z, legacy: 'zoom' in d.images[0] || 'markers' in d.images[0],
+        co: d.images[0].callouts.map(c => c.type + ':' + c.label), cx: d.images[0].cx,
+        pdfLbl: pick(pdf, 'div[style*="border:1px solid #2357A7"]'), edLbl: pick(document, '#im-ov [data-im-lbl]'),
+        pdfShape: pick(pdf, 'div[style*="border:2px solid #dc2626"]'), edShape: pick(document, '[data-im-shape]') };
+    });
+    assert(r.v === 2 && r.layout === '2h' && r.split.c === 60 && r.n === 2, 'layout / empty placeholder dropped', r);
+    assert(r.rot === 270 && r.fh === true && r.nar.join() === '1.33333,0.75', 'rotation + flip converted, sizes learnt', r);
+    assert(!r.legacy && r.z > 1 && r.cx < 0.5 && r.co.join() === 'dot:hot,circle:zone', 'pan / zoom / markers converted', r);
+    assert(r.pdfLbl.length === 2 && r.pdfLbl.join('|') === r.edLbl.join('|') && r.pdfShape.join('|') === r.edShape.join('|'), 'editor = PDF geometry', r);
+  });
+
+  await T('圖片頁：標註跟著照片（放大 / 平移 / 旋轉）、畫圈選並就地命名、文字框', async (page) => {
+    await page.evaluate(ANNO_SETUP);
+    await page.evaluate(async () => {
+      const im = { url_or_base64: photo(400, 200), caption: 'Board', nar: 2, rot: 0, fh: false, callouts: [{ id: 'd1', type: 'dot', x: 0.25, y: 0.5, label: 'U1', lx: 700, ly: 100 }] };
+      await useDb({ thermal_reports: { A: report('A', { 0: { type: 'image', order: 0, data: { im_v: 2, title: 'T', layout: 'auto', split: { c: 50, r: 50 }, images: [im], texts: [] } } }) } });
+      await openReport('A');
+    });
+    const r1 = await page.evaluate(async () => {
+      const d = state.pages[0].data, at = () => { const g = imCalloutGeo(d)[0]; return [Math.round(g.px - (g.R.x + 0.25 * g.R.w)), Math.round(g.py - (g.R.y + 0.5 * g.R.h))].join(); };
+      imSelect(state.pages[0], null, 0);
+      await imTool(state.pages[0], 'zin'); await imTool(state.pages[0], 'zin');
+      const zoomed = { z: d.images[0].z, on: at() };
+      await imTool(state.pages[0], 'rotr');
+      const rot = d.images[0].callouts[0].x + ',' + d.images[0].callouts[0].y;
+      await imTool(state.pages[0], 'rotl');
+      return { zoomed, rot };
+    });
+    // circle mode: drag on the photo, type a name
+    await page.keyboard.press('c');
+    const f = await page.evaluate(() => { const r = annoRect('[data-im-frame="0"]'); return { x: r.left, y: r.top, w: r.width, h: r.height }; });
+    await page.mouse.move(f.x + f.w * 0.55, f.y + f.h * 0.4); await page.mouse.down();
+    await page.mouse.move(f.x + f.w * 0.7, f.y + f.h * 0.6, { steps: 5 }); await page.mouse.up();
+    await page.waitForTimeout(100);
+    await page.keyboard.type('Hot zone'); await page.keyboard.press('Enter');
+    await page.keyboard.press('Escape');
+    // text box
+    await page.keyboard.press('t');
+    await page.mouse.click(f.x + 20, f.y + f.h - 20);
+    await page.waitForTimeout(100);
+    await page.keyboard.type('Airflow →'); await page.keyboard.press('Enter');
+    const r2 = await page.evaluate(async () => { await flushAllSaves(); const d = disk().thermal_reports.A.pages['0'].data; return { co: d.images[0].callouts.map(c => c.type + ':' + c.label + ':' + (c.w ? c.w.toFixed(2) : '-')), texts: d.texts.map(t => t.label), pdf: buildImagePageHTML(state.pages[0].data).includes('Airflow →') }; });
+    assert(r1.zoomed.z > 1.5 && r1.zoomed.on === '0,0', 'callout stays on the photo when zoomed', r1);
+    assert(r1.rot === '0.5,0.25', 'callout rotates with the photo', r1);
+    assert(r2.co.length === 2 && r2.co[1].startsWith('circle:Hot zone:') && parseFloat(r2.co[1].split(':')[2]) > 0.05, 'circle drawn + named', r2);
+    assert(r2.texts.join() === 'Airflow →' && r2.pdf, 'text box', r2);
+  });
+
+  await T('圖片頁：加入多張自動版面、拖到另一格交換、拖格線、版面容量、Delete 刪除', async (page) => {
+    await page.evaluate(ANNO_SETUP);
+    await page.evaluate(async () => {
+      await useDb({ thermal_reports: { A: report('A', { 0: { type: 'image', order: 0, data: { im_v: 2, title: 'T', layout: 'auto', split: { c: 50, r: 50 }, images: [], texts: [] } } }) } });
+      await openReport('A');
+      const f = async (n, w, h) => new File([await (await fetch(photo(w, h))).blob()], n, { type: 'image/png' });
+      await imAddFiles(state.pages[0], [await f('b.png', 300, 200), await f('a.png', 300, 200), await f('c.png', 200, 300)]);
+    });
+    await page.waitForTimeout(150);
+    const a = await page.evaluate(() => ({ caps: state.pages[0].data.images.map(im => im.caption).join(), layout: imLayoutKey(state.pages[0].data), dis3h: document.querySelector('[data-im-layout="1"]').disabled }));
+    const c = async i => page.evaluate(i => { const r = annoRect(`[data-im-frame="${i}"]`); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; }, i);
+    const p0 = await c(0), p1 = await c(1);
+    await page.mouse.move(p0.x, p0.y); await page.mouse.down(); await page.mouse.move(p1.x, p1.y, { steps: 8 }); await page.mouse.up();
+    const swapped = await page.evaluate(() => state.pages[0].data.images.map(im => im.caption).join());
+    const g = await page.evaluate(() => { const r = annoRect('[data-im-handle="gc"]'); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; });
+    const k = await page.evaluate(() => annoRect('#an-paper').width / 842);
+    await page.mouse.move(g.x, g.y); await page.mouse.down(); await page.mouse.move(g.x + 100 * k, g.y, { steps: 5 }); await page.mouse.up();
+    const split = await page.evaluate(() => state.pages[0].data.split.c);
+    await page.evaluate(() => imSelect(state.pages[0], null, 2));
+    await page.keyboard.press('Delete');
+    const after = await page.evaluate(async () => { await flushAllSaves(); return disk().thermal_reports.A.pages['0'].data.images.map(im => im.caption).join(); });
+    assert(a.caps === 'a,b,c' && a.layout === '1+2' && a.dis3h, 'sorted, captions, auto layout, capacity', a);
+    assert(swapped === 'b,a,c', 'drag onto another slot swaps', swapped);
+    assert(split > 60, 'gutter drag', split);
+    assert(after === 'b,a', 'Delete removes the selected image (after confirm)', after);
+  });
+
+  await T('換頁：感測器 / 比對 / 比較表不論列高都不會壓到頁尾', async (page) => {
+    const r = await page.evaluate(async () => {
+      const comps = Array.from({ length: 14 }, (_, i) => comp(i % 3 ? 'U' + i : 'Very long component name that wraps around PA_GaN_U' + i, { ta_25: '60', ta_55: '90' }, 125, '0.90', { uid: 'u' + i, note: i % 4 ? '' : 'a fairly long note that wraps onto two lines' }));
+      const sensors = Array.from({ length: 45 }, (_, i) => ({ name: 'sensor ' + i, type: 'Local', readings: { ta_25: '61', ta_55: '91' }, ref: i % 2 ? null : { uid: 'u' + (i % 14) } }));
+      await useDb({ thermal_reports: { A: report('A', {
+        0: { id: 'dp', ...dataPage(0, comps, [25, 55], { sensors }) },
+        1: { type: 'sim_vs_meas', order: 1, data: { compare_ta: 55, items: comps.map(c => ({ component_name: c.name, sim_tc: '88', source_page: 'dp', source_uid: c.uid, note: 'model note that is long enough to wrap in the narrow column' })) } } }) } });
+      await openReport('A');
+      await document.fonts.ready;
+      const vps = buildVirtualPages();
+      const box = document.createElement('div');
+      box.style.cssText = `position:fixed;left:0;top:0;width:842px;height:595px;overflow:hidden;font-family:${PDF_FONT};z-index:99999;background:#fff;`;
+      document.body.appendChild(box);
+      const res = vps.map(vp => { box.innerHTML = '<div style="width:100%;height:100%;">' + vp.html + '</div>'; const t = box.getBoundingClientRect().top; const trs = Array.from(box.querySelectorAll('tbody tr')); return { type: vp.page.type, rows: trs.length, max: Math.max(0, ...trs.map(tr => tr.getBoundingClientRect().bottom - t)) }; });
+      box.remove();
+      const total = t => res.filter(x => x.type === t).reduce((a, x) => a + x.rows, 0);
+      return { res, dataRows: total('data'), simRows: total('sim_vs_meas') };
+    });
+    assert(r.res.every(x => x.max <= 548), 'no row below the footer limit', r.res);
+    assert(r.dataRows === 14 + 45 && r.simRows === 14, 'every row printed exactly once', r);
   });
 
   console.log('New version → save, then reload');

@@ -2804,220 +2804,6 @@
       --canvas-aspect: 842 / 595;
     }
 
-    .image-page {
-      width: 100%;
-      height: 100%;
-      display: flex;
-      flex-direction: column;
-      padding: 2.4% 2.8% 1.9%;
-      font-family: var(--font-ui);
-      color: var(--text-on-white);
-      overflow: hidden;
-    }
-
-    .image-page-title {
-      font-size: clamp(14px, 2.2vmin, 18px);
-      font-weight: 700;
-      border: none;
-      outline: none;
-      background: transparent;
-      color: var(--text-on-white);
-      width: 100%;
-      padding: 6px 8px;
-      margin-bottom: 1.4%;
-      font-family: var(--font-ui);
-      flex-shrink: 0;
-    }
-
-    .image-page-title::placeholder {
-      color: rgba(15,23,42,0.28);
-    }
-
-    .image-page-title:hover {
-      background: rgba(56,189,248,0.04);
-    }
-
-    .image-page-title:focus {
-      background: rgba(56,189,248,0.06);
-      border-radius: 4px;
-    }
-
-    .image-grid {
-      flex: 1;
-      display: grid;
-      gap: 10px;
-      min-height: 0;
-      position: relative;
-    }
-
-    .image-grid.layout-0 {
-      grid-template-columns: 1fr;
-      grid-template-rows: 1fr;
-    }
-
-    .image-grid.layout-1 {
-      grid-template-columns: 1fr;
-      grid-template-rows: 1fr;
-    }
-
-    .image-grid.layout-2 {
-      grid-template-columns: 1fr 1fr;
-      grid-template-rows: 1fr;
-    }
-
-    .image-grid.layout-3,
-    .image-grid.layout-4 {
-      grid-template-columns: 1fr 1fr;
-      grid-template-rows: 1fr 1fr;
-    }
-
-    .img-resize-handle {
-      position: absolute;
-      z-index: 20;
-      transition: background 0.15s, transform 0.12s;
-    }
-    .img-resize-handle-v {
-      top: 0; bottom: 0;
-      width: 10px;
-      cursor: col-resize;
-      background: transparent;
-      border-left: 2px solid transparent;
-      border-right: 2px solid transparent;
-    }
-    .img-resize-handle-v:hover,
-    .img-resize-handle-v.dragging {
-      border-color: #3A7AD4;
-      background: rgba(58,122,212,0.18);
-    }
-    .img-resize-grip {
-      width: 18px;
-      height: 18px;
-      border-radius: 50%;
-      background: #3A7AD4;
-      border: 3px solid #fff;
-      box-shadow: 0 1px 6px rgba(11,61,122,0.35);
-      cursor: nwse-resize;
-      transform: translate(-50%, -50%);
-    }
-    .img-resize-grip:hover,
-    .img-resize-grip.dragging {
-      background: #0B3D7A;
-      transform: translate(-50%, -50%) scale(1.15);
-    }
-
-    .image-cell {
-      display: flex;
-      flex-direction: column;
-      min-height: 0;
-      min-width: 0;
-    }
-
-    .image-drop-zone {
-      flex: 1;
-      border: 2px dashed rgba(15,23,42,0.15);
-      border-radius: 6px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      position: relative;
-      overflow: hidden;
-      transition: border-color var(--transition-fast), background var(--transition-fast);
-      min-height: 0;
-    }
-
-    .image-drop-zone:hover {
-      border-color: rgba(56,189,248,0.4);
-      background: rgba(56,189,248,0.03);
-    }
-
-    .image-drop-zone.dragover {
-      border-color: var(--color-primary);
-      background: rgba(56,189,248,0.08);
-    }
-    .image-drop-zone.paste-target {
-      border-color: rgba(91,163,230,0.5);
-      background: rgba(91,163,230,0.04);
-    }
-
-    .image-drop-zone.has-image {
-      border: 1px solid rgba(15,23,42,0.08);
-    }
-
-    .image-drop-zone img {
-      /* Auto-size (not 100%×100%) so the element box already has the image's
-         aspect ratio. html2canvas (PDF export) ignores object-fit and would
-         otherwise stretch a 100%×100% img to fill the cell — matching the PDF
-         builder keeps editor and export identical. */
-      max-width: 100%;
-      max-height: 100%;
-      width: auto;
-      height: auto;
-      object-fit: contain;
-    }
-    .image-drop-zone.has-image img {
-      cursor: grab;
-      user-select: none;
-    }
-
-    /* Leader-line overlay for image-page markers (percent viewBox, like the PDF) */
-    .img-marker-svg {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      pointer-events: none;
-      z-index: 10;
-    }
-    .img-marker-svg line {
-      stroke: #dc2626;
-      stroke-width: 1.5;
-    }
-
-    /* Resizable red circle annotation (outline) for circling a region */
-    .img-circle {
-      position: absolute;
-      border: 2px solid #dc2626;
-      border-radius: 50%;
-      background: transparent;
-      box-sizing: border-box;
-      cursor: move;
-      z-index: 16;
-    }
-    .img-circle-resize {
-      position: absolute;
-      right: -6px;
-      bottom: -6px;
-      width: 12px;
-      height: 12px;
-      border-radius: 50%;
-      background: #dc2626;
-      border: 1.5px solid #fff;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.3);
-      cursor: nwse-resize;
-      z-index: 17;
-    }
-    .image-drop-zone.has-image.panning img {
-      cursor: grabbing;
-    }
-
-    .image-drop-placeholder {
-      text-align: center;
-      color: rgba(15,23,42,0.25);
-      font-size: 13px;
-      pointer-events: none;
-    }
-
-    .image-drop-placeholder .plus-icon {
-      font-size: 28px;
-      display: block;
-      margin-bottom: 4px;
-      font-weight: 300;
-      color: rgba(15,23,42,0.20);
-    }
-
-    /* Shared browse button for image zones */
     .img-browse-btn {
       display: inline-block;
       margin-top: 8px;
@@ -3036,49 +2822,6 @@
       background: rgba(56,189,248,0.10);
       border-color: rgba(56,189,248,0.3);
       color: rgba(15,23,42,0.75);
-    }
-
-    .image-cell-actions {
-      display: none;
-      position: absolute;
-      top: 6px;
-      right: 6px;
-      gap: 4px;
-      z-index: 5;
-      flex-wrap: wrap;
-      justify-content: flex-end;
-      max-width: calc(100% - 12px);
-    }
-
-    .image-drop-zone.has-image:hover .image-cell-actions {
-      display: flex;
-    }
-
-    .image-caption {
-      font-size: 12px;
-      color: rgba(15,23,42,0.55);
-      border: none;
-      outline: none;
-      background: transparent;
-      width: 100%;
-      padding: 4px 6px;
-      margin-top: 4px;
-      font-family: var(--font-ui);
-      border-bottom: 1px dashed rgba(15,23,42,0.12);
-      flex-shrink: 0;
-    }
-
-    .image-caption::placeholder {
-      color: rgba(15,23,42,0.25);
-    }
-
-    .image-caption:hover {
-      background: rgba(56,189,248,0.03);
-    }
-
-    .image-caption:focus {
-      background: rgba(56,189,248,0.05);
-      border-bottom-color: var(--color-primary);
     }
 
     /* ━━━ Annotation page editor (the page itself is the shared PDF layout) ━━━ */
@@ -3290,152 +3033,37 @@
     }
     .crop-btn.confirm:hover { background: #1d4ed8; }
 
-    .marker-dot {
-      position: absolute;
-      width: 16px;
-      height: 16px;
-      border-radius: 50%;
-      background: transparent;
-      cursor: grab;
-      z-index: 15;
-      transform: translate(-50%, -50%);
-      user-select: none;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .marker-dot::before {
-      content: '';
-      width: 5px;
-      height: 5px;
-      border-radius: 50%;
-      background: #dc2626;
-      box-shadow: 0 0 0 1px rgba(255,255,255,0.9);
-      transition: transform 0.12s;
-    }
-
-    .marker-dot:active {
-      cursor: grabbing;
-    }
-
-    .marker-dot:hover::before {
-      transform: scale(1.5);
-      box-shadow: 0 0 0 1px rgba(255,255,255,0.9), 0 1px 4px rgba(220,38,38,0.5);
-    }
-
-    .marker-label-wrap {
-      position: absolute;
-      z-index: 20;
-      display: flex;
-      align-items: stretch;
-    }
-
-    .marker-delete-btn {
-      position: absolute;
-      top: -8px;
-      right: -8px;
-      width: 16px;
-      height: 16px;
-      border-radius: 50%;
-      background: #dc2626;
-      color: #fff;
-      border: 1.5px solid #fff;
-      font-size: 10px;
-      line-height: 1;
-      font-weight: 700;
-      cursor: pointer;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      padding: 0;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.25);
-      z-index: 21;
-    }
-
-    .marker-label-wrap:hover .marker-delete-btn,
-    .marker-label-wrap:focus-within .marker-delete-btn {
-      display: flex;
-    }
-
-    .marker-delete-btn:hover {
-      background: #b91c1c;
-      transform: scale(1.15);
-    }
-
-    /* Copy/duplicate this marker (dot + label) */
-    .marker-copy-btn {
-      position: absolute;
-      top: -8px;
-      left: -8px;
-      width: 16px;
-      height: 16px;
-      border-radius: 50%;
-      background: #2357A7;
-      color: #fff;
-      border: 1.5px solid #fff;
-      font-size: 9px;
-      line-height: 1;
-      font-weight: 700;
-      cursor: pointer;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      padding: 0;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.25);
-      z-index: 21;
-    }
-    .marker-label-wrap:hover .marker-copy-btn,
-    .marker-label-wrap:focus-within .marker-copy-btn {
-      display: flex;
-    }
-    .marker-copy-btn:hover { background: #0B3D7A; transform: scale(1.15); }
-
-    .marker-label {
-      width: 53px;
-      min-width: 40px;
-      padding: 4px 8px;
-      background: #fff;
-      border: 1.5px solid #333;
-      border-radius: 4px 0 0 4px;
-      font-size: 11px;
-      font-family: var(--font-ui);
-      color: var(--text-on-white);
-      cursor: text;
-      outline: none;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.12);
-      white-space: nowrap;
-      box-sizing: border-box;
-    }
-
-    .marker-label-wrap:hover .marker-label:not(:focus) {
-      cursor: grab;
-    }
-
-    .marker-label:focus {
-      border-color: var(--color-primary);
-      box-shadow: 0 0 0 2px rgba(56,189,248,0.2);
-    }
-
-    .marker-label::placeholder {
-      color: rgba(15,23,42,0.25);
-    }
-
-    .marker-resize-handle {
-      width: 6px;
-      cursor: ew-resize;
-      background: rgba(15,23,42,0.08);
-      border: 1.5px solid #333;
-      border-left: none;
-      border-radius: 0 4px 4px 0;
-      flex-shrink: 0;
-      transition: background 0.15s;
-    }
-
-    .marker-resize-handle:hover,
-    .marker-resize-handle:active {
-      background: rgba(56,189,248,0.25);
-    }
+    /* ━━━ Image page editor (shares the annotation editor shell) ━━━ */
+    .im-title { flex: 0 1 260px; min-width: 120px; font: 700 13px var(--font-ui); color: #0B3D7A; border: 1px solid rgba(15,23,42,0.14); border-radius: 4px; padding: 4px 8px; background: #fff; }
+    .im-title:focus { outline: none; border-color: #0ea5e9; }
+    .im-lays { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+    .im-lay { height: 30px; display: flex; align-items: center; justify-content: center; border: 1px solid rgba(15,23,42,0.14); border-radius: 5px; background: #fff; cursor: pointer; font: 600 11px var(--font-ui); color: #1A4E96; padding: 0; }
+    .im-lay svg { width: 26px; height: 18px; fill: rgba(35,87,167,0.18); stroke: #2357A7; stroke-width: 0.8; }
+    .im-lay:hover { background: rgba(35,87,167,0.07); }
+    .im-lay.cur { border-color: #2357A7; box-shadow: inset 0 0 0 1px #2357A7; }
+    .im-lay.on { background: rgba(35,87,167,0.12); }
+    .im-lay:disabled { opacity: 0.3; cursor: default; }
+    .im-list .im-row { gap: 6px; padding: 3px 2px; }
+    .im-grip { cursor: grab; color: rgba(15,23,42,0.35); font-size: 11px; letter-spacing: -2px; user-select: none; padding: 0 2px; }
+    .im-thumb { width: 44px; height: 32px; object-fit: cover; border-radius: 3px; border: 1px solid rgba(15,23,42,0.12); flex-shrink: 0; background: #eef2f7; }
+    .im-paper [data-im-frame] { cursor: pointer; }
+    .im-paper.mode-dot [data-im-frame], .im-paper.mode-circle [data-im-frame], .im-paper.mode-rect [data-im-frame] { cursor: crosshair; }
+    .im-paper.mode-text, .im-paper.mode-text * { cursor: text; }
+    .im-paper.swapping, .im-paper.swapping * { cursor: copy !important; }
+    .im-shape { cursor: move; }
+    .im-shape.sel { outline: 2px solid #0ea5e9; outline-offset: 1px; }
+    .im-frame-ui { position: absolute; pointer-events: none; outline: 1px dashed transparent; }
+    .im-paper [data-im-frame]:hover + * {}
+    .im-frame-ui.sel { outline: 2px solid #2357A7; outline-offset: 1px; }
+    .im-frame-ui.drop { outline: 3px dashed #0ea5e9; outline-offset: -3px; background: rgba(14,165,233,0.08); }
+    .im-gutter { position: absolute; pointer-events: auto; z-index: 2; }
+    .im-gutter.v { width: 8px; cursor: col-resize; }
+    .im-gutter.h { height: 8px; cursor: row-resize; }
+    .im-gutter:hover, .an-paper.dragging .im-gutter { background: rgba(14,165,233,0.35); border-radius: 3px; }
+    .im-capghost { position: absolute; width: 100px; height: 18px; pointer-events: auto; font: 600 10.5px var(--font-ui); color: #2357A7; background: rgba(255,255,255,0.92); border: 1px dashed rgba(35,87,167,0.45); border-radius: 9px; cursor: pointer; }
+    .im-capghost:hover { background: #fff; border-style: solid; }
+    .im-draw { position: absolute; border: 2px dashed #dc2626; pointer-events: none; box-sizing: border-box; }
+    .im-empty { font-size: 12px; }
 
     /* ━━━ Preview Overlay ━━━ */
     .preview-overlay {
@@ -4644,10 +4272,7 @@
           cover_image_h: 345, // 4:3 橫式
         };
       } else if (type === 'image') {
-        page.data = {
-          title: '',
-          images: [] // [{position: 0-3, url_or_base64: '', caption: ''}]
-        };
+        page.data = { im_v: 2, title: '', layout: 'auto', split: { c: 50, r: 50 }, images: [], texts: [] };
       } else if (type === 'annotation') {
         page.data = {
           title: '',
@@ -5279,765 +4904,7 @@
       </div>`;
     }
 
-    // ━━━ Image Page Module ━━━
     function addImagePage() { return addPageOfType('image'); }
-
-    function renderImagePage(page) {
-      const d = page.data;
-      const imgs = d.images || [];
-      const count = imgs.length;
-      const layoutClass = 'layout-' + Math.min(count, 4);
-
-      // For layout-0 (no images), show single big placeholder
-      // For layout-1 (1 image), show just the 1 cell (full)
-      // For layout-2, show 2 cells top row
-      // For layout-3, show 3 cells + 1 placeholder
-      // For layout-4, show 4 cells
-
-      let gridCells = '';
-
-      if (count === 0) {
-        // Single full-page placeholder
-        gridCells = buildImageCell(null, 0, page);
-      } else {
-        // Render existing images in order
-        for (let i = 0; i < count; i++) {
-          gridCells += buildImageCell(imgs[i], i, page);
-        }
-        // Add placeholder for next slot if < 4
-        if (count < 4) {
-          gridCells += buildImageCell(null, count, page);
-        }
-      }
-
-      const colSplit = d.col_split ?? 50;
-      const rowSplit = d.row_split ?? 50;
-      const gridInlineStyle = count >= 2
-        ? `style="grid-template-columns:${colSplit}fr ${100-colSplit}fr${count >= 3 ? `;grid-template-rows:${rowSplit}fr ${100-rowSplit}fr` : ''}"` : '';
-
-      $canvas.innerHTML = editorPageWrapHTML(`
-        <div class="image-page">
-          <input class="image-page-title" type="text" placeholder="點此輸入標題"
-                 value="${escapeAttr(d.title)}" data-field="title">
-          <div class="image-grid ${layoutClass}" id="image-grid" ${gridInlineStyle}>
-            ${gridCells}
-          </div>
-        </div>
-      `);
-      // NOTE: the image page intentionally keeps the plain A4-landscape canvas
-      // (no 'anno-wide'). Widening the editor changes the cell aspect ratio, and
-      // object-fit:contain then scales each image differently from the fixed-A4
-      // PDF — invisible at 0° but obvious once rotated 90°. Matching the PDF page
-      // shape here keeps the editor and the exported PDF pixel-consistent.
-
-      // Bind title
-      const titleInput = $canvas.querySelector('[data-field="title"]');
-      if (titleInput) {
-        titleInput.addEventListener('input', () => {
-          page.data.title = titleInput.value;
-          scheduleSave(state.activePage);
-        });
-      }
-
-      // Bind caption inputs
-      $canvas.querySelectorAll('.image-caption').forEach(cap => {
-        cap.addEventListener('input', () => {
-          const pos = parseInt(cap.dataset.pos);
-          if (page.data.images[pos]) {
-            page.data.images[pos].caption = cap.value;
-            scheduleSave(state.activePage);
-          }
-        });
-      });
-
-      // Bind image zone interactions
-      setupImagePageHandlers(page);
-
-      // Resize handles (only for multi-image layouts)
-      setupImageResizeHandles(page);
-    }
-
-    function setupImageResizeHandles(page) {
-      const grid = document.getElementById('image-grid');
-      if (!grid) return;
-      const count = (page.data.images || []).length;
-      if (count < 2) return;
-
-      const isMultiRow = count >= 3;
-
-      if (isMultiRow) {
-        // 2x2 grid: single corner grip at (col_split, row_split) intersection
-        // Dragging the grip resizes both columns and rows simultaneously.
-        const grip = document.createElement('div');
-        grip.className = 'img-resize-handle img-resize-grip';
-        const colSplit = page.data.col_split ?? 50;
-        const rowSplit = page.data.row_split ?? 50;
-        grip.style.left = `${colSplit}%`;
-        grip.style.top = `${rowSplit}%`;
-        grid.appendChild(grip);
-
-        grip.addEventListener('mousedown', (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          grip.classList.add('dragging');
-          const rect = grid.getBoundingClientRect();
-          const startX = e.clientX;
-          const startY = e.clientY;
-          const startCol = page.data.col_split ?? 50;
-          const startRow = page.data.row_split ?? 50;
-          const onMove = (me) => {
-            const newCol = Math.max(15, Math.min(85, startCol + (me.clientX - startX) / rect.width * 100));
-            const newRow = Math.max(15, Math.min(85, startRow + (me.clientY - startY) / rect.height * 100));
-            page.data.col_split = newCol;
-            page.data.row_split = newRow;
-            grid.style.gridTemplateColumns = `${newCol}fr ${100 - newCol}fr`;
-            grid.style.gridTemplateRows = `${newRow}fr ${100 - newRow}fr`;
-            grip.style.left = `${newCol}%`;
-            grip.style.top = `${newRow}%`;
-          };
-          const onUp = () => {
-            grip.classList.remove('dragging');
-            document.removeEventListener('mousemove', onMove);
-            document.removeEventListener('mouseup', onUp);
-            scheduleSave(state.activePage);
-          };
-          document.addEventListener('mousemove', onMove);
-          document.addEventListener('mouseup', onUp);
-        });
-      } else {
-        // 2 images: single vertical splitter (width only)
-        const hV = document.createElement('div');
-        hV.className = 'img-resize-handle img-resize-handle-v';
-        const colSplit = page.data.col_split ?? 50;
-        hV.style.left = `calc(${colSplit}% - 5px)`;
-        grid.appendChild(hV);
-
-        hV.addEventListener('mousedown', (e) => {
-          e.preventDefault();
-          hV.classList.add('dragging');
-          const rect = grid.getBoundingClientRect();
-          const startX = e.clientX;
-          const startSplit = page.data.col_split ?? 50;
-          const onMove = (me) => {
-            const newSplit = Math.max(15, Math.min(85, startSplit + (me.clientX - startX) / rect.width * 100));
-            page.data.col_split = newSplit;
-            grid.style.gridTemplateColumns = `${newSplit}fr ${100 - newSplit}fr`;
-            hV.style.left = `calc(${newSplit}% - 5px)`;
-          };
-          const onUp = () => {
-            hV.classList.remove('dragging');
-            document.removeEventListener('mousemove', onMove);
-            document.removeEventListener('mouseup', onUp);
-            scheduleSave(state.activePage);
-          };
-          document.addEventListener('mousemove', onMove);
-          document.addEventListener('mouseup', onUp);
-        });
-      }
-    }
-
-    function buildImageCell(imgData, position, page) {
-      const hasImage = imgData && imgData.url_or_base64;
-
-      if (hasImage) {
-        return `
-          <div class="image-cell">
-            <div class="image-drop-zone has-image" data-pos="${position}">
-              <img src="${escapeAttr(imgData.url_or_base64)}" alt="Image ${position + 1}" draggable="false" style="transform:${imgPageTransform(imgData)};">
-              <svg class="img-marker-svg" viewBox="0 0 100 100" preserveAspectRatio="none"></svg>
-              <div class="image-cell-actions">
-                <button class="photo-action-btn icon img-edit-btn" data-pos="${position}" data-edit="rotate-left" title="左轉 90°">↺</button>
-                <button class="photo-action-btn icon img-edit-btn" data-pos="${position}" data-edit="rotate-right" title="右轉 90°">↻</button>
-                <button class="photo-action-btn icon img-edit-btn" data-pos="${position}" data-edit="flip-h" title="水平翻轉">⇋</button>
-                <button class="photo-action-btn icon img-edit-btn" data-pos="${position}" data-edit="flip-v" title="垂直翻轉">⇅</button>
-                <button class="photo-action-btn icon img-edit-btn" data-pos="${position}" data-edit="zoom-in" title="放大">＋</button>
-                <button class="photo-action-btn icon img-edit-btn" data-pos="${position}" data-edit="zoom-out" title="縮小">－</button>
-                <button class="photo-action-btn icon img-edit-btn" data-pos="${position}" data-edit="reset" title="重設縮放/位置">⟲</button>
-                <button class="photo-action-btn icon img-edit-btn" data-pos="${position}" data-edit="crop" title="裁切">✂</button>
-                ${imgCropOriginals.has(imgData) ? `<button class="photo-action-btn icon img-edit-btn" data-pos="${position}" data-edit="uncrop" title="還原裁切">⤺</button>` : ''}
-                ${position > 0 ? `<button class="photo-action-btn icon img-edit-btn" data-pos="${position}" data-edit="move-prev" title="與前一張交換位置">◀</button>` : ''}
-                ${position < ((page.data.images || []).length - 1) ? `<button class="photo-action-btn icon img-edit-btn" data-pos="${position}" data-edit="move-next" title="與下一張交換位置">▶</button>` : ''}
-                <button class="photo-action-btn icon img-marker-add-btn" data-pos="${position}" title="新增標註點">📍</button>
-                <button class="photo-action-btn icon img-circle-add-btn" data-pos="${position}" title="新增圈選">⭕</button>
-                <button class="photo-action-btn img-replace-btn" data-pos="${position}">替換</button>
-                <button class="photo-action-btn danger img-delete-btn" data-pos="${position}">刪除</button>
-              </div>
-              <input type="file" accept="image/*" class="img-file-input" data-pos="${position}" style="display:none">
-            </div>
-            <input class="image-caption" type="text" placeholder="點此輸入說明"
-                   value="${escapeAttr(imgData.caption || '')}" data-pos="${position}">
-          </div>
-        `;
-      } else {
-        return `
-          <div class="image-cell">
-            <div class="image-drop-zone" data-pos="${position}">
-              <div class="image-drop-placeholder">
-                <span class="plus-icon">+</span>
-                拖拉圖片或 Ctrl+V 貼上
-                <button class="img-browse-btn" data-browse="image" data-pos="${position}">瀏覽檔案</button>
-              </div>
-              <input type="file" accept="image/*" class="img-file-input" data-pos="${position}" style="display:none">
-            </div>
-          </div>
-        `;
-      }
-    }
-
-    function setupImagePageHandlers(page) {
-      const zones = $canvas.querySelectorAll('.image-drop-zone');
-
-      zones.forEach(zone => {
-        const pos = parseInt(zone.dataset.pos);
-        const fileInput = zone.querySelector('.img-file-input');
-
-        // Browse button opens file dialog; zone click stores active position for paste
-        const browseBtn = zone.querySelector('.img-browse-btn');
-        if (browseBtn) {
-          browseBtn.addEventListener('click', (e) => { e.stopPropagation(); fileInput.click(); });
-        }
-        // Double-click on empty zone opens file dialog
-        zone.addEventListener('dblclick', (e) => {
-          if (e.target.closest('.photo-action-btn')) return;
-          if (!zone.classList.contains('has-image')) fileInput.click();
-        });
-        // Single click sets active paste target
-        zone.addEventListener('click', (e) => {
-          if (e.target.closest('.photo-action-btn') || e.target.closest('.img-browse-btn')) return;
-          // Mark this zone as active paste target
-          $canvas.querySelectorAll('.image-drop-zone').forEach(z => z.classList.remove('paste-target'));
-          if (!zone.classList.contains('has-image')) zone.classList.add('paste-target');
-        });
-
-        fileInput.addEventListener('change', async () => {
-          if (fileInput.files.length > 0) {
-            await handleImagePageImage(page, pos, fileInput.files[0]);
-          }
-        });
-
-        // Drag & Drop
-        zone.addEventListener('dragover', (e) => {
-          e.preventDefault();
-          zone.classList.add('dragover');
-        });
-
-        zone.addEventListener('dragleave', () => {
-          zone.classList.remove('dragover');
-        });
-
-        zone.addEventListener('drop', async (e) => {
-          e.preventDefault();
-          zone.classList.remove('dragover');
-          const files = Array.from(e.dataTransfer.files || []).filter(f => f.type.startsWith('image/'));
-          if (files.length > 1) { await dropImagesOnImagePage(page, files); return; }
-          const file = files[0];
-          if (file) {
-            await handleImagePageImage(page, pos, file);
-          }
-        });
-
-        // Replace / Delete
-        const replaceBtn = zone.querySelector('.img-replace-btn');
-        const deleteBtn = zone.querySelector('.img-delete-btn');
-
-        if (replaceBtn) {
-          replaceBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            fileInput.click();
-          });
-        }
-
-        if (deleteBtn) {
-          deleteBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            page.data.images.splice(pos, 1);
-            renderImagePage(page);
-            scheduleSave(state.activePage);
-          });
-        }
-
-        // Rotate / flip / zoom / reset — per image, applied in place (reflected in the PDF too)
-        zone.querySelectorAll('.img-edit-btn').forEach(btn => {
-          btn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const im = page.data.images[pos];
-            if (!im) return;
-            const edit = btn.dataset.edit;
-            if (edit === 'move-prev' || edit === 'move-next') {
-              // Swap with the neighbour (caption, markers and edits travel with the image).
-              const to = edit === 'move-prev' ? pos - 1 : pos + 1;
-              const imgs = page.data.images;
-              if (!imgs[to]) return;
-              [imgs[pos], imgs[to]] = [imgs[to], imgs[pos]];
-              imgs.forEach((x, i) => { if (x) x.position = i; });
-              renderImagePage(page);
-              scheduleSave(state.activePage);
-              return;
-            }
-            if (edit === 'crop') {
-              openImageCropper(im.url_or_base64, { rotate: im.rotate, flipH: im.flip_h, flipV: im.flip_v }, (url) => {
-                if (!imgCropOriginals.has(im)) {
-                  imgCropOriginals.set(im, { url: im.url_or_base64, rotate: im.rotate || 0, flip_h: !!im.flip_h, flip_v: !!im.flip_v, zoom: im.zoom || 1, off_x: im.off_x || 0, off_y: im.off_y || 0 });
-                }
-                im.url_or_base64 = url;
-                im.rotate = 0; im.flip_h = false; im.flip_v = false; im.zoom = 1; im.off_x = 0; im.off_y = 0;
-                renderImagePage(page);
-                scheduleSave(state.activePage);
-              });
-              return;
-            }
-            if (edit === 'uncrop') {
-              const o = imgCropOriginals.get(im);
-              if (o) {
-                im.url_or_base64 = o.url;
-                im.rotate = o.rotate; im.flip_h = o.flip_h; im.flip_v = o.flip_v;
-                im.zoom = o.zoom; im.off_x = o.off_x; im.off_y = o.off_y;
-                imgCropOriginals.delete(im);
-                renderImagePage(page);
-                scheduleSave(state.activePage);
-              }
-              return;
-            }
-            if (edit === 'rotate-left')  im.rotate = (((im.rotate || 0) - 90) % 360 + 360) % 360;
-            else if (edit === 'rotate-right') im.rotate = ((im.rotate || 0) + 90) % 360;
-            else if (edit === 'flip-h') im.flip_h = !im.flip_h;
-            else if (edit === 'flip-v') im.flip_v = !im.flip_v;
-            else if (edit === 'zoom-in')  im.zoom = Math.min(5, (im.zoom || 1) * 1.2);
-            else if (edit === 'zoom-out') im.zoom = Math.max(0.2, (im.zoom || 1) / 1.2);
-            else if (edit === 'reset') { im.zoom = 1; im.off_x = 0; im.off_y = 0; }
-            const imgEl = zone.querySelector('img');
-            if (imgEl) imgEl.style.transform = imgPageTransform(im);
-            scheduleSave(state.activePage);
-          });
-        });
-
-        // Pan (drag) — move the image within its cell. Offsets are stored as a
-        // percentage of the IMAGE element's own box (translate() is relative to
-        // that box), so the exact same value reproduces in the PDF where the img
-        // is the same shape — keeping editor and export in sync.
-        const panImg = zone.querySelector('img');
-        if (panImg) {
-          panImg.addEventListener('mousedown', (e) => {
-            if (e.button !== 0) return;
-            const im = page.data.images[pos];
-            if (!im) return;
-            e.preventDefault();
-            e.stopPropagation();
-            // Calibrate against the image's own rendered size so a drag tracks
-            // the cursor 1:1 (offsetWidth/Height are layout sizes, unaffected by
-            // the current rotate/scale transform).
-            const iw = panImg.offsetWidth || zone.getBoundingClientRect().width || 1;
-            const ih = panImg.offsetHeight || zone.getBoundingClientRect().height || 1;
-            const startX = e.clientX, startY = e.clientY;
-            const baseX = im.off_x || 0, baseY = im.off_y || 0;
-            zone.classList.add('panning');
-            const onMove = (me) => {
-              im.off_x = baseX + (me.clientX - startX) / iw * 100;
-              im.off_y = baseY + (me.clientY - startY) / ih * 100;
-              panImg.style.transform = imgPageTransform(im);
-            };
-            const onUp = () => {
-              zone.classList.remove('panning');
-              document.removeEventListener('mousemove', onMove);
-              document.removeEventListener('mouseup', onUp);
-              scheduleSave(state.activePage);
-            };
-            document.addEventListener('mousemove', onMove);
-            document.addEventListener('mouseup', onUp);
-          });
-
-          // Wheel to zoom, centred on the cell.
-          zone.addEventListener('wheel', (e) => {
-            const im = page.data.images[pos];
-            if (!im) return;
-            e.preventDefault();
-            const factor = e.deltaY < 0 ? 1.1 : 1 / 1.1;
-            im.zoom = Math.max(0.2, Math.min(5, (im.zoom || 1) * factor));
-            panImg.style.transform = imgPageTransform(im);
-            scheduleSave(state.activePage);
-          }, { passive: false });
-        }
-
-        // ── Markers: button adds a dot + leader line + editable label ──
-        const addMarkerBtn = zone.querySelector('.img-marker-add-btn');
-        if (addMarkerBtn) {
-          addMarkerBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const im = page.data.images[pos];
-            if (!im) return;
-            if (!im.markers) im.markers = [];
-            im.markers.push({
-              id: 'im_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
-              x: 45, y: 52, label: '', label_x: 55, label_y: 18, label_w: 90,
-            });
-            renderImageMarkers(page, pos, zone);
-            scheduleSave(state.activePage);
-          });
-        }
-
-        // ── Circles: button adds a resizable red circle + leader line + label ──
-        const addCircleBtn = zone.querySelector('.img-circle-add-btn');
-        if (addCircleBtn) {
-          addCircleBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const im = page.data.images[pos];
-            if (!im) return;
-            if (!im.circles) im.circles = [];
-            im.circles.push({
-              id: 'ic_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
-              x: 36, y: 33, w: 26, h: 34, label: '', label_x: 70, label_y: 12, label_w: 90,
-            });
-            renderImageMarkers(page, pos, zone);
-            scheduleSave(state.activePage);
-          });
-        }
-        if (zone.classList.contains('has-image')) {
-          renderImageMarkers(page, pos, zone);
-        }
-      });
-    }
-
-    // Point on a circle's boundary (in the 0-100 viewBox space) in the direction
-    // of its label, so the leader line starts on the circumference rather than the
-    // centre. rx/ry are the ellipse semi-axes in the same (non-uniform) % space as
-    // the SVG viewBox, so the point lands exactly on the drawn edge.
-    function circleEdgePoint(c) {
-      const cx = (c.x || 0) + (c.w || 0) / 2;
-      const cy = (c.y || 0) + (c.h || 0) / 2;
-      const rx = ((c.w || 0) / 2) || 0.001;
-      const ry = ((c.h || 0) / 2) || 0.001;
-      const tx = (c.label_x != null) ? c.label_x : cx;
-      const ty = (c.label_y != null) ? c.label_y : cy;
-      const dx = tx - cx, dy = ty - cy;
-      const denom = Math.sqrt((dx / rx) ** 2 + (dy / ry) ** 2);
-      if (!denom || !isFinite(denom)) return { x: cx, y: cy };
-      const t = 1 / denom;
-      return { x: cx + dx * t, y: cy + dy * t };
-    }
-
-    // Shared label box (input + drag + resize + delete + copy) for image-page
-    // markers and circles. `line` is the SVG leader line whose label end (x2/y2)
-    // tracks the label. onLabelMove (optional) fires while dragging so a circle
-    // can recompute its edge anchor. onDelete/onCopy act on the owning array.
-    function buildMarkerLabel(m, opts) {
-      const { zone, line, placeholder, onDelete, onCopy, onLabelMove } = opts;
-      const wrap = document.createElement('div');
-      wrap.className = 'marker-label-wrap';
-      wrap.style.left = m.label_x + '%';
-      wrap.style.top = m.label_y + '%';
-      wrap.dataset.id = m.id;
-
-      const label = document.createElement('input');
-      label.type = 'text';
-      label.className = 'marker-label';
-      label.placeholder = placeholder;
-      label.value = m.label || '';
-      label.style.width = (m.label_w || 90) + 'px';
-      label.addEventListener('input', () => { m.label = label.value; scheduleSave(state.activePage); });
-
-      const resize = document.createElement('div');
-      resize.className = 'marker-resize-handle';
-
-      const del = document.createElement('button');
-      del.type = 'button'; del.className = 'marker-delete-btn'; del.textContent = '×'; del.title = '刪除';
-      del.addEventListener('mousedown', (e) => { e.preventDefault(); e.stopPropagation(); });
-      del.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); onDelete(); });
-
-      const copy = document.createElement('button');
-      copy.type = 'button'; copy.className = 'marker-copy-btn'; copy.textContent = '⧉'; copy.title = '複製';
-      copy.addEventListener('mousedown', (e) => { e.preventDefault(); e.stopPropagation(); });
-      copy.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); onCopy(); });
-
-      wrap.appendChild(label); wrap.appendChild(resize); wrap.appendChild(del); wrap.appendChild(copy);
-
-      // Drag the label (5px threshold so a plain click still focuses the input)
-      label.addEventListener('mousedown', (e) => {
-        if (e.target !== label || e.button !== 0) return;
-        const wr = wrap.getBoundingClientRect();
-        const pending = { sx: e.clientX, sy: e.clientY, offX: e.clientX - wr.left, offY: e.clientY - wr.top };
-        let dragging = false;
-        const onMove = (ev) => {
-          if (!dragging) {
-            if (Math.hypot(ev.clientX - pending.sx, ev.clientY - pending.sy) > 5) { dragging = true; label.blur(); }
-            else return;
-          }
-          const r = zone.getBoundingClientRect();
-          const lwPct = (wrap.offsetWidth / r.width) * 100;
-          const lhPct = (wrap.offsetHeight / r.height) * 100;
-          let lx = ((ev.clientX - pending.offX - r.left) / r.width) * 100;
-          let ly = ((ev.clientY - pending.offY - r.top) / r.height) * 100;
-          lx = Math.max(0, Math.min(Math.max(0, 100 - lwPct), lx));
-          ly = Math.max(0, Math.min(Math.max(0, 100 - lhPct), ly));
-          m.label_x = Math.round(lx * 100) / 100; m.label_y = Math.round(ly * 100) / 100;
-          wrap.style.left = m.label_x + '%'; wrap.style.top = m.label_y + '%';
-          if (line) { line.setAttribute('x2', m.label_x); line.setAttribute('y2', m.label_y); }
-          if (onLabelMove) onLabelMove(); // circle: re-anchor line start to the edge
-        };
-        const onUp = () => {
-          document.removeEventListener('mousemove', onMove);
-          document.removeEventListener('mouseup', onUp);
-          if (dragging) scheduleSave(state.activePage);
-        };
-        document.addEventListener('mousemove', onMove);
-        document.addEventListener('mouseup', onUp);
-      });
-
-      // Resize the label width
-      resize.addEventListener('mousedown', (e) => {
-        if (e.button !== 0) return;
-        e.preventDefault(); e.stopPropagation();
-        const startX = e.clientX, startW = label.offsetWidth;
-        const onMove = (ev) => { label.style.width = Math.max(40, startW + (ev.clientX - startX)) + 'px'; };
-        const onUp = () => {
-          document.removeEventListener('mousemove', onMove);
-          document.removeEventListener('mouseup', onUp);
-          m.label_w = label.offsetWidth;
-          scheduleSave(state.activePage);
-        };
-        document.addEventListener('mousemove', onMove);
-        document.addEventListener('mouseup', onUp);
-      });
-
-      label.addEventListener('dblclick', (e) => { e.stopPropagation(); label.focus(); label.select(); });
-      return wrap;
-    }
-
-    // Render/re-render the annotations (dot markers + resizable circles, each with
-    // a leader line and label) for one image cell. Everything is positioned as a
-    // percentage of the cell, so the editor and the exported PDF match.
-    function renderImageMarkers(page, pos, zone) {
-      const imgData = page.data.images[pos];
-      if (!imgData) return;
-      zone = zone || $canvas.querySelector(`.image-drop-zone.has-image[data-pos="${pos}"]`);
-      if (!zone) return;
-      const svg = zone.querySelector('.img-marker-svg');
-      zone.querySelectorAll('.marker-dot, .marker-label-wrap, .img-circle').forEach(el => el.remove());
-      if (svg) svg.innerHTML = '';
-      const markers = imgData.markers || (imgData.markers = []);
-      const circles = imgData.circles || (imgData.circles = []);
-
-      const addLine = (x1, y1, x2, y2) => {
-        if (!svg) return null;
-        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-        line.setAttribute('x1', x1); line.setAttribute('y1', y1);
-        line.setAttribute('x2', x2); line.setAttribute('y2', y2);
-        line.setAttribute('vector-effect', 'non-scaling-stroke');
-        svg.appendChild(line);
-        return line;
-      };
-
-      // ── Dot markers ──
-      markers.forEach((m, idx) => {
-        const line = addLine(m.x, m.y, m.label_x, m.label_y);
-        const dot = document.createElement('div');
-        dot.className = 'marker-dot';
-        dot.style.left = m.x + '%';
-        dot.style.top = m.y + '%';
-        dot.dataset.id = m.id;
-        dot.addEventListener('mousedown', (e) => {
-          if (e.button !== 0) return;
-          e.preventDefault(); e.stopPropagation();
-          const onMove = (ev) => {
-            const r = zone.getBoundingClientRect();
-            const px = Math.max(0, Math.min(100, ((ev.clientX - r.left) / r.width) * 100));
-            const py = Math.max(0, Math.min(100, ((ev.clientY - r.top) / r.height) * 100));
-            m.x = Math.round(px * 100) / 100; m.y = Math.round(py * 100) / 100;
-            dot.style.left = m.x + '%'; dot.style.top = m.y + '%';
-            if (line) { line.setAttribute('x1', m.x); line.setAttribute('y1', m.y); }
-          };
-          const onUp = () => {
-            document.removeEventListener('mousemove', onMove);
-            document.removeEventListener('mouseup', onUp);
-            scheduleSave(state.activePage);
-          };
-          document.addEventListener('mousemove', onMove);
-          document.addEventListener('mouseup', onUp);
-        });
-        dot.addEventListener('contextmenu', (e) => {
-          e.preventDefault(); e.stopPropagation();
-          if (confirm(`刪除標註 #${idx + 1}？`)) {
-            imgData.markers = imgData.markers.filter(x => x.id !== m.id);
-            renderImageMarkers(page, pos, zone);
-            scheduleSave(state.activePage);
-          }
-        });
-        zone.appendChild(dot);
-
-        zone.appendChild(buildMarkerLabel(m, {
-          zone, line, placeholder: `標註${idx + 1}`,
-          onDelete: () => {
-            imgData.markers = imgData.markers.filter(x => x.id !== m.id);
-            renderImageMarkers(page, pos, zone); scheduleSave(state.activePage);
-          },
-          onCopy: () => {
-            imgData.markers.push({
-              id: 'im_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
-              x: Math.min(98, (m.x || 0) + 4), y: Math.min(98, (m.y || 0) + 4),
-              label: m.label || '',
-              label_x: Math.min(92, (m.label_x || 0) + 3), label_y: Math.min(92, (m.label_y || 0) + 3),
-              label_w: m.label_w,
-            });
-            renderImageMarkers(page, pos, zone); scheduleSave(state.activePage);
-          },
-        }));
-      });
-
-      // ── Resizable circles ──
-      circles.forEach((c, idx) => {
-        const e0 = circleEdgePoint(c);
-        const line = addLine(e0.x, e0.y, c.label_x, c.label_y);
-        // Anchor the line start on the circle's edge (toward the label), not its
-        // centre. Recomputed whenever the circle or the label moves/resizes.
-        const updateLineStart = () => {
-          if (!line) return;
-          const e = circleEdgePoint(c);
-          line.setAttribute('x1', e.x); line.setAttribute('y1', e.y);
-        };
-
-        const circle = document.createElement('div');
-        circle.className = 'img-circle';
-        circle.style.left = c.x + '%'; circle.style.top = c.y + '%';
-        circle.style.width = c.w + '%'; circle.style.height = c.h + '%';
-        circle.dataset.id = c.id;
-
-        // Move the circle
-        circle.addEventListener('mousedown', (e) => {
-          if (e.button !== 0 || e.target.classList.contains('img-circle-resize')) return;
-          e.preventDefault(); e.stopPropagation();
-          const r = zone.getBoundingClientRect();
-          const startX = e.clientX, startY = e.clientY, bx = c.x, by = c.y;
-          const onMove = (ev) => {
-            let nx = bx + ((ev.clientX - startX) / r.width) * 100;
-            let ny = by + ((ev.clientY - startY) / r.height) * 100;
-            nx = Math.max(0, Math.min(100 - c.w, nx));
-            ny = Math.max(0, Math.min(100 - c.h, ny));
-            c.x = Math.round(nx * 100) / 100; c.y = Math.round(ny * 100) / 100;
-            circle.style.left = c.x + '%'; circle.style.top = c.y + '%';
-            updateLineStart();
-          };
-          const onUp = () => {
-            document.removeEventListener('mousemove', onMove);
-            document.removeEventListener('mouseup', onUp);
-            scheduleSave(state.activePage);
-          };
-          document.addEventListener('mousemove', onMove);
-          document.addEventListener('mouseup', onUp);
-        });
-        circle.addEventListener('contextmenu', (e) => {
-          e.preventDefault(); e.stopPropagation();
-          if (confirm(`刪除圈選 #${idx + 1}？`)) {
-            imgData.circles = imgData.circles.filter(x => x.id !== c.id);
-            renderImageMarkers(page, pos, zone); scheduleSave(state.activePage);
-          }
-        });
-
-        // Resize handle (bottom-right; free ellipse resize)
-        const rh = document.createElement('div');
-        rh.className = 'img-circle-resize';
-        rh.addEventListener('mousedown', (e) => {
-          if (e.button !== 0) return;
-          e.preventDefault(); e.stopPropagation();
-          const r = zone.getBoundingClientRect();
-          const startX = e.clientX, startY = e.clientY, bw = c.w, bh = c.h;
-          const onMove = (ev) => {
-            let nw = bw + ((ev.clientX - startX) / r.width) * 100;
-            let nh = bh + ((ev.clientY - startY) / r.height) * 100;
-            nw = Math.max(4, Math.min(100 - c.x, nw));
-            nh = Math.max(4, Math.min(100 - c.y, nh));
-            c.w = Math.round(nw * 100) / 100; c.h = Math.round(nh * 100) / 100;
-            circle.style.width = c.w + '%'; circle.style.height = c.h + '%';
-            updateLineStart();
-          };
-          const onUp = () => {
-            document.removeEventListener('mousemove', onMove);
-            document.removeEventListener('mouseup', onUp);
-            scheduleSave(state.activePage);
-          };
-          document.addEventListener('mousemove', onMove);
-          document.addEventListener('mouseup', onUp);
-        });
-        circle.appendChild(rh);
-        zone.appendChild(circle);
-
-        zone.appendChild(buildMarkerLabel(c, {
-          zone, line, placeholder: `圈選${idx + 1}`,
-          onLabelMove: updateLineStart, // moving the label changes the edge anchor direction
-          onDelete: () => {
-            imgData.circles = imgData.circles.filter(x => x.id !== c.id);
-            renderImageMarkers(page, pos, zone); scheduleSave(state.activePage);
-          },
-          onCopy: () => {
-            imgData.circles.push({
-              id: 'ic_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
-              x: Math.min(100 - (c.w || 10), (c.x || 0) + 4), y: Math.min(100 - (c.h || 10), (c.y || 0) + 4),
-              w: c.w, h: c.h,
-              label: c.label || '',
-              label_x: Math.min(92, (c.label_x || 0) + 3), label_y: Math.min(92, (c.label_y || 0) + 3),
-              label_w: c.label_w,
-            });
-            renderImageMarkers(page, pos, zone); scheduleSave(state.activePage);
-          },
-        }));
-      });
-    }
-
-    async function handleImagePageImage(page, position, file) {
-      const imageData = await processImageCompressed(file, PHOTO_JPEG_QUALITY);
-
-      // If position exists, replace; otherwise add
-      if (page.data.images[position]) {
-        imgCropOriginals.delete(page.data.images[position]); // new bitmap → drop stale crop original
-        page.data.images[position].url_or_base64 = imageData;
-      } else {
-        // Fill up to position
-        while (page.data.images.length < position) {
-          page.data.images.push({ position: page.data.images.length, url_or_base64: '', caption: '' });
-        }
-        page.data.images.push({ position: position, url_or_base64: imageData, caption: '' });
-      }
-
-      renderImagePage(page);
-      scheduleSave(state.activePage);
-    }
-
-    // Several images dropped on an image page: fill this page's free slots, then
-    // continue on new image pages (4 per page) right after it.
-    async function dropImagesOnImagePage(page, files) {
-      if (!page.data.images) page.data.images = [];
-      const list = files.slice().sort((a, b) => naturalCompare(a.name, b.name));
-      const captions = userPrefs().batch_captions !== false;
-      const free = Math.max(0, 4 - (page.data.images || []).length);
-      const rid = state.reportId;
-      for (const f of list.slice(0, free)) {
-        const url = await processImageCompressed(f, PHOTO_JPEG_QUALITY);
-        if (state.reportId !== rid || !state.pages.includes(page)) return;   // report switched meanwhile
-        page.data.images.push({ position: page.data.images.length, url_or_base64: url, caption: captions ? fileStem(f.name) : '' });
-      }
-      const pageIdx = state.pages.indexOf(page);
-      if (list.length > free) {
-        scheduleSave(pageIdx);
-        await insertImagePagesFromFiles(list.slice(free), { perPage: 4, captions, title: page.data.title || '', afterIdx: pageIdx });
-      } else {
-        renderImagePage(page);
-        scheduleSave(pageIdx);
-        renderPageList();
-      }
-    }
-
-    async function handleImagePagePaste(page, file) {
-      const imgs = page.data.images || [];
-      // If a specific zone is selected (paste-target), use that position
-      const targetZone = $canvas.querySelector('.image-drop-zone.paste-target');
-      if (targetZone) {
-        const pos = parseInt(targetZone.dataset.pos);
-        await handleImagePageImage(page, pos, file);
-        return;
-      }
-      // Otherwise paste to next available slot
-      if (imgs.length >= 4) return;
-      const nextPos = imgs.length;
-      await handleImagePageImage(page, nextPos, file);
-    }
 
     // ━━━ Annotation Page Module ━━━
 
@@ -6058,16 +4925,6 @@
       const oy = offY || 0;
       return `translate(${ox}%, ${oy}%) rotate(${r}deg) scale(${sx}, ${sy})`;
     }
-    // Transform for a single image-page image (rotate/flip/zoom/pan).
-    function imgPageTransform(im) {
-      return cssImgTransform(im.rotate, im.flip_h, im.flip_v, im.zoom, im.off_x, im.off_y);
-    }
-
-    // Pre-crop originals, kept in memory only (keyed by the image/data object) so
-    // they never bloat the serialized state or the undo snapshots. Lets the user
-    // restore ("還原裁切") within the session; a reload commits the crop.
-    const imgCropOriginals = new WeakMap();  // image-page: key = image object
-
     // Shared interactive image cropper. Loads `src`, bakes the given rotate/flip
     // so the user crops exactly what they see, lets them drag/resize a selection
     // rectangle, then returns a NEW cropped data URL via onConfirm(url). Crop is
@@ -6803,7 +5660,7 @@
             </div>
             <div class="an-tgroup an-zoom" aria-label="檢視">
               ${annoBtn('zoomout', 'zoomout', '縮小檢視（−）')}
-              <button type="button" class="an-tb txt" data-an-tool="zoomfit" data-tip="符合視窗（0）" aria-label="符合視窗">${Math.round(annoUI.zoom * 100)}%</button>
+              <button type="button" class="an-tb txt" data-an-tool="zoomfit" data-zoom-label data-tip="符合視窗（0）" aria-label="符合視窗">${Math.round(annoUI.zoom * 100)}%</button>
               ${annoBtn('zoomin', 'zoomin', '放大檢視（+）')}
             </div>
           </div>
@@ -6909,14 +5766,15 @@
     }
 
     // ── View: fit / zoom ──
-    function annoFitView(page) {
+    // Shared by the annotation and image page editors (same element ids); st holds the zoom.
+    function annoFitView(page, st = annoUI) {
       const vp = document.getElementById('an-viewport');
       if (!vp) return;
       const apply = () => {
         const sizer = document.getElementById('an-sizer'), paper = document.getElementById('an-paper');
         if (!sizer || !paper || !vp.clientWidth) return;
         const fit = Math.max(0.2, Math.min((vp.clientWidth - 28) / 842, (vp.clientHeight - 28) / 595));
-        const k = fit * annoUI.zoom;
+        const k = fit * st.zoom;
         sizer.style.width = Math.round(842 * k) + 'px';
         sizer.style.height = Math.round(595 * k) + 'px';
         paper.style.transform = `scale(${k})`;
@@ -6926,18 +5784,18 @@
       _annoRO = new ResizeObserver(apply);
       _annoRO.observe(vp);
     }
-    function annoZoom(page, dir, at) {
+    function annoZoom(page, dir, at, st = annoUI) {
       const vp = document.getElementById('an-viewport');
-      const zi = ANNO_ZOOMS.indexOf(annoUI.zoom);
+      const zi = ANNO_ZOOMS.indexOf(st.zoom);
       const nz = dir === 0 ? 1 : ANNO_ZOOMS[clampN((zi < 0 ? 0 : zi) + dir, 0, ANNO_ZOOMS.length - 1)];
-      if (nz === annoUI.zoom || !vp) return;
+      if (nz === st.zoom || !vp) return;
       // keep the point under the cursor (or the centre) in place
       const r = vp.getBoundingClientRect();
       const cx = at ? at.x - r.left : vp.clientWidth / 2, cy = at ? at.y - r.top : vp.clientHeight / 2;
       const fx = (vp.scrollLeft + cx) / Math.max(1, vp.scrollWidth), fy = (vp.scrollTop + cy) / Math.max(1, vp.scrollHeight);
-      annoUI.zoom = nz;
-      annoFitView(page);
-      const btn = document.querySelector('[data-an-tool="zoomfit"]');
+      st.zoom = nz;
+      annoFitView(page, st);
+      const btn = document.querySelector('[data-zoom-label]');
       if (btn) btn.textContent = Math.round(nz * 100) + '%';
       vp.scrollLeft = fx * vp.scrollWidth - cx;
       vp.scrollTop = fy * vp.scrollHeight - cy;
@@ -7055,17 +5913,18 @@
         else if (act === 'del') annoDeleteMarker(page, id);
       });
     }
-    function annoShowAdjust(page, anchor) {
-      const d = page.data;
+    // Brightness / contrast / saturation popover (annotation + image pages). Live CSS
+    // preview on `img`; "套用" bakes from the session original. o = { url(), original(),
+    // apply(newUrl, baseUrl), restore() }.
+    function photoAdjustPopover(anchor, img, o) {
       document.querySelector('.an-pop')?.remove();
-      const img = document.querySelector('#an-img img');
       const adj = { b: 0, c: 0, s: 0 };
       const pop = document.createElement('div');
       pop.className = 'an-pop';
       const row = (k, label, min, max) => `<label class="an-pop-row"><span>${label}</span><input type="range" min="${min}" max="${max}" value="0" data-adj="${k}"><output data-out="${k}">0</output></label>`;
       pop.innerHTML = `<div class="an-pop-h">亮度 / 對比</div>
         ${row('b', '亮度', -60, 60)}${row('c', '對比', -60, 100)}${row('s', '飽和度', -100, 100)}
-        <div class="an-pop-acts"><button type="button" data-a="auto">✨ 自動增強</button>${annoAdjOriginal.has(d) ? '<button type="button" data-a="orig">還原原圖</button>' : ''}<span style="flex:1"></span>
+        <div class="an-pop-acts"><button type="button" data-a="auto">✨ 自動增強</button>${o.original() ? '<button type="button" data-a="orig">還原原圖</button>' : ''}<span style="flex:1"></span>
           <button type="button" data-a="cancel">取消</button><button type="button" data-a="apply" class="primary">套用</button></div>`;
       document.body.appendChild(pop);
       const r = anchor.getBoundingClientRect();
@@ -7083,26 +5942,29 @@
       pop.addEventListener('click', async (e) => {
         const a = e.target.closest('[data-a]')?.dataset.a;
         if (a === 'cancel') close();
-        else if (a === 'auto') { const v = await annoAutoLevels(annoAdjOriginal.get(d) || d.photo_url_or_base64); if (v) { Object.assign(adj, v); preview(); } }
-        else if (a === 'orig') {
-          d.photo_url_or_base64 = annoAdjOriginal.get(d);
-          annoAdjOriginal.delete(d);
-          close(); annoSave(page); annoRerender(page);
-        } else if (a === 'apply') {
+        else if (a === 'auto') { const v = await annoAutoLevels(o.original() || o.url()); if (v) { Object.assign(adj, v); preview(); } }
+        else if (a === 'orig') { close(); o.restore(); }
+        else if (a === 'apply') {
           if (!adj.b && !adj.c && !adj.s) { close(); return; }
-          const base = annoAdjOriginal.get(d) || d.photo_url_or_base64;
+          const base = o.original() || o.url();
           e.target.disabled = true; e.target.textContent = '處理中…';
           const url = await annoBakeAdjust(base, adj);
           close();
           if (!url) return;
-          if (!annoAdjOriginal.has(d)) annoAdjOriginal.set(d, base);
-          d.photo_url_or_base64 = url;
-          annoSave(page);
-          annoRerender(page);
-          showToast('已套用亮度 / 對比（工具列 ◐ →「還原原圖」可復原）', 'ok');
+          o.apply(url, base);
+          showToast('已套用亮度 / 對比（◐ →「還原原圖」可復原）', 'ok');
         }
       });
       preview();
+    }
+    function annoShowAdjust(page, anchor) {
+      const d = page.data;
+      photoAdjustPopover(anchor, document.querySelector('#an-img img'), {
+        url: () => d.photo_url_or_base64,
+        original: () => annoAdjOriginal.get(d),
+        apply: (url, base) => { if (!annoAdjOriginal.has(d)) annoAdjOriginal.set(d, base); d.photo_url_or_base64 = url; annoSave(page); annoRerender(page); },
+        restore: () => { d.photo_url_or_base64 = annoAdjOriginal.get(d); annoAdjOriginal.delete(d); annoSave(page); annoRerender(page); },
+      });
     }
 
     async function handleAnnotationPhoto(page, file) {
@@ -7491,6 +6353,1061 @@
       if (e.key === ' ' && annoUI.space) { e.preventDefault(); annoUI.space = false; document.getElementById('an-paper')?.classList.remove('panning'); }
     }, true);
     window.addEventListener('blur', () => { annoUI.space = false; document.getElementById('an-paper')?.classList.remove('panning'); });   // missed keyup (Alt+Tab)
+
+    // ━━━ Image page ━━━
+    // Same approach as the annotation page: the editor shows the very page the PDF
+    // prints (imPageInnerHTML, scaled to fit) with editor-only handles on top.
+    //
+    // Geometry (page px; stage = 842 × 559 below the 36 px title band, as on the
+    // annotation page):
+    //   d.layout   '1' | '2h' | '2v' | '3h' | '1+2' | '2x2' | '3x2' | 'auto'
+    //   d.split    { c, r } adjustable gutters (%)
+    //   image      { url_or_base64, caption, nar (natural w/h), rot, fh, z, cx, cy, callouts[] }
+    //              shown in its slot frame: contain-fit × z, centred on (cx, cy) of the photo
+    //   callout    { id, type: 'dot' | 'circle' | 'rect', x, y (centre), w, h — fractions of the
+    //              displayed photo, so they follow pan / zoom / rotate — label, lx, ly (page px) }
+    //   d.texts    free text boxes { id, label, lx, ly }
+    const IM_LAYOUTS = [
+      { k: '1', cap: 1, name: '1 張' }, { k: '2h', cap: 2, name: '2 張左右' }, { k: '2v', cap: 2, name: '2 張上下' },
+      { k: '3h', cap: 3, name: '3 張並排' }, { k: '1+2', cap: 3, name: '1 大 + 2 小' }, { k: '2x2', cap: 4, name: '2 × 2' },
+      { k: '3x2', cap: 6, name: '3 × 2' },
+    ];
+    const IM_MAX = 6;
+    const IM_AREA = { x: 28, y: 6, w: 842 - 56, h: ANNO_SAFE.b - 6 };
+    const IM_GAP = 12, IM_CAP_H = 20;
+
+    function imNormalize(d) {
+      if (!d) return false;
+      if (!Array.isArray(d.images)) d.images = [];
+      if (!Array.isArray(d.texts)) d.texts = [];
+      d.images.forEach(im => { if (im && !Array.isArray(im.callouts)) im.callouts = []; });
+      if (d.im_v === 2) return false;
+      // old pages: empty placeholder entries, CSS rotate / flips, pan / zoom and cell-relative markers
+      d.images = d.images.filter(im => im && im.url_or_base64);
+      d.layout = d.images.length <= 1 ? '1' : d.images.length === 2 ? '2h' : '2x2';
+      d.split = { c: d.col_split != null ? d.col_split : 50, r: d.row_split != null ? d.row_split : 50 };
+      delete d.col_split; delete d.row_split;
+      d.images.forEach((im, i) => {
+        let rot = (((im.rotate || 0) % 360) + 360) % 360, fh = !!im.flip_h;
+        if (im.flip_v) { rot = (rot + 180) % 360; fh = !fh; }
+        im.rot = rot; im.fh = fh;
+        delete im.rotate; delete im.flip_h; delete im.flip_v;
+        const legacy = (im.zoom && im.zoom !== 1) || im.off_x || im.off_y || (im.markers || []).length || (im.circles || []).length;
+        if (legacy) im.legacy = true;              // converted once the photo's size is known (imEnsureAspect)
+        else { delete im.zoom; delete im.off_x; delete im.off_y; delete im.markers; delete im.circles; }
+        im.position = i;
+        if (!Array.isArray(im.callouts)) im.callouts = [];
+      });
+      d.im_v = 2;
+      return true;
+    }
+    function imLayoutKey(d) {
+      const n = d.images.length;
+      const fixed = IM_LAYOUTS.find(l => l.k === d.layout);
+      if (fixed && fixed.cap >= n) return fixed.k;
+      return n <= 1 ? '1' : n === 2 ? '2h' : n === 3 ? '1+2' : n === 4 ? '2x2' : '3x2';
+    }
+    const imCap = d => IM_LAYOUTS.find(l => l.k === imLayoutKey(d)).cap;
+    function imSlots(d) {
+      const A = IM_AREA, g = IM_GAP, key = imLayoutKey(d);
+      const c = clampN((d.split && d.split.c) != null ? d.split.c : 50, 15, 85) / 100;
+      const r = clampN((d.split && d.split.r) != null ? d.split.r : 50, 15, 85) / 100;
+      const w1 = (A.w - g) * c, h1 = (A.h - g) * r, w3 = (A.w - 2 * g) / 3;
+      const R = (x, y, w, h) => ({ x: r1(x), y: r1(y), w: r1(w), h: r1(h) });
+      switch (key) {
+        case '2h': return [R(A.x, A.y, w1, A.h), R(A.x + w1 + g, A.y, A.w - g - w1, A.h)];
+        case '2v': return [R(A.x, A.y, A.w, h1), R(A.x, A.y + h1 + g, A.w, A.h - g - h1)];
+        case '3h': return [0, 1, 2].map(i => R(A.x + i * (w3 + g), A.y, w3, A.h));
+        case '1+2': return [R(A.x, A.y, w1, A.h), R(A.x + w1 + g, A.y, A.w - g - w1, h1), R(A.x + w1 + g, A.y + h1 + g, A.w - g - w1, A.h - g - h1)];
+        case '2x2': return [R(A.x, A.y, w1, h1), R(A.x + w1 + g, A.y, A.w - g - w1, h1), R(A.x, A.y + h1 + g, w1, A.h - g - h1), R(A.x + w1 + g, A.y + h1 + g, A.w - g - w1, A.h - g - h1)];
+        case '3x2': { const h = (A.h - g) / 2; return [0, 1, 2, 3, 4, 5].map(i => R(A.x + (i % 3) * (w3 + g), A.y + Math.floor(i / 3) * (h + g), w3, h)); }
+        default: return [R(A.x, A.y, A.w, A.h)];
+      }
+    }
+    // Photo frame inside a slot (a caption takes a band under it).
+    function imFrame(slot, im) {
+      return im && String(im.caption || '').trim() ? { ...slot, h: r1(slot.h - IM_CAP_H) } : slot;
+    }
+    // Displayed photo rectangle (page px) in its frame; null until the photo's size is known.
+    function imPhotoRect(im, F) {
+      if (!im || !im.nar) return null;
+      const ar = (im.rot || 0) % 180 ? 1 / im.nar : im.nar;
+      let w0 = F.w, h0 = F.w / ar;
+      if (h0 > F.h) { h0 = F.h; w0 = h0 * ar; }
+      const z = im.z || 1, w = w0 * z, h = h0 * z;
+      const cx = im.cx != null ? im.cx : 0.5, cy = im.cy != null ? im.cy : 0.5;
+      return { x: F.x + F.w / 2 - cx * w, y: F.y + F.h / 2 - cy * h, w, h };
+    }
+    function imContainZ(im, F, mode) {        // zoom that makes the photo "fit" (1) or "fill" the frame
+      const ar = (im.rot || 0) % 180 ? 1 / im.nar : im.nar;
+      const fa = F.w / F.h;
+      return mode === 'fill' ? Math.max(ar / fa, fa / ar) : 1;
+    }
+    // Keep a zoomed photo covering its frame (and a small one inside it) after a pan / zoom.
+    function imClampView(im, F) {
+      const R = imPhotoRect(im, F);
+      if (!R) return;
+      const cl = (pos, size, fpos, fsize) => size >= fsize ? clampN(pos, fpos + fsize - size, fpos) : clampN(pos, fpos, fpos + fsize - size);
+      const x = cl(R.x, R.w, F.x, F.w), y = cl(R.y, R.h, F.y, F.h);
+      im.cx = Math.round((F.x + F.w / 2 - x) / R.w * 1e4) / 1e4;
+      im.cy = Math.round((F.y + F.h / 2 - y) / R.h * 1e4) / 1e4;
+    }
+    const imLabelText = (c, k) => c.label || (c.type === 'circle' ? '圈選' : c.type === 'rect' ? '方框' : c.type === 'text' ? '文字' : '標註') + (k + 1);
+    function imLabelSize(d, text) {
+      const fs = annoFs(d), pad = annoPad(d);
+      return { w: Math.ceil(3 + annoTextW(text, `500 ${fs}px ${ANNO_NAME_FONT}`) + pad * 2), h: annoLabelH(d) };
+    }
+    // Every callout with its geometry as drawn: photo point / shape box, label rect, line start.
+    function imCalloutGeo(d) {
+      const slots = imSlots(d), out = [];
+      d.images.forEach((im, i) => {
+        if (!slots[i]) return;
+        const F = imFrame(slots[i], im), R = imPhotoRect(im, F);
+        if (!R) return;
+        (im.callouts || []).forEach((c, k) => {
+          const px = R.x + c.x * R.w, py = R.y + c.y * R.h;
+          const sw = (c.w || 0) * R.w, sh = (c.h || 0) * R.h;
+          const visible = px >= F.x - 0.5 && px <= F.x + F.w + 0.5 && py >= F.y - 0.5 && py <= F.y + F.h + 0.5;
+          const s = imLabelSize(d, imLabelText(c, k));
+          const L = c.lx == null ? { x: px, y: py } : annoClampLabel(c.lx, c.ly, s.w, s.h);
+          const lc = { x: L.x + s.w / 2, y: L.y + s.h / 2 };
+          let start = { x: px, y: py };
+          if (c.type === 'circle' && sw && sh) {          // on the ellipse, toward the label
+            const dx = lc.x - px, dy = lc.y - py, t = 1 / (Math.hypot(dx / (sw / 2), dy / (sh / 2)) || 1);
+            start = { x: px + dx * t, y: py + dy * t };
+          } else if (c.type === 'rect' && sw && sh) {       // on the box edge, toward the label
+            const dx = lc.x - px, dy = lc.y - py, t = Math.min(dx ? (sw / 2) / Math.abs(dx) : Infinity, dy ? (sh / 2) / Math.abs(dy) : Infinity, 1);
+            start = { x: px + dx * t, y: py + dy * t };
+          }
+          out.push({ im, i, c, k, F, R, px, py, sw, sh, visible, placed: c.lx != null, L: { ...L, w: s.w, h: s.h }, start });
+        });
+      });
+      return out;
+    }
+    function imLabelHTML(d, id, text, L, editor, cls, kind) {
+      const fs = annoFs(d), pad = annoPad(d);
+      return `<div ${editor ? `data-im-lbl="${escapeAttr(id)}" data-kind="${kind}" class="an-lbl${cls}"` : ''} style="position:absolute;left:${r1(L.x)}px;top:${r1(L.y)}px;width:${L.w}px;height:${L.h}px;display:flex;align-items:center;box-sizing:border-box;border:1px solid ${kind === 'text' ? '#0B3D7A' : '#2357A7'};border-radius:3px;background:${kind === 'text' ? '#F7F9FC' : '#fff'};overflow:hidden;white-space:nowrap;font-size:${fs}px;line-height:1;color:#0f172a;z-index:6;"><span style="flex:1;padding:0 ${pad}px;font-family:${ANNO_NAME_FONT};font-weight:500;">${escHtml(text)}</span></div>`;
+    }
+    function imSlotHTML(d, im, i, slot, opts) {
+      const F = imFrame(slot, im), R = imPhotoRect(im, F);
+      const ed = opts.editor;
+      let photo = '';
+      if (R) {
+        const rot = im.rot || 0, swap = rot % 180 !== 0;
+        const iw = swap ? R.h : R.w, ih = swap ? R.w : R.h;
+        const tf = (rot ? `rotate(${rot}deg)` : '') + (im.fh ? ' scaleX(-1)' : '');
+        photo = `<div ${ed ? 'data-im-photo' : ''} style="position:absolute;left:${r1(R.x - F.x)}px;top:${r1(R.y - F.y)}px;width:${r1(R.w)}px;height:${r1(R.h)}px;">
+            <div ${ed ? 'data-im-rot' : ''} style="position:absolute;left:${r1((R.w - iw) / 2)}px;top:${r1((R.h - ih) / 2)}px;width:${r1(iw)}px;height:${r1(ih)}px;${tf ? 'transform:' + tf.trim() + ';' : ''}"><img src="${escapeAttr(im.url_or_base64)}" draggable="false" style="width:100%;height:100%;display:block;"></div></div>`;
+      } else {                                            // size not known yet (fresh / old image): plain contain
+        photo = `<div style="position:absolute;left:0;top:0;right:0;bottom:0;display:flex;align-items:center;justify-content:center;"><img src="${escapeAttr(im.url_or_base64)}" draggable="false" style="max-width:100%;max-height:100%;display:block;transform:${cssImgTransform(im.rot, im.fh, false, im.zoom, im.off_x, im.off_y)};"></div>`;
+      }
+      // circles / boxes are clipped by the frame like the photo
+      const shapes = R ? (im.callouts || []).filter(c => c.type === 'circle' || c.type === 'rect').map(c => {
+        const w = c.w * R.w, h = c.h * R.h, x = R.x - F.x + c.x * R.w - w / 2, y = R.y - F.y + c.y * R.h - h / 2;
+        const cls = ed ? (opts.sel === c.id ? ' sel' : '') : '';
+        return `<div ${ed ? `data-im-shape="${escapeAttr(c.id)}" class="im-shape${cls}"` : ''} style="position:absolute;left:${r1(x)}px;top:${r1(y)}px;width:${r1(w)}px;height:${r1(h)}px;box-sizing:border-box;border:2px solid #dc2626;${c.type === 'circle' ? 'border-radius:50%;' : ''}"></div>`;
+      }).join('') : '';
+      const cap = String(im.caption || '').trim();
+      return `<div ${ed ? `data-im-frame="${i}"` : ''} style="position:absolute;left:${F.x}px;top:${F.y}px;width:${F.w}px;height:${F.h}px;overflow:hidden;background:#fff;z-index:1;">${photo}${shapes}
+          <div style="position:absolute;left:0;top:0;right:0;bottom:0;border:1px solid rgba(15,23,42,0.10);"></div></div>`
+        + (cap ? `<div ${ed ? `data-im-cap="${i}"` : ''} style="position:absolute;left:${slot.x}px;top:${r1(F.y + F.h)}px;width:${slot.w}px;height:${IM_CAP_H}px;display:flex;align-items:center;justify-content:center;font-family:'Noto Sans TC','DM Sans',sans-serif;font-size:11px;color:rgba(15,23,42,0.68);white-space:nowrap;overflow:hidden;z-index:1;">${escHtml(cap)}</div>` : '');
+    }
+    // Leader lines, dots and labels (page level, not clipped by the frames).
+    function imOverlayHTML(d, opts = {}) {
+      const ed = opts.editor;
+      let lines = '', dots = '', labels = '';
+      imCalloutGeo(d).forEach(g => {
+        if (!g.visible) return;
+        const cls = ed ? (opts.sel === g.c.id ? ' sel' : opts.hover === g.c.id ? ' hover' : '') : '';
+        if (!g.placed) { if (g.c.type === 'dot') dots += `<div ${ed ? `data-im-dot="${escapeAttr(g.c.id)}" class="an-dot${cls}"` : ''} style="position:absolute;left:${r1(g.px - 4)}px;top:${r1(g.py - 4)}px;width:8px;height:8px;border-radius:50%;background:#dc2626;border:1.5px solid #fff;box-sizing:border-box;z-index:5;"></div>`; return; }
+        lines += `<line x1="${r1(g.start.x)}" y1="${r1(g.start.y)}" x2="${r1(g.L.x + g.L.w / 2)}" y2="${r1(g.L.y + g.L.h / 2)}" stroke="#dc2626" stroke-width="1.1"/>`;
+        if (g.c.type === 'dot') dots += `<div ${ed ? `data-im-dot="${escapeAttr(g.c.id)}" class="an-dot${cls}"` : ''} style="position:absolute;left:${r1(g.px - 4)}px;top:${r1(g.py - 4)}px;width:8px;height:8px;border-radius:50%;background:#dc2626;border:1.5px solid #fff;box-sizing:border-box;z-index:5;"></div>`;
+        labels += imLabelHTML(d, g.c.id, imLabelText(g.c, g.k), g.L, ed, cls, g.c.type);
+      });
+      (d.texts || []).forEach((t, k) => {
+        const s = imLabelSize(d, imLabelText({ ...t, type: 'text' }, k));
+        const L = annoClampLabel(t.lx, t.ly, s.w, s.h);
+        const cls = ed ? (opts.sel === t.id ? ' sel' : '') : '';
+        labels += imLabelHTML(d, t.id, imLabelText({ ...t, type: 'text' }, k), { ...L, w: s.w, h: s.h }, ed, cls, 'text');
+      });
+      return `<svg width="${ANNO_W}" height="${ANNO_H}" viewBox="0 0 ${ANNO_W} ${ANNO_H}" style="position:absolute;left:0;top:0;z-index:4;pointer-events:none;">${lines}</svg>${dots}${labels}`;
+    }
+    function imPageInnerHTML(d, opts = {}) {
+      const slots = imSlots(d);
+      const layer = `position:absolute;left:0;top:0;width:${ANNO_W}px;height:${ANNO_H}px;`;
+      return `<div style="position:absolute;left:0;top:0;width:${ANNO_W}px;height:${ANNO_TITLE_H}px;box-sizing:border-box;padding:10px 28px 0;display:flex;align-items:center;white-space:nowrap;overflow:hidden;">
+          <span ${opts.editor ? 'id="im-title-text"' : ''} style="font-family:'Space Grotesk','Noto Sans TC',sans-serif;font-size:16px;font-weight:600;color:#0B3D7A;">${escHtml(d.title || '')}</span></div>
+        <div ${opts.editor ? 'id="im-stage"' : ''} style="position:absolute;left:0;top:${ANNO_TITLE_H}px;width:${ANNO_W}px;height:${ANNO_H}px;">
+          <div ${opts.editor ? 'id="im-slots"' : ''} style="${layer}">${d.images.map((im, i) => slots[i] ? imSlotHTML(d, im, i, slots[i], opts) : '').join('')}</div>
+          <div ${opts.editor ? 'id="im-ov"' : ''} style="${layer}">${imOverlayHTML(d, opts)}</div>
+        </div>`;
+    }
+    function buildImagePageHTML(d) {
+      imNormalize(d);
+      return wrapPageHTML(imPageInnerHTML(d));
+    }
+
+    // ── Data operations ──
+    function imNewId(p) { return p + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+    // Photo size (natural aspect) known → convert what an old page stored for this image.
+    function imApplyAspect(d, im, nw, nh) {
+      im.nar = Math.round(nw / nh * 1e5) / 1e5;
+      if (!im.legacy) return;
+      const i = d.images.indexOf(im), slot = imSlots(d)[i];
+      if (slot) {
+        // old layout: photo fitted (never enlarged) into the cell, then translate(off %) rotate scale(zoom)
+        const F = imFrame(slot, im);
+        const s = Math.min(1, F.w / nw, F.h / nh), we = nw * s, he = nh * s, zm = im.zoom || 1, swap = (im.rot || 0) % 180 !== 0;
+        const wd = (swap ? he : we) * zm, hd = (swap ? we : he) * zm;
+        const dx = F.w / 2 + (im.off_x || 0) / 100 * we - wd / 2, dy = F.h / 2 + (im.off_y || 0) / 100 * he - hd / 2;   // photo top-left in the frame
+        im.z = 1; im.cx = 0.5; im.cy = 0.5;
+        const R0 = imPhotoRect(im, F);
+        im.z = Math.round(wd / R0.w * 1e4) / 1e4;
+        im.cx = Math.round((F.w / 2 - dx) / wd * 1e4) / 1e4;
+        im.cy = Math.round((F.h / 2 - dy) / hd * 1e4) / 1e4;
+        const fx = X => Math.round((X / 100 * F.w - dx) / wd * 1e4) / 1e4, fy = Y => Math.round((Y / 100 * F.h - dy) / hd * 1e4) / 1e4;
+        const lab = m => ({ lx: r1(F.x + (m.label_x || 0) / 100 * F.w), ly: r1(F.y + (m.label_y || 0) / 100 * F.h) });
+        (im.markers || []).forEach(m => im.callouts.push({ id: m.id || imNewId('c_'), type: 'dot', x: fx(m.x), y: fy(m.y), label: m.label || '', ...lab(m) }));
+        (im.circles || []).forEach(c => im.callouts.push({ id: c.id || imNewId('c_'), type: 'circle', x: fx(c.x + c.w / 2), y: fy(c.y + c.h / 2), w: Math.round(c.w / 100 * F.w / wd * 1e4) / 1e4, h: Math.round(c.h / 100 * F.h / hd * 1e4) / 1e4, label: c.label || '', ...lab(c) }));
+      }
+      ['legacy', 'zoom', 'off_x', 'off_y', 'markers', 'circles'].forEach(k => delete im[k]);
+    }
+    async function imEnsureAspect(d) {
+      let changed = false;
+      for (const im of d.images.slice()) {
+        if (im.nar) continue;
+        const el = await annoLoadImage(im.url_or_base64);
+        if (!el || im.nar || !d.images.includes(im)) continue;
+        imApplyAspect(d, im, el.naturalWidth, el.naturalHeight);
+        changed = true;
+      }
+      return changed;
+    }
+    // On open: learn every image page's photo sizes in the background (old pages convert too).
+    function imFitAllPages() {
+      state.pages.filter(p => p.type === 'image' && (p.data.images || []).some(im => im && !im.nar)).forEach(p => {
+        imEnsureAspect(p.data).then(done => { if (done) { annoSaveNow(p); imRerender(p); } });
+      });
+    }
+    async function imMakeImage(file, caption) {
+      const url = await processImageCompressed(file, PHOTO_JPEG_QUALITY);
+      const el = url && await annoLoadImage(url);
+      if (!el) return null;
+      return { url_or_base64: url, caption: caption || '', nar: Math.round(el.naturalWidth / el.naturalHeight * 1e5) / 1e5, rot: 0, fh: false, callouts: [] };
+    }
+    // Remap callouts (and the view centre) of a photo through a display transform f(x, y) → [x, y].
+    function imRemap(im, f, swapWH) {
+      (im.callouts || []).forEach(c => {
+        const [x, y] = f(c.x, c.y);
+        c.x = Math.round(x * 1e4) / 1e4; c.y = Math.round(y * 1e4) / 1e4;
+        if (swapWH && c.w != null) [c.w, c.h] = [c.h, c.w];
+      });
+      const [cx, cy] = f(im.cx != null ? im.cx : 0.5, im.cy != null ? im.cy : 0.5);
+      im.cx = Math.round(cx * 1e4) / 1e4; im.cy = Math.round(cy * 1e4) / 1e4;
+    }
+    function imRotate(im, dir) {
+      im.rot = (((im.rot || 0) + 90 * dir) % 360 + 360) % 360;
+      imRemap(im, dir > 0 ? (u, v) => [1 - v, u] : (u, v) => [v, 1 - u], true);
+    }
+    function imFlip(im, axis) {
+      const rot = im.rot || 0;
+      im.rot = axis === 'h' ? (360 - rot) % 360 : (540 - rot) % 360;
+      im.fh = !im.fh;
+      imRemap(im, axis === 'h' ? (u, v) => [1 - u, v] : (u, v) => [u, 1 - v], false);
+    }
+    function imApplyCrop(im, url, r, nar) {
+      im.url_or_base64 = url; im.nar = nar; im.rot = 0; im.fh = false;
+      (im.callouts || []).forEach(c => {
+        c.x = Math.round(clampN((c.x - r.x) / r.w, 0, 1) * 1e4) / 1e4;
+        c.y = Math.round(clampN((c.y - r.y) / r.h, 0, 1) * 1e4) / 1e4;
+        if (c.w != null) { c.w = Math.round(c.w / r.w * 1e4) / 1e4; c.h = Math.round(c.h / r.h * 1e4) / 1e4; }
+      });
+      im.z = 1; im.cx = 0.5; im.cy = 0.5;
+    }
+    // Nearest free spot for a new label, beside the point / shape (bbox in page px).
+    function imPlaceLabel(d, box, size, skipId) {
+      const rects = [];
+      imCalloutGeo(d).forEach(g => { if (g.c.id !== skipId && g.c.lx != null) rects.push(g.L); });
+      (d.texts || []).forEach((t, k) => { if (t.id !== skipId) { const s = imLabelSize(d, imLabelText({ ...t, type: 'text' }, k)); rects.push({ ...annoClampLabel(t.lx, t.ly, s.w, s.h), w: s.w, h: s.h }); } });
+      const free = (x, y) => x >= ANNO_SAFE.l && y >= ANNO_SAFE.t && x + size.w <= ANNO_SAFE.r && y + size.h <= ANNO_SAFE.b
+        && !rects.some(o => x < o.x + o.w + 3 && o.x < x + size.w + 3 && y < o.y + o.h + 3 && o.y < y + size.h + 3);
+      const cy = box.y + box.h / 2 - size.h / 2;
+      const cands = [[box.x + box.w + 18, cy], [box.x - 18 - size.w, cy], [box.x + box.w / 2 - size.w / 2, box.y - 18 - size.h], [box.x + box.w / 2 - size.w / 2, box.y + box.h + 18]];
+      for (let k = 0; k < 40; k++) {
+        for (const [x0, y0] of cands) {
+          const off = (k % 2 ? 1 : -1) * Math.ceil(k / 2) * (size.h + 4);
+          const x = clampN(x0, ANNO_SAFE.l, ANNO_SAFE.r - size.w), y = clampN(y0 + off, ANNO_SAFE.t, ANNO_SAFE.b - size.h);
+          if (free(x, y)) return { lx: r1(x), ly: r1(y) };
+        }
+      }
+      const q = annoClampLabel(cands[0][0], cands[0][1], size.w, size.h);
+      return { lx: r1(q.x), ly: r1(q.y) };
+    }
+
+    // ── Editor ──
+    const imUI = { pageId: null, mode: 'select', sel: null, selImg: null, hover: null, zoom: 1, lastPress: null, space: false };
+    const imAdjOriginal = new WeakMap();      // image object → bitmap before brightness / contrast (this session)
+    const imCropUndo = new WeakMap();         // image object → state before the last crop (this session)
+    function imResetUI(pageId) { Object.assign(imUI, { pageId, mode: 'select', sel: null, selImg: null, hover: null, zoom: 1, lastPress: null }); }
+    function imSave(page, opts) { scheduleSave(state.pages.indexOf(page), opts); }
+    function imRerender(page) { if (state.pages[state.activePage] === page && document.getElementById('im-stage')) renderImagePage(page); }
+    Object.assign(ANNO_ICONS, {
+      dot: '<circle cx="6" cy="14" r="2.2" fill="currentColor"/><path d="M7.5 12.5l5-5"/><rect x="11.5" y="3.5" width="6" height="4" rx="1"/>',
+      circle: '<ellipse cx="10" cy="10.5" rx="7" ry="5.5"/>',
+      rect: '<rect x="3.5" y="5" width="13" height="10" rx="1"/>',
+      text: '<path d="M4.5 5V3.5h11V5M10 3.5v13M7.5 16.5h5"/>',
+      fit: '<rect x="3" y="4" width="14" height="12" rx="1"/><rect x="6" y="7" width="8" height="6"/>',
+      fill: '<rect x="3" y="4" width="14" height="12" rx="1"/><path d="M3 4l14 12M17 4L3 16"/>',
+      up: '<path d="M5 12l5-5 5 5"/>', down: '<path d="M5 8l5 5 5-5"/>',
+    });
+    const imBtn = (tool, icon, tip, extra = '') => `<button type="button" class="an-tb" data-im-tool="${tool}" data-tip="${escapeAttr(tip)}" aria-label="${escapeAttr(tip)}" ${extra}>${annoIcon(icon)}</button>`;
+    function imLayoutIcon(k) {
+      const S = { '1': [[1, 1, 18, 12]], '2h': [[1, 1, 8.5, 12], [10.5, 1, 8.5, 12]], '2v': [[1, 1, 18, 5.5], [1, 7.5, 18, 5.5]], '3h': [[1, 1, 5.3, 12], [7.3, 1, 5.3, 12], [13.6, 1, 5.4, 12]],
+        '1+2': [[1, 1, 10, 12], [12, 1, 7, 5.5], [12, 7.5, 7, 5.5]], '2x2': [[1, 1, 8.5, 5.5], [10.5, 1, 8.5, 5.5], [1, 7.5, 8.5, 5.5], [10.5, 7.5, 8.5, 5.5]],
+        '3x2': [[1, 1, 5.3, 5.5], [7.3, 1, 5.3, 5.5], [13.6, 1, 5.4, 5.5], [1, 7.5, 5.3, 5.5], [7.3, 7.5, 5.3, 5.5], [13.6, 7.5, 5.4, 5.5]] }[k] || [];
+      return `<svg viewBox="0 0 20 14" aria-hidden="true">${S.map(r => `<rect x="${r[0]}" y="${r[1]}" width="${r[2]}" height="${r[3]}" rx="0.8"/>`).join('')}</svg>`;
+    }
+    function imSideHTML(d) {
+      const cur = imLayoutKey(d), n = d.images.length;
+      const layouts = `<button type="button" class="im-lay${!d.layout || d.layout === 'auto' ? ' on' : ''}" data-im-layout="auto" title="依張數自動">自動</button>`
+        + IM_LAYOUTS.map(l => `<button type="button" class="im-lay${d.layout === l.k ? ' on' : ''}${cur === l.k ? ' cur' : ''}" data-im-layout="${l.k}" title="${escapeAttr(l.name + (l.cap < n ? '（放不下 ' + n + ' 張）' : ''))}" ${l.cap < n ? 'disabled' : ''}>${imLayoutIcon(l.k)}</button>`).join('');
+      const rows = d.images.map((im, i) => `<li class="an-row im-row${imUI.selImg === i ? ' sel' : ''}" data-im-row="${i}">
+          <span class="im-grip" title="拖曳調整順序">⋮⋮</span>
+          <img class="im-thumb" src="${escapeAttr(im.url_or_base64)}" alt="" draggable="false">
+          <input class="an-name" data-im-capin="${i}" value="${escapeAttr(im.caption || '')}" placeholder="說明（PDF 印在圖下）" spellcheck="false">
+          ${(im.callouts || []).length ? `<span class="an-count" title="標註數">${im.callouts.length}</span>` : ''}
+          <button type="button" class="an-del" data-im-del="${i}" aria-label="刪除圖片" title="刪除圖片">×</button></li>`).join('');
+      return `<section class="an-sec"><div class="an-sec-h">版面配置</div><div class="im-lays">${layouts}</div></section>
+        <section class="an-sec grow">
+          <div class="an-sec-h">圖片 <span class="an-count">${n} / ${IM_MAX}</span><span class="sp"></span></div>
+          <ol class="an-list im-list" id="im-list">${rows || '<li class="an-empty">尚無圖片：拖曳到頁面、Ctrl+V 貼上，或按下方按鈕</li>'}</ol>
+          <button type="button" class="an-seq" id="im-add">＋ 加入圖片…（可多選，放不下自動續頁）</button>
+        </section>`;
+    }
+    function imStatusHTML(d) {
+      const m = imUI.mode;
+      if (!d.images.length) return '先放入圖片：拖曳到頁面、Ctrl+V 貼上，或右側「＋ 加入圖片」';
+      if (m === 'dot') return '<b>標註點</b>點照片上的位置新增；按住拖曳可直接拉出標籤 · <kbd>Esc</kbd> 結束';
+      if (m === 'circle' || m === 'rect') return `<b>${m === 'circle' ? '圈選' : '方框'}</b>在照片上拖曳畫出範圍，放開後輸入說明 · <kbd>Esc</kbd> 結束`;
+      if (m === 'text') return '<b>文字</b>點頁面任一處放置文字框 · <kbd>Esc</kbd> 結束';
+      return '<b>選取模式</b>點照片選取（工具列操作這張）· 拖曳＝移動畫面（放大後）或拖到另一格交換 · 拖格線調整大小 · 雙擊標籤 / 說明改字 · <kbd>Del</kbd> 刪除 · <kbd>Ctrl</kbd>+滾輪縮放檢視';
+    }
+
+    function renderImagePage(page) {
+      const d = page.data;
+      const oldVp = imUI.pageId === page.id && document.getElementById('an-viewport');
+      const keepScroll = oldVp ? [oldVp.scrollLeft, oldVp.scrollTop] : null;
+      if (imUI.pageId !== page.id) imResetUI(page.id);
+      imNormalize(d);
+      if (imUI.selImg !== null && !d.images[imUI.selImg]) imUI.selImg = null;
+      const hasImg = imUI.selImg !== null;
+      const dis = hasImg ? '' : 'disabled';
+      const anyImg = d.images.length ? '' : 'disabled';
+      const sizeName = { S: '小', M: '中', L: '大' }[d.label_size || 'M'];
+      const selIm = hasImg ? d.images[imUI.selImg] : null;
+      $canvas.innerHTML = `
+        <div class="an-editor im-editor">
+          <div class="an-toolbar">
+            <input class="im-title" id="im-title" value="${escapeAttr(d.title || '')}" placeholder="點此輸入標題" spellcheck="false" aria-label="標題">
+            <div class="an-tgroup" aria-label="模式">
+              ${imBtn('select', 'select', '選取 / 移動（V）', `aria-pressed="${imUI.mode === 'select'}"`)}
+              ${imBtn('dot', 'dot', '標註點（D）', `aria-pressed="${imUI.mode === 'dot'}" ${anyImg}`)}
+              ${imBtn('circle', 'circle', '圈選（C）', `aria-pressed="${imUI.mode === 'circle'}" ${anyImg}`)}
+              ${imBtn('rect', 'rect', '方框（R）', `aria-pressed="${imUI.mode === 'rect'}" ${anyImg}`)}
+              ${imBtn('text', 'text', '文字框（T）', `aria-pressed="${imUI.mode === 'text'}"`)}
+            </div>
+            <div class="an-tgroup" aria-label="選取的圖片">
+              ${imBtn('replace', 'image', hasImg ? '更換這張圖片（標註保留）' : '先點選一張圖片', dis)}
+              ${imBtn('rotl', 'rotl', '向左旋轉 90°', dis)}
+              ${imBtn('rotr', 'rotr', '向右旋轉 90°', dis)}
+              ${imBtn('fliph', 'fliph', '左右翻轉', dis)}
+              ${imBtn('flipv', 'flipv', '上下翻轉', dis)}
+              ${imBtn('crop', 'crop', '裁切', dis)}
+              ${selIm && imCropUndo.has(selIm) ? imBtn('uncrop', 'uncrop', '還原裁切') : ''}
+              ${imBtn('adjust', 'adjust', '亮度 / 對比 / 自動增強', dis)}
+              ${imBtn('zout', 'zoomout', '縮小這張', dis)}
+              ${imBtn('fit', 'fit', '完整顯示（適應框）', dis)}
+              ${imBtn('fill', 'fill', '填滿框（裁掉多餘）', dis)}
+              ${imBtn('zin', 'zoomin', '放大這張（拖曳移動畫面）', dis)}
+              ${imBtn('up', 'up', '往前移一格', hasImg && imUI.selImg > 0 ? '' : 'disabled')}
+              ${imBtn('down', 'down', '往後移一格', hasImg && imUI.selImg < d.images.length - 1 ? '' : 'disabled')}
+              ${imBtn('delimg', 'trash', '刪除這張圖片', dis + ' data-danger="1"')}
+            </div>
+            <div class="an-tgroup" aria-label="標籤">
+              ${imBtn('size', 'size', `標籤字級：${sizeName}（點擊切換）`)}
+            </div>
+            <div class="an-tgroup an-zoom" aria-label="檢視">
+              ${imBtn('vzout', 'zoomout', '縮小檢視（−）')}
+              <button type="button" class="an-tb txt" data-im-tool="vzfit" data-zoom-label data-tip="符合視窗（0）" aria-label="符合視窗">${Math.round(imUI.zoom * 100)}%</button>
+              ${imBtn('vzin', 'zoomin', '放大檢視（+）')}
+            </div>
+          </div>
+          <div class="an-main">
+            <div class="an-viewport" id="an-viewport">
+              <div class="an-sizer" id="an-sizer">
+                <div class="an-paper im-paper mode-${imUI.mode}" id="an-paper" style="font-family:${PDF_FONT};">
+                  ${wrapPageHTML(imPageInnerHTML(d, { editor: true, sel: imUI.sel }))}
+                  <div id="an-ui"><div id="an-ui-dyn"></div></div>
+                </div>
+              </div>
+            </div>
+            <aside class="an-side" id="im-side">${imSideHTML(d)}</aside>
+          </div>
+          <div class="an-status" id="an-status">${imStatusHTML(d)}</div>
+          <input type="file" accept="image/*" id="im-file" style="display:none">
+          <input type="file" accept="image/*" multiple id="im-files" style="display:none">
+        </div>`;
+      $canvas.classList.add('anno-wide');
+      imRenderUI(page);
+      annoFitView(page, imUI);
+      if (keepScroll) { const vp = document.getElementById('an-viewport'); vp.scrollLeft = keepScroll[0]; vp.scrollTop = keepScroll[1]; }
+      imBind(page);
+      if (document.fonts && document.fonts.load) {
+        document.fonts.load(`500 10px 'DM Sans'`).catch(() => {}).then(() => { if (state.pages[state.activePage] === page && document.getElementById('im-ov')) imRenderOverlay(page); });
+      }
+      if (d.images.some(im => !im.nar)) imEnsureAspect(d).then(done => { if (done) { annoSaveNow(page); imRerender(page); } });
+    }
+    function imRenderOverlay(page) {
+      const d = page.data, ov = document.getElementById('im-ov');
+      if (!ov) return;
+      ov.innerHTML = imOverlayHTML(d, { editor: true, sel: imUI.sel, hover: imUI.hover });
+      imRenderUI(page);
+    }
+    function imRenderSlots(page) {
+      const el = document.getElementById('im-slots');
+      if (!el) return;
+      const d = page.data, slots = imSlots(d);
+      el.innerHTML = d.images.map((im, i) => slots[i] ? imSlotHTML(d, im, i, slots[i], { editor: true, sel: imUI.sel }) : '').join('');
+    }
+    // Editor-only layer: selection frame, gutters, shape handles, empty-slot drop zones, caption ghosts.
+    function imRenderUI(page) {
+      const d = page.data, ui = document.getElementById('an-ui-dyn');
+      if (!ui) return;
+      const slots = imSlots(d), key = imLayoutKey(d), cap = imCap(d);
+      let html = `<div class="an-safe" style="left:${ANNO_SAFE.l}px;top:${ANNO_SAFE.t}px;width:${ANNO_SAFE.r - ANNO_SAFE.l}px;height:${ANNO_SAFE.b - ANNO_SAFE.t}px;"></div>
+        <svg class="an-rubber" width="${ANNO_W}" height="${ANNO_H}" style="display:none"><line/></svg><div class="im-draw" style="display:none"></div>`;
+      slots.forEach((s, i) => {
+        const im = d.images[i];
+        if (!im) {
+          html += `<div class="an-drop im-empty" data-im-empty="${i}" style="left:${s.x}px;top:${s.y}px;width:${s.w}px;height:${s.h}px;"><div class="an-drop-icon">${annoIcon('image')}</div><div>拖曳圖片或 Ctrl+V 貼上</div><button type="button" class="an-drop-btn" data-im-pick="${i}">選擇檔案</button></div>`;
+          return;
+        }
+        const F = imFrame(s, im);
+        if (imUI.mode === 'select') {
+          html += `<div class="im-frame-ui${imUI.selImg === i ? ' sel' : ''}" style="left:${F.x}px;top:${F.y}px;width:${F.w}px;height:${F.h}px;"></div>`;
+          if (!String(im.caption || '').trim() && imUI.selImg === i) html += `<button type="button" class="im-capghost" data-im-capedit="${i}" style="left:${s.x + s.w / 2 - 50}px;top:${s.y + s.h - 22}px;">＋ 說明</button>`;
+        }
+      });
+      if (imUI.mode === 'select') {                         // gutters
+        const A = IM_AREA, g = IM_GAP;
+        const c = slots[0] && slots[1] && (key === '2h' || key === '1+2' || key === '2x2') ? slots[0].x + slots[0].w + g / 2 : null;
+        const rY = key === '2v' ? slots[0].y + slots[0].h + g / 2 : key === '2x2' ? slots[0].y + slots[0].h + g / 2 : key === '1+2' ? slots[1].y + slots[1].h + g / 2 : null;
+        if (c !== null && d.images.length >= 2) html += `<div class="im-gutter v" data-im-handle="gc" style="left:${c - 4}px;top:${A.y}px;height:${A.h}px;"></div>`;
+        if (rY !== null && d.images.length >= (key === '2v' ? 2 : 3)) {
+          const x0 = key === '1+2' ? slots[1].x : A.x, w = key === '1+2' ? slots[1].w : A.w;
+          html += `<div class="im-gutter h" data-im-handle="gr" style="left:${x0}px;top:${rY - 4}px;width:${w}px;"></div>`;
+        }
+        const g2 = imUI.sel && imCalloutGeo(d).find(x => x.c.id === imUI.sel && (x.c.type === 'circle' || x.c.type === 'rect'));
+        if (g2) ['nw', 'ne', 'sw', 'se'].forEach(k => {
+          html += `<div class="an-handle" data-im-handle="s${k}" style="left:${r1(g2.px + (k[1] === 'e' ? 1 : -1) * g2.sw / 2)}px;top:${r1(g2.py + (k[0] === 's' ? 1 : -1) * g2.sh / 2)}px;"></div>`;
+        });
+      }
+      ui.innerHTML = html;
+    }
+    function imRefreshSide(page) {
+      const side = document.getElementById('im-side');
+      if (side && !side.contains(document.activeElement)) side.innerHTML = imSideHTML(page.data);
+      else if (side) side.querySelectorAll('[data-im-row]').forEach(li => li.classList.toggle('sel', +li.dataset.imRow === imUI.selImg));
+      const st = document.getElementById('an-status');
+      if (st) st.innerHTML = imStatusHTML(page.data);
+    }
+    // Move photos / shapes / frames to their current geometry without rebuilding the
+    // <img> elements (cheap enough for every pointer move of a pan / zoom / gutter drag).
+    function imUpdateGeo(page) {
+      const d = page.data, slots = imSlots(d);
+      d.images.forEach((im, i) => {
+        const fr = document.querySelector(`[data-im-frame="${i}"]`);
+        if (!fr || !slots[i]) return;
+        const F = imFrame(slots[i], im), R = imPhotoRect(im, F);
+        Object.assign(fr.style, { left: F.x + 'px', top: F.y + 'px', width: F.w + 'px', height: F.h + 'px' });
+        const cap = document.querySelector(`[data-im-cap="${i}"]`);
+        if (cap) Object.assign(cap.style, { left: slots[i].x + 'px', top: r1(F.y + F.h) + 'px', width: slots[i].w + 'px' });
+        if (!R) return;
+        const ph = fr.querySelector('[data-im-photo]'), rot = fr.querySelector('[data-im-rot]');
+        if (ph) Object.assign(ph.style, { left: r1(R.x - F.x) + 'px', top: r1(R.y - F.y) + 'px', width: r1(R.w) + 'px', height: r1(R.h) + 'px' });
+        if (rot) {
+          const swap = (im.rot || 0) % 180 !== 0, iw = swap ? R.h : R.w, ih = swap ? R.w : R.h;
+          Object.assign(rot.style, { left: r1((R.w - iw) / 2) + 'px', top: r1((R.h - ih) / 2) + 'px', width: r1(iw) + 'px', height: r1(ih) + 'px' });
+        }
+        (im.callouts || []).forEach(c => {
+          const el = fr.querySelector(`[data-im-shape="${CSS.escape(c.id)}"]`);
+          if (!el) return;
+          const w = c.w * R.w, h = c.h * R.h;
+          Object.assign(el.style, { left: r1(R.x - F.x + c.x * R.w - w / 2) + 'px', top: r1(R.y - F.y + c.y * R.h - h / 2) + 'px', width: r1(w) + 'px', height: r1(h) + 'px' });
+        });
+      });
+      imRenderOverlay(page);
+    }
+    function imSelect(page, id, imgIdx) {
+      imUI.sel = id;
+      if (imgIdx !== undefined) imUI.selImg = imgIdx;
+      document.querySelectorAll('[data-im-shape]').forEach(el => el.classList.toggle('sel', el.dataset.imShape === id));
+      imRenderOverlay(page);
+      document.querySelectorAll('#im-side [data-im-row]').forEach(li => li.classList.toggle('sel', +li.dataset.imRow === imUI.selImg));
+      // toolbar enablement follows the selected image
+      const has = imUI.selImg !== null;
+      document.querySelectorAll('.an-toolbar [data-im-tool]').forEach(b => {
+        const t = b.dataset.imTool;
+        if (['replace', 'rotl', 'rotr', 'fliph', 'flipv', 'crop', 'adjust', 'zout', 'fit', 'fill', 'zin', 'delimg'].includes(t)) b.disabled = !has;
+        if (t === 'up') b.disabled = !has || imUI.selImg === 0;
+        if (t === 'down') b.disabled = !has || imUI.selImg >= page.data.images.length - 1;
+      });
+    }
+    function imSetMode(page, mode) {
+      if (mode !== 'select' && mode !== 'text' && !page.data.images.length) return;
+      imUI.mode = mode;
+      renderImagePage(page);
+    }
+    function imFindCallout(d, id) {
+      for (const im of d.images) { const c = (im.callouts || []).find(x => x.id === id); if (c) return { im, c, list: im.callouts }; }
+      const t = (d.texts || []).find(x => x.id === id);
+      return t ? { im: null, c: t, list: d.texts } : null;
+    }
+    function imDeleteCallout(page, id) {
+      const f = imFindCallout(page.data, id);
+      if (!f) return;
+      f.list.splice(f.list.indexOf(f.c), 1);
+      if (imUI.sel === id) imUI.sel = null;
+      imSave(page);
+      renderImagePage(page);
+    }
+    function imDuplicate(page, id) {
+      const f = imFindCallout(page.data, id);
+      if (!f) return;
+      const dup = { ...f.c, id: imNewId('c_'), ly: (f.c.ly || 0) + annoLabelH(page.data) + 4 };
+      if (f.im) { dup.x = Math.min(1, f.c.x + 0.03); dup.y = Math.min(1, f.c.y + 0.03); }
+      f.list.splice(f.list.indexOf(f.c) + 1, 0, dup);
+      imUI.sel = dup.id;
+      imSave(page);
+      renderImagePage(page);
+    }
+    // Inline edit of a label (callout / text) or a caption.
+    function imInlineEdit(page, rect, value, placeholder, fs, onDone) {
+      const ui = document.getElementById('an-ui');
+      if (!ui) return;
+      ui.querySelector('.an-rename')?.blur();
+      ui.querySelector('.an-rename')?.remove();
+      const inp = document.createElement('input');
+      inp.className = 'an-rename';
+      inp.value = value || '';
+      inp.placeholder = placeholder;
+      inp.spellcheck = false;
+      Object.assign(inp.style, { left: rect.x + 'px', top: rect.y + 'px', width: Math.max(rect.w, 150) + 'px', height: rect.h + 'px', fontSize: fs + 'px' });
+      ui.appendChild(inp);
+      inp.focus(); inp.select();
+      let done = false;
+      const finish = (commit) => {
+        if (done) return;
+        done = true;
+        const v = inp.value.trim();
+        inp.remove();
+        if (commit && v !== (value || '')) onDone(v);
+        else if (document.getElementById('im-stage')) imRenderOverlay(page);
+      };
+      inp.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); finish(true); }
+        else if (e.key === 'Escape') { e.preventDefault(); finish(false); }
+        e.stopPropagation();
+      });
+      inp.addEventListener('blur', () => finish(true));
+    }
+    function imRename(page, id) {
+      const d = page.data, f = imFindCallout(d, id);
+      if (!f) return;
+      let L;
+      if (f.im) { const g = imCalloutGeo(d).find(x => x.c.id === id); if (!g) return; L = g.L; }
+      else { const k = d.texts.indexOf(f.c), s = imLabelSize(d, imLabelText({ ...f.c, type: 'text' }, k)); L = { ...annoClampLabel(f.c.lx, f.c.ly, s.w, s.h), w: s.w, h: s.h }; }
+      imSelect(page, id);
+      imInlineEdit(page, L, f.c.label, f.im ? '說明' : '文字', annoFs(d), (v) => {
+        f.c.label = v;
+        if (!v && !f.im) { d.texts.splice(d.texts.indexOf(f.c), 1); imUI.sel = null; }   // an emptied text box goes away
+        imSave(page); renderImagePage(page);
+      });
+    }
+    function imEditCaption(page, i) {
+      const d = page.data, s = imSlots(d)[i], im = d.images[i];
+      if (!s || !im) return;
+      imInlineEdit(page, { x: s.x + 8, y: s.y + s.h - IM_CAP_H, w: s.w - 16, h: IM_CAP_H }, im.caption, '說明', 11, (v) => {
+        im.caption = v; imSave(page); renderImagePage(page);
+      });
+    }
+    async function imAddFiles(page, files, at) {
+      const d = page.data;
+      const list = Array.from(files || []).filter(f => f && (f.type || '').startsWith('image/')).sort((a, b) => naturalCompare(a.name, b.name));
+      if (!list.length) return;
+      const captions = userPrefs().batch_captions !== false;
+      const rid = state.reportId;
+      let idx = at != null ? at : d.images.length;
+      const free = IM_MAX - d.images.length;
+      const here = list.slice(0, Math.max(0, free));
+      for (const f of here) {
+        const im = await imMakeImage(f, captions && list.length > 1 ? fileStem(f.name) : '');
+        if (state.reportId !== rid || !state.pages.includes(page)) return;
+        if (!im) continue;
+        d.images.splice(Math.min(idx, d.images.length), 0, im);
+        idx++;
+      }
+      d.images.forEach((x, i) => { x.position = i; });
+      if (d.layout && d.layout !== 'auto' && (IM_LAYOUTS.find(l => l.k === d.layout) || { cap: 0 }).cap < d.images.length) d.layout = 'auto';
+      imUI.selImg = Math.min(idx - 1, d.images.length - 1);
+      const pageIdx = state.pages.indexOf(page);
+      scheduleSave(pageIdx);
+      if (list.length > here.length) await insertImagePagesFromFiles(list.slice(here.length), { perPage: 4, captions, title: d.title || '', afterIdx: pageIdx });
+      else { imRerender(page); renderPageList(); }
+    }
+    async function imReplace(page, i, file) {
+      const d = page.data, old = d.images[i];
+      const im = await imMakeImage(file, old ? old.caption : '');
+      if (!im || !old) return;
+      imAdjOriginal.delete(old); imCropUndo.delete(old);
+      Object.assign(old, { url_or_base64: im.url_or_base64, nar: im.nar, rot: 0, fh: false, z: 1, cx: 0.5, cy: 0.5 });
+      imSave(page);
+      imRerender(page);
+    }
+    async function handleImagePagePaste(page, file) {
+      const d = page.data;
+      imNormalize(d);
+      if (d.images.length >= IM_MAX) { showToast('這頁已放滿 6 張，請新增圖片頁', 'warn'); return; }
+      await imAddFiles(page, [file], imUI.pageId === page.id && imUI.selImg !== null ? imUI.selImg + 1 : d.images.length);
+    }
+    // Several images dropped on an image page: fill this page (up to 6), then continue on new pages.
+    async function dropImagesOnImagePage(page, files) { imNormalize(page.data); await imAddFiles(page, files); }
+    async function handleImagePageImage(page, position, file) {
+      imNormalize(page.data);
+      if (page.data.images[position]) await imReplace(page, position, file);
+      else await imAddFiles(page, [file], position);
+    }
+
+    async function imTool(page, tool, btn) {
+      const d = page.data, i = imUI.selImg, im = i !== null ? d.images[i] : null;
+      const F = im ? imFrame(imSlots(d)[i], im) : null;
+      const commit = () => { imSave(page); imRerender(page); };
+      if (['select', 'dot', 'circle', 'rect', 'text'].includes(tool)) { imSetMode(page, tool); return; }
+      if (tool === 'size') { d.label_size = { S: 'M', M: 'L', L: 'S' }[d.label_size || 'M']; commit(); return; }
+      if (tool === 'vzin') return annoZoom(page, 1, null, imUI);
+      if (tool === 'vzout') return annoZoom(page, -1, null, imUI);
+      if (tool === 'vzfit') return annoZoom(page, 0, null, imUI);
+      if (!im) return;
+      if (!im.nar && ['rotl', 'rotr', 'fliph', 'flipv', 'crop', 'zin', 'zout', 'fit', 'fill'].includes(tool)) {
+        if (await imEnsureAspect(d)) annoSaveNow(page);
+      }
+      if (tool === 'replace') { const fi = document.getElementById('im-file'); fi.dataset.slot = i; fi.click(); }
+      else if (tool === 'rotl' || tool === 'rotr') { imRotate(im, tool === 'rotr' ? 1 : -1); imClampView(im, F); commit(); }
+      else if (tool === 'fliph' || tool === 'flipv') { imFlip(im, tool === 'fliph' ? 'h' : 'v'); commit(); }
+      else if (tool === 'zin' || tool === 'zout') {
+        im.z = clampN((im.z || 1) * (tool === 'zin' ? 1.25 : 0.8), 0.2, 8);
+        imClampView(im, F); commit();
+      } else if (tool === 'fit' || tool === 'fill') { im.z = Math.round(imContainZ(im, F, tool) * 1e4) / 1e4; im.cx = 0.5; im.cy = 0.5; commit(); }
+      else if (tool === 'up' || tool === 'down') {
+        const j = tool === 'up' ? i - 1 : i + 1;
+        if (!d.images[j]) return;
+        [d.images[i], d.images[j]] = [d.images[j], d.images[i]];
+        d.images.forEach((x, n) => { x.position = n; });
+        imUI.selImg = j;
+        commit();
+      } else if (tool === 'crop') {
+        openImageCropper(im.url_or_base64, { rotate: im.rot || 0, flipH: !!im.fh }, async (url, r) => {
+          if (!r) return;
+          const el = await annoLoadImage(url);
+          if (!el) return;
+          imCropUndo.set(im, { url: im.url_or_base64, nar: im.nar, rot: im.rot, fh: im.fh, z: im.z, cx: im.cx, cy: im.cy, callouts: JSON.parse(JSON.stringify(im.callouts || [])) });
+          imAdjOriginal.delete(im);
+          imApplyCrop(im, url, r, Math.round(el.naturalWidth / el.naturalHeight * 1e5) / 1e5);
+          commit();
+        });
+      } else if (tool === 'uncrop') {
+        const o = imCropUndo.get(im);
+        if (!o) return;
+        imCropUndo.delete(im);
+        Object.assign(im, { url_or_base64: o.url, nar: o.nar, rot: o.rot, fh: o.fh, z: o.z, cx: o.cx, cy: o.cy, callouts: o.callouts });
+        commit();
+      } else if (tool === 'adjust') {
+        const imgEl = document.querySelector(`[data-im-frame="${i}"] img`);
+        photoAdjustPopover(btn, imgEl, {
+          url: () => im.url_or_base64,
+          original: () => imAdjOriginal.get(im),
+          apply: (url, base) => { if (!imAdjOriginal.has(im)) imAdjOriginal.set(im, base); im.url_or_base64 = url; commit(); },
+          restore: () => { im.url_or_base64 = imAdjOriginal.get(im); imAdjOriginal.delete(im); commit(); },
+        });
+      } else if (tool === 'delimg') {
+        if (!confirm(`刪除這張圖片${(im.callouts || []).length ? `與 ${im.callouts.length} 個標註` : ''}？（可用 Ctrl+Z 復原）`)) return;
+        d.images.splice(i, 1);
+        d.images.forEach((x, n) => { x.position = n; });
+        imUI.selImg = null; imUI.sel = null;
+        commit();
+      }
+    }
+
+    function imBind(page) {
+      const d = page.data;
+      const paper = document.getElementById('an-paper');
+      const vp = document.getElementById('an-viewport');
+      const side = document.getElementById('im-side');
+      const fileOne = document.getElementById('im-file'), fileMany = document.getElementById('im-files');
+
+      $canvas.querySelector('.an-toolbar').addEventListener('click', (e) => {
+        const b = e.target.closest('[data-im-tool]');
+        if (b && !b.disabled) { if (b.dataset.imTool !== 'adjust') b.blur(); imTool(page, b.dataset.imTool, b); }
+      });
+      const title = document.getElementById('im-title');
+      title.addEventListener('input', () => {
+        d.title = title.value;
+        const t = document.getElementById('im-title-text');
+        if (t) t.textContent = title.value;
+        imSave(page);
+      });
+      title.addEventListener('keydown', (e) => { if (e.key === 'Enter') title.blur(); });
+      fileOne.addEventListener('change', async () => { const f = fileOne.files[0]; if (f) await imReplace(page, +fileOne.dataset.slot, f); fileOne.value = ''; });
+      fileMany.addEventListener('change', async () => { const fs = Array.from(fileMany.files); fileMany.value = ''; if (fs.length) await imAddFiles(page, fs, fileMany.dataset.at ? +fileMany.dataset.at : undefined); });
+
+      // drop files onto a slot (replace) / free area (add)
+      vp.addEventListener('dragover', (e) => { if (Array.from(e.dataTransfer?.types || []).includes('Files')) { e.preventDefault(); vp.classList.add('dragover'); } });
+      vp.addEventListener('dragleave', (e) => { if (e.target === vp) vp.classList.remove('dragover'); });
+      vp.addEventListener('drop', async (e) => {
+        vp.classList.remove('dragover');
+        const fs = Array.from(e.dataTransfer?.files || []).filter(f => f.type.startsWith('image/'));
+        if (!fs.length) return;
+        e.preventDefault();
+        const fr = document.elementFromPoint(e.clientX, e.clientY)?.closest('[data-im-frame],[data-im-empty]');
+        if (fr && fr.dataset.imFrame != null && fs.length === 1) await imReplace(page, +fr.dataset.imFrame, fs[0]);
+        else await imAddFiles(page, fs, fr && fr.dataset.imEmpty != null ? +fr.dataset.imEmpty : undefined);
+      });
+      vp.addEventListener('wheel', (e) => {
+        if (e.ctrlKey || e.metaKey) { e.preventDefault(); annoZoom(page, e.deltaY < 0 ? 1 : -1, { x: e.clientX, y: e.clientY }, imUI); return; }
+        // plain wheel over the selected photo zooms that photo
+        const fr = e.target.closest && e.target.closest('[data-im-frame]');
+        if (!fr || +fr.dataset.imFrame !== imUI.selImg || imUI.mode !== 'select') return;
+        const im = d.images[imUI.selImg];
+        if (!im || !im.nar) return;
+        e.preventDefault();
+        const F = imFrame(imSlots(d)[imUI.selImg], im);
+        im.z = clampN((im.z || 1) * (e.deltaY < 0 ? 1.1 : 1 / 1.1), 0.2, 8);
+        imClampView(im, F);
+        imUpdateGeo(page);
+        imSave(page);
+      }, { passive: false });
+
+      // side panel
+      side.addEventListener('click', (e) => {
+        const lay = e.target.closest('[data-im-layout]');
+        if (lay && !lay.disabled) { d.layout = lay.dataset.imLayout; imSave(page); renderImagePage(page); return; }
+        if (e.target.closest('#im-add')) { fileMany.dataset.at = ''; fileMany.click(); return; }
+        const del = e.target.closest('[data-im-del]');
+        if (del) { imUI.selImg = +del.dataset.imDel; imTool(page, 'delimg'); return; }
+        const row = e.target.closest('[data-im-row]');
+        if (row && !e.target.closest('input')) imSelect(page, null, +row.dataset.imRow);
+      });
+      side.addEventListener('focusin', (e) => { const n = e.target.closest('[data-im-capin]'); if (n && imUI.selImg !== +n.dataset.imCapin) imSelect(page, null, +n.dataset.imCapin); });
+      side.addEventListener('input', (e) => {
+        const n = e.target.closest('[data-im-capin]');
+        if (!n) return;
+        const im = d.images[+n.dataset.imCapin];
+        if (!im) return;
+        const hadCap = !!String(im.caption || '').trim();
+        im.caption = n.value;
+        if (hadCap !== !!String(im.caption || '').trim()) { imRenderSlots(page); imRenderUI(page); }   // frame grows / shrinks
+        else { const c = document.querySelector(`[data-im-cap="${n.dataset.imCapin}"]`); if (c) c.textContent = n.value.trim(); }
+        imRenderOverlay(page);
+        imSave(page);
+      });
+      side.addEventListener('keydown', (e) => { if (e.target.closest('[data-im-capin]') && e.key === 'Enter') e.target.blur(); });
+      const list = document.getElementById('im-list');
+      if (list && window.Sortable && d.images.length > 1) {
+        Sortable.create(list, { handle: '.im-grip', animation: 120, onEnd: (ev) => {
+          if (ev.oldIndex === ev.newIndex) return;
+          const [m] = d.images.splice(ev.oldIndex, 1);
+          d.images.splice(ev.newIndex, 0, m);
+          d.images.forEach((x, n) => { x.position = n; });
+          imUI.selImg = ev.newIndex;
+          imSave(page); renderImagePage(page);
+        } });
+      }
+
+      paper.addEventListener('click', (e) => {
+        const pick = e.target.closest('[data-im-pick]');
+        if (pick) { fileMany.dataset.at = pick.dataset.imPick; fileMany.click(); return; }
+        const ce = e.target.closest('[data-im-capedit]');
+        if (ce) imEditCaption(page, +ce.dataset.imCapedit);
+      });
+      paper.addEventListener('contextmenu', (e) => {
+        const t = e.target.closest('[data-im-lbl],[data-im-dot],[data-im-shape]');
+        if (!t) return;
+        e.preventDefault();
+        const id = t.dataset.imLbl || t.dataset.imDot || t.dataset.imShape;
+        imSelect(page, id);
+        document.querySelector('.an-ctx')?.remove();
+        const menu = document.createElement('div');
+        menu.className = 'an-ctx';
+        menu.innerHTML = `<button type="button" data-act="rename">編輯文字<kbd>Enter</kbd></button><button type="button" data-act="dup">複製<kbd>Ctrl+D</kbd></button><button type="button" data-act="del" class="danger">刪除<kbd>Del</kbd></button>`;
+        document.body.appendChild(menu);
+        menu.style.left = Math.min(e.clientX, window.innerWidth - menu.offsetWidth - 8) + 'px';
+        menu.style.top = Math.min(e.clientY, window.innerHeight - menu.offsetHeight - 8) + 'px';
+        const close = () => { menu.remove(); document.removeEventListener('pointerdown', outside, true); };
+        menu._close = close;
+        const outside = (ev) => { if (!menu.contains(ev.target)) close(); };
+        document.addEventListener('pointerdown', outside, true);
+        menu.addEventListener('click', (ev) => {
+          const act = ev.target.closest('[data-act]')?.dataset.act;
+          if (!act) return;
+          close();
+          if (act === 'rename') imRename(page, id); else if (act === 'dup') imDuplicate(page, id); else imDeleteCallout(page, id);
+        });
+      });
+
+      paper.addEventListener('pointerdown', (e) => {
+        if (e.target.closest('.an-rename, .an-drop-btn, .im-capghost, [data-im-empty]')) return;
+        if (e.button === 1 || (e.button === 0 && imUI.space)) {
+          e.preventDefault();
+          const sx = e.clientX, sy = e.clientY, sl = vp.scrollLeft, st = vp.scrollTop;
+          annoDrag(paper, e, ev => { vp.scrollLeft = sl - (ev.clientX - sx); vp.scrollTop = st - (ev.clientY - sy); }, () => {});
+          return;
+        }
+        if (e.button !== 0) return;
+        const p0 = annoPt(paper, e);
+        const handle = e.target.closest('[data-im-handle]');
+        const lbl = e.target.closest('[data-im-lbl]');
+        const dot = e.target.closest('[data-im-dot]');
+        const shape = e.target.closest('[data-im-shape]');
+        const frame = e.target.closest('[data-im-frame]');
+        const cap = e.target.closest('[data-im-cap]');
+        const hitId = (lbl && lbl.dataset.imLbl) || (dot && dot.dataset.imDot) || (shape && imUI.mode === 'select' && shape.dataset.imShape) || null;
+        const last = imUI.lastPress;
+        imUI.lastPress = hitId || cap ? { id: hitId || 'cap' + cap.dataset.imCap, t: e.timeStamp, x: e.clientX, y: e.clientY } : null;
+        const dbl = last && imUI.lastPress && last.id === imUI.lastPress.id && e.timeStamp - last.t < 450 && Math.hypot(e.clientX - last.x, e.clientY - last.y) < 6;
+        if (dbl) { imUI.lastPress = null; e.preventDefault(); if (cap) imEditCaption(page, +cap.dataset.imCap); else imRename(page, hitId); return; }
+
+        if (imUI.mode === 'text' && !handle && !lbl) {          // new free text box
+          e.preventDefault();
+          const t = { id: imNewId('t_'), label: '', lx: 0, ly: 0 };
+          const s = imLabelSize(d, '文字' + (d.texts.length + 1));
+          const q = annoClampLabel(p0.x - s.w / 2, p0.y - s.h / 2, s.w, s.h);
+          t.lx = r1(q.x); t.ly = r1(q.y);
+          d.texts.push(t);
+          imUI.mode = 'select';
+          imSave(page);
+          renderImagePage(page);
+          imRename(page, t.id);
+          return;
+        }
+        if (!handle && !lbl && !dot && !shape && !frame) { if (imUI.sel || imUI.selImg !== null) { imUI.selImg = null; imSelect(page, null); imRefreshSide(page); } return; }
+        e.preventDefault();
+        document.activeElement?.blur?.();
+
+        if (handle) {
+          const h = handle.dataset.imHandle;
+          if (h === 'gc' || h === 'gr') {                         // gutter: resize the layout split
+            const A = IM_AREA;
+            const s0 = { ...(d.split || { c: 50, r: 50 }) };
+            const slots0 = imSlots(d), key = imLayoutKey(d);
+            const top0 = key === '1+2' ? slots0[1].y : A.y, hgt = key === '1+2' ? (A.h) : A.h;
+            annoDrag(paper, e, (ev) => {
+              const p = annoPt(paper, ev);
+              d.split = { ...s0 };
+              if (h === 'gc') d.split.c = Math.round(clampN((p.x - A.x) / A.w * 100, 15, 85) * 10) / 10;
+              else d.split.r = Math.round(clampN((p.y - top0) / hgt * 100, 15, 85) * 10) / 10;
+              d.images.forEach((im, n) => { const sl = imSlots(d)[n]; if (sl) imClampView(im, imFrame(sl, im)); });
+              imUpdateGeo(page);
+            }, () => imSave(page));
+            return;
+          }
+          // shape corner: resize the circle / box around its centre
+          const f = imFindCallout(d, imUI.sel), g = f && imCalloutGeo(d).find(x => x.c.id === imUI.sel);
+          if (!g) return;
+          annoDrag(paper, e, (ev) => {
+            const p = annoPt(paper, ev);
+            f.c.w = Math.round(clampN(Math.abs(p.x - g.px) * 2 / g.R.w, 0.01, 2) * 1e4) / 1e4;
+            f.c.h = Math.round(clampN(Math.abs(p.y - g.py) * 2 / g.R.h, 0.01, 2) * 1e4) / 1e4;
+            if (ev.shiftKey) { const m = Math.max(f.c.w * g.R.w, f.c.h * g.R.h); f.c.w = Math.round(m / g.R.w * 1e4) / 1e4; f.c.h = Math.round(m / g.R.h * 1e4) / 1e4; }
+            imUpdateGeo(page);
+          }, () => imSave(page));
+          return;
+        }
+
+        if (lbl) {                                                // move a label (snaps to other labels' edges)
+          const id = lbl.dataset.imLbl, f = imFindCallout(d, id);
+          if (!f) return;
+          imSelect(page, id, f.im ? d.images.indexOf(f.im) : imUI.selImg);
+          const all = [...imCalloutGeo(d).map(g => ({ id: g.c.id, ...g.L })), ...(d.texts || []).map((t, k) => { const s = imLabelSize(d, imLabelText({ ...t, type: 'text' }, k)); return { id: t.id, ...annoClampLabel(t.lx, t.ly, s.w, s.h), w: s.w, h: s.h }; })];
+          const me = all.find(r => r.id === id);
+          const edges = all.filter(r => r.id !== id).flatMap(r => [r.x, r.x + r.w]);
+          let moved = false;
+          annoDrag(paper, e, (ev) => {
+            const p = annoPt(paper, ev);
+            if (!moved && Math.hypot(p.x - p0.x, p.y - p0.y) * p.k < 3) return;
+            moved = true;
+            let x = me.x + p.x - p0.x, snap = null;
+            if (!ev.altKey) for (const ex of edges) {
+              if (Math.abs(x - ex) < 5 / p.k) { x = ex; snap = ex; break; }
+              if (Math.abs(x + me.w - ex) < 5 / p.k) { x = ex - me.w; snap = ex; break; }
+            }
+            const q = annoClampLabel(x, me.y + p.y - p0.y, me.w, me.h);
+            f.c.lx = r1(q.x); f.c.ly = r1(q.y);
+            imRenderOverlay(page);
+            const gd = paper.querySelector('.im-guide') || (() => { const el = document.createElement('div'); el.className = 'an-guide im-guide'; document.getElementById('an-ui-dyn').appendChild(el); return el; })();
+            gd.style.display = snap === null ? 'none' : 'block'; gd.style.left = snap + 'px';
+          }, () => { paper.querySelector('.im-guide')?.remove(); if (moved) imSave(page); });
+          return;
+        }
+
+        if (dot || (shape && imUI.mode === 'select')) {         // move a point / shape on its photo
+          const id = (dot && dot.dataset.imDot) || shape.dataset.imShape, f = imFindCallout(d, id);
+          const g = f && imCalloutGeo(d).find(x => x.c.id === id);
+          if (!g) return;
+          imSelect(page, id, g.i);
+          const x0 = f.c.x, y0 = f.c.y;
+          let moved = false;
+          annoDrag(paper, e, (ev) => {
+            const p = annoPt(paper, ev);
+            if (!moved && Math.hypot(p.x - p0.x, p.y - p0.y) * p.k < 3) return;
+            moved = true;
+            f.c.x = Math.round(clampN(x0 + (p.x - p0.x) / g.R.w, 0, 1) * 1e4) / 1e4;
+            f.c.y = Math.round(clampN(y0 + (p.y - p0.y) / g.R.h, 0, 1) * 1e4) / 1e4;
+            imUpdateGeo(page);
+          }, () => { if (moved) imSave(page); });
+          return;
+        }
+
+        const i = +frame.dataset.imFrame, im = d.images[i];
+        if (!im) return;
+        const F = imFrame(imSlots(d)[i], im), R = imPhotoRect(im, F);
+        const mode = imUI.mode;
+        if ((mode === 'dot' || mode === 'circle' || mode === 'rect') && R) {
+          const u = (p0.x - R.x) / R.w, v = (p0.y - R.y) / R.h;
+          if (u < 0 || u > 1 || v < 0 || v > 1) return;            // outside the photo (letterbox)
+          const c = { id: imNewId('c_'), type: mode, x: Math.round(u * 1e4) / 1e4, y: Math.round(v * 1e4) / 1e4, label: '' };
+          if (mode !== 'dot') { c.w = 0.01; c.h = 0.01; }
+          im.callouts.push(c);
+          imSelect(page, c.id, i);
+          const draw = paper.querySelector('.im-draw'), rub = () => paper.querySelector('.an-rubber');
+          let moved = false, pEnd = p0;
+          annoDrag(paper, e, (ev) => {
+            const p = annoPt(paper, ev);
+            if (!moved && Math.hypot(p.x - p0.x, p.y - p0.y) * p.k < 5) return;
+            moved = true; pEnd = p;
+            if (mode === 'dot') {
+              const s = imLabelSize(d, imLabelText(c, im.callouts.indexOf(c)));
+              const q = annoClampLabel(p.x - s.w / 2, p.y - s.h / 2, s.w, s.h);
+              c.lx = r1(q.x); c.ly = r1(q.y);
+              imRenderOverlay(page);
+              const rb = rub(), line = rb && rb.querySelector('line');
+              if (line) { rb.style.display = 'block'; line.setAttribute('x1', p0.x); line.setAttribute('y1', p0.y); line.setAttribute('x2', p.x); line.setAttribute('y2', p.y); }
+            } else {
+              const x1 = clampN(Math.min(p0.x, p.x), R.x, R.x + R.w), x2 = clampN(Math.max(p0.x, p.x), R.x, R.x + R.w);
+              const y1 = clampN(Math.min(p0.y, p.y), R.y, R.y + R.h), y2 = clampN(Math.max(p0.y, p.y), R.y, R.y + R.h);
+              c.x = Math.round(((x1 + x2) / 2 - R.x) / R.w * 1e4) / 1e4; c.y = Math.round(((y1 + y2) / 2 - R.y) / R.h * 1e4) / 1e4;
+              c.w = Math.round(Math.max(0.01, (x2 - x1) / R.w) * 1e4) / 1e4; c.h = Math.round(Math.max(0.01, (y2 - y1) / R.h) * 1e4) / 1e4;
+              const dw = paper.querySelector('.im-draw');
+              if (dw) Object.assign(dw.style, { display: 'block', left: x1 + 'px', top: y1 + 'px', width: (x2 - x1) + 'px', height: (y2 - y1) + 'px', borderRadius: mode === 'circle' ? '50%' : '0' });
+            }
+          }, () => {
+            if (mode !== 'dot' && (!moved || c.w * R.w < 6 || c.h * R.h < 6)) {   // a click: default size
+              const sz = Math.min(R.w, R.h) * 0.16;
+              c.w = Math.round(sz / R.w * 1e4) / 1e4; c.h = Math.round(sz / R.h * 1e4) / 1e4;
+            }
+            if (c.lx == null) {
+              const s = imLabelSize(d, imLabelText(c, im.callouts.indexOf(c)));
+              const bw = (c.w || 0) * R.w, bh = (c.h || 0) * R.h;
+              Object.assign(c, imPlaceLabel(d, { x: R.x + c.x * R.w - bw / 2, y: R.y + c.y * R.h - bh / 2, w: bw, h: bh }, s, c.id));
+            }
+            imSave(page);
+            renderImagePage(page);
+            imRename(page, c.id);
+          });
+          return;
+        }
+
+        // select mode on a photo: select it; drag = pan (zoomed) or move it to another slot
+        if (imUI.selImg !== i || imUI.sel) imSelect(page, null, i);
+        imRefreshSide(page);
+        if (!R) return;
+        const zoomed = R.w > F.w + 0.5 || R.h > F.h + 0.5;
+        const cx0 = im.cx != null ? im.cx : 0.5, cy0 = im.cy != null ? im.cy : 0.5;
+        let moved = false, target = null;
+        annoDrag(paper, e, (ev) => {
+          const p = annoPt(paper, ev);
+          if (!moved && Math.hypot(p.x - p0.x, p.y - p0.y) * p.k < 4) return;
+          moved = true;
+          if (zoomed) {
+            im.cx = cx0 - (p.x - p0.x) / R.w; im.cy = cy0 - (p.y - p0.y) / R.h;
+            imClampView(im, F);
+            imUpdateGeo(page);
+          } else {
+            const slots = imSlots(d);
+            target = slots.findIndex((s, n) => n !== i && n < Math.max(d.images.length, 1) && p.x >= s.x && p.x <= s.x + s.w && p.y >= s.y && p.y <= s.y + s.h);
+            if (target < 0) target = null;
+            paper.querySelectorAll('.im-frame-ui').forEach(el => el.classList.remove('drop'));
+            if (target !== null) paper.querySelectorAll('.im-frame-ui')[target]?.classList.add('drop');
+            paper.classList.add('swapping');
+          }
+        }, () => {
+          paper.classList.remove('swapping');
+          if (!moved) return;
+          if (zoomed) { imSave(page); return; }
+          if (target === null) { imRenderUI(page); return; }
+          [d.images[i], d.images[target]] = [d.images[target], d.images[i]];
+          d.images.forEach((x, n) => { x.position = n; });
+          imUI.selImg = target;
+          imSave(page);
+          renderImagePage(page);
+        });
+      });
+    }
+
+    // Keyboard (image page): V / D / C / R / T modes, Esc, Delete, arrows (label), Enter rename,
+    // Ctrl+D duplicate, + / − / 0 view zoom, Space pan.
+    window.addEventListener('keydown', (e) => {
+      const page = state.pages[state.activePage];
+      if (!page || page.type !== 'image' || !document.getElementById('im-stage')) return;
+      if (document.querySelector('.tool-modal-overlay, .sim-modal-overlay, .hp-modal-overlay, .update-backdrop') || document.getElementById('preview-overlay')?.classList.contains('open')) return;
+      const t = e.target;
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
+      const d = page.data, k = e.key;
+      let handled = true;
+      if (e.ctrlKey || e.metaKey) {
+        if ((k === 'd' || k === 'D') && imUI.sel) imDuplicate(page, imUI.sel); else handled = false;
+      } else if (k === 'v' || k === 'V') imSetMode(page, 'select');
+      else if (k === 'd' || k === 'D') imSetMode(page, 'dot');
+      else if (k === 'c' || k === 'C') imSetMode(page, 'circle');
+      else if (k === 'r' || k === 'R') imSetMode(page, 'rect');
+      else if (k === 't' || k === 'T') imSetMode(page, 'text');
+      else if (k === 'Escape') {
+        const pop = document.querySelector('.an-pop, .an-ctx');
+        if (pop) { if (pop._close) pop._close(); else pop.remove(); }
+        else if (imUI.mode !== 'select') imSetMode(page, 'select');
+        else if (imUI.sel || imUI.selImg !== null) { imUI.selImg = null; imSelect(page, null); imRefreshSide(page); }
+        else handled = false;
+      } else if ((k === 'Delete' || k === 'Backspace') && imUI.sel) imDeleteCallout(page, imUI.sel);
+      else if ((k === 'Delete' || k === 'Backspace') && imUI.selImg !== null) imTool(page, 'delimg');
+      else if ((k === 'Enter' || k === 'F2') && imUI.sel) imRename(page, imUI.sel);
+      else if (k.startsWith('Arrow') && imUI.sel) {
+        const f = imFindCallout(d, imUI.sel);
+        if (!f) return;
+        const st = e.shiftKey ? 10 : 1;
+        f.c.lx = (f.c.lx || 0) + (k === 'ArrowLeft' ? -st : k === 'ArrowRight' ? st : 0);
+        f.c.ly = (f.c.ly || 0) + (k === 'ArrowUp' ? -st : k === 'ArrowDown' ? st : 0);
+        imRenderOverlay(page);
+        imSave(page);
+      } else if (k === '+' || k === '=') annoZoom(page, 1, null, imUI);
+      else if (k === '-' || k === '_') annoZoom(page, -1, null, imUI);
+      else if (k === '0') annoZoom(page, 0, null, imUI);
+      else if (k === ' ') { imUI.space = true; document.getElementById('an-paper')?.classList.add('panning'); }
+      else handled = false;
+      if (handled) { e.preventDefault(); e.stopPropagation(); }
+    }, true);
+    window.addEventListener('keyup', (e) => {
+      if (e.key === ' ' && imUI.space) { e.preventDefault(); imUI.space = false; document.getElementById('an-paper')?.classList.remove('panning'); }
+    }, true);
+    window.addEventListener('blur', () => { imUI.space = false; });
 
     // ━━━ Thermal data model (single source of truth) ━━━
     // Every place that shows a margin / pass-fail / comparison value — the data
@@ -10802,61 +10719,6 @@
       return wrapPageHTML(inner);
     }
 
-    function buildImagePageHTML(d) {
-      const imgs = d.images || [];
-      const count = imgs.length;
-      const colSplit = d.col_split ?? 50;
-      const rowSplit = d.row_split ?? 50;
-      // Grid CSS
-      let gridStyle = 'flex:1;display:grid;gap:10px;min-height:0;';
-      if (count <= 1) gridStyle += 'grid-template-columns:1fr;grid-template-rows:1fr;';
-      else if (count === 2) gridStyle += `grid-template-columns:${colSplit}fr ${100-colSplit}fr;grid-template-rows:1fr;`;
-      else gridStyle += `grid-template-columns:${colSplit}fr ${100-colSplit}fr;grid-template-rows:${rowSplit}fr ${100-rowSplit}fr;`;
-
-      let cells = '';
-      for (let i = 0; i < count; i++) {
-        const img = imgs[i];
-        const src = img && img.url_or_base64;
-        // Annotations: dot markers + resizable circles, each with a leader line
-        // and label, positioned as % of the cell so they match the editor exactly.
-        const mk = (src && img.markers) ? img.markers : [];
-        const cc = (src && img.circles) ? img.circles : [];
-        const labelBox = (m, fallback) => {
-          const lw = m.label_w || 90;
-          return `<div style="position:absolute;left:${m.label_x}%;top:${m.label_y}%;width:${lw}px;min-width:40px;padding:3px 6px;background:#fff;border:1.5px solid #2357A7;font-family:'JetBrains Mono',monospace;font-size:10px;color:rgba(15,23,42,0.90);z-index:20;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:0 1px 4px rgba(0,0,0,0.12);box-sizing:border-box;">${escHtml(m.label || fallback)}</div>`;
-        };
-        let mkDots = '', mkLines = '';
-        mk.forEach((m, mi) => {
-          mkDots += `<div style="position:absolute;left:${m.x}%;top:${m.y}%;width:5px;height:5px;border-radius:50%;background:#dc2626;box-shadow:0 0 0 1px rgba(255,255,255,0.9);transform:translate(-50%,-50%);z-index:15;"></div>`;
-          mkDots += labelBox(m, '標註' + (mi + 1));
-          mkLines += `<line x1="${m.x}" y1="${m.y}" x2="${m.label_x}" y2="${m.label_y}" stroke="#dc2626" stroke-width="0.4"/>`;
-        });
-        cc.forEach((c, ci) => {
-          mkDots += `<div style="position:absolute;left:${c.x}%;top:${c.y}%;width:${c.w}%;height:${c.h}%;border:2px solid #dc2626;border-radius:50%;box-sizing:border-box;z-index:16;"></div>`;
-          mkDots += labelBox(c, '圈選' + (ci + 1));
-          const ep = circleEdgePoint(c); // start the line on the circle edge, not the centre
-          mkLines += `<line x1="${ep.x}" y1="${ep.y}" x2="${c.label_x}" y2="${c.label_y}" stroke="#dc2626" stroke-width="0.4"/>`;
-        });
-        const mkSvg = mkLines ? `<svg viewBox="0 0 100 100" preserveAspectRatio="none" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:10;">${mkLines}</svg>` : '';
-        cells += `<div style="display:flex;flex-direction:column;min-height:0;min-width:0;">
-          <div style="flex:1;position:relative;border:${src ? '1px solid rgba(15,23,42,0.08)' : '2px dashed rgba(15,23,42,0.15)'};border-radius:6px;display:flex;align-items:center;justify-content:center;overflow:hidden;min-height:0;">
-            ${src ? `<img src="${escapeAttr(src)}" style="max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;transform:${imgPageTransform(img)};">` : ''}
-            ${mkSvg}${mkDots}
-          </div>
-          ${src && img.caption ? `<div style="font-size:12px;color:rgba(15,23,42,0.55);padding:4px 6px;margin-top:4px;border-bottom:1px dashed rgba(15,23,42,0.12);">${escHtml(img.caption)}</div>` : ''}
-        </div>`;
-      }
-      if (count === 0) {
-        cells = '<div style="display:flex;align-items:center;justify-content:center;flex:1;"></div>';
-      }
-
-      const inner = `<div style="width:100%;height:100%;display:flex;flex-direction:column;padding:22px 28px 28px;overflow:hidden;color:rgba(15,23,42,0.90);letter-spacing:0px;word-spacing:0px;">
-        <div style="font-family:'Space Grotesk',sans-serif;font-size:16px;font-weight:600;letter-spacing:0.02em;word-spacing:0px;padding:6px 8px;margin-bottom:10px;color:#0B3D7A;">${escHtml(d.title)}</div>
-        <div style="${gridStyle}">${cells}</div>
-      </div>`;
-      return wrapPageHTML(inner);
-    }
-
     // Returns an ARRAY of page HTML strings: the conclusion normally fits on one
     // page; when the Compliance Summary is long it continues on further pages
     // (header row repeated) instead of being clipped. Issues / Next Action go
@@ -10993,6 +10855,50 @@
       return pages;
     }
 
+    // ━━━ Measured pagination (preview / PDF) ━━━
+    // Pages are 842 × 595 px. Instead of fixed "rows per page" (rows differ in
+    // height: wrapped names, a second line with Δ / warnings …), every page is laid
+    // out off-screen with the export fonts and must end above a limit, so no row
+    // can ever slide under the footer, whatever the data. Builders put PG_END at
+    // the end of their content flow.
+    const PG_END = '<div data-pg-end style="height:0;margin:0;padding:0;"></div>';
+    const PG_LIMIT = 548;         // lowest content y: clear of the page number (~573) and corner marks
+    let _pgBox = null;
+    function pgBottom(pageHtml) {
+      if (!_pgBox || !_pgBox.isConnected) {
+        _pgBox = document.createElement('div');
+        _pgBox.className = 'pg-measure';
+        // renderable (not visibility:hidden), so webfont metrics are the real ones
+        _pgBox.style.cssText = `position:fixed;left:-10000px;top:0;width:842px;height:595px;background:#fff;z-index:-1;overflow:hidden;font-family:${PDF_FONT};letter-spacing:0;word-spacing:0;pointer-events:none;`;
+        document.body.appendChild(_pgBox);
+      }
+      _pgBox.innerHTML = '<style>.pg-measure *{letter-spacing:0!important;word-spacing:0!important;text-transform:none!important}</style><div style="width:100%;height:100%;">' + pageHtml + '</div>';
+      const end = _pgBox.querySelector('[data-pg-end]');
+      const y = end ? end.getBoundingClientRect().top - _pgBox.getBoundingClientRect().top : 0;
+      _pgBox.innerHTML = '';
+      return y;
+    }
+    // Largest e in [lo, hi] with ok(e) true (ok must be monotone: true … true false … false); lo − 1 if none.
+    function pgMax(lo, hi, ok) {
+      if (lo > hi || !ok(lo)) return lo - 1;
+      let a = lo, b = hi;
+      while (a < b) { const m = Math.ceil((a + b) / 2); if (ok(m)) a = m; else b = m - 1; }
+      return a;
+    }
+    // Split n rows into pages: page(start, end, pageNo) → page HTML. Each page takes as
+    // many rows as fit above limit (at least one). Returns [[start, end], …].
+    function pgSplit(n, page, limit = PG_LIMIT) {
+      const out = [];
+      let i = 0;
+      while (i < n) {
+        const no = out.length;
+        const e = Math.max(i + 1, pgMax(i + 1, n, e => pgBottom(page(i, e, no)) <= limit));
+        out.push([i, e]);
+        i = e;
+      }
+      return out;
+    }
+
     function buildDataPagePagesHTML(d) {
       const h = d.header || {};
       const tas = d.ta_conditions || [];
@@ -11123,9 +11029,6 @@
 
       const sensors = d.sensors || [];
       const sensorsWithData = sensors.filter(s => s.name || Object.values(s.readings || {}).some(v => v));
-      // Max sensor rows on a dedicated (own) sensor page — keeps the last row clear
-      // of the footer band (~y573). Calibrated with a comfortable margin.
-      const SENSORS_PER_PAGE = 21;
       let sensorHtml = '';
       let sensorRowArr = [];
       let buildSensorBlock = () => '';
@@ -11180,181 +11083,48 @@
       const makeInner = (title, headerBlock, rows, sensor) =>
         `<div style="width:100%;height:100%;padding:28px 32px 28px;color:rgba(15,23,42,0.90);overflow:hidden;letter-spacing:0px;word-spacing:0px;">
           ${title}${headerBlock}
-          <div style="border:1px solid #C2DFF8;">
+          ${rows || !sensor ? `<div style="border:1px solid #C2DFF8;">
             <table style="width:100%;border-collapse:collapse;font-size:${fs}px;">
               ${theadHtml}
               <tbody>${rows}</tbody>
             </table>
-          </div>
-          ${sensor}
+          </div>` : ''}
+          ${sensor}${PG_END}
         </div>${rows ? defNoteHtml : ''}`;
 
-      const PAGE_H = 595;
-      // Bottom cut-off for content on a page. Calibrated from the real rendered
-      // layout (Noto Sans TC loaded): component rows are ~24px tall, so on page 1
-      // (which also carries the info grid) row N ends near y=260+24*N — e.g. row
-      // 11 ≈ y520, row 12 ≈ y544 — while the footer band ("CONFIDENTIAL") starts
-      // ~y572. A cut-off of 532 keeps 11 rows on the first page and pushes the
-      // 12th onto the next page, with a comfortable gap above the footer.
-      const MAX_CONTENT_Y = 532;
-
-      // The sensor section can be far taller than one page (dozens of sensors), so
-      // it is split into dedicated pages of at most SENSORS_PER_PAGE rows each. The
-      // table header repeats on every page and each page carries the report title.
-      const makeSensorPages = () =>
-        sensorRowArr.length === 0 ? [] :
-        Array.from({ length: Math.ceil(sensorRowArr.length / SENSORS_PER_PAGE) }, (_, i) =>
-          wrapPageHTML(
-            `<div style="width:100%;height:100%;padding:28px 32px 28px;color:rgba(15,23,42,0.90);overflow:hidden;letter-spacing:0px;word-spacing:0px;">
-              ${titleHtml}
-              ${buildSensorBlock(sensorRowArr.slice(i * SENSORS_PER_PAGE, (i + 1) * SENSORS_PER_PAGE))}
-            </div>`));
-
-      if (rowsHtml.length === 0) {
-        // No component rows. If the whole sensor block fits under the info grid,
-        // keep it on one page; otherwise put the info grid on page 1 and paginate
-        // the sensor rows onto their own pages.
-        if (sensorsWithData.length === 0) {
-          return [wrapPageHTML(makeInner(titleHtml, infoGridHtml + taTagsHtml + powerHtml, '', ''))];
+      // Pages are filled by measurement (see pgBottom): component rows first, then
+      // the sensor rows (their table header repeats on every page they continue to).
+      // Pages carrying component rows end higher, above the margin definitions.
+      const LIMIT_WITH_NOTE = 532;
+      const headerBlocks = infoGridHtml + taTagsHtml + powerHtml;
+      const nC = rowsHtml.length, nS = sensorRowArr.length;
+      const html = sp => wrapPageHTML(makeInner(titleHtml, sp.first ? headerBlocks : '',
+        rowsHtml.slice(sp.c0, sp.c1).join(''), sp.s1 > sp.s0 ? buildSensorBlock(sensorRowArr.slice(sp.s0, sp.s1)) : ''));
+      const fits = sp => pgBottom(html(sp)) <= (sp.c1 > sp.c0 ? LIMIT_WITH_NOTE : PG_LIMIT);
+      const specs = [];
+      let ci = 0, si = 0;
+      do {
+        const sp = { first: specs.length === 0, c0: ci, c1: ci, s0: si, s1: si };
+        if (ci < nC) {
+          sp.c1 = Math.max(ci + 1, pgMax(ci + 1, nC, e => fits({ ...sp, c1: e })));
+          ci = sp.c1;
         }
-        const m = document.createElement('div');
-        m.style.cssText = `position:fixed;left:-9999px;top:0;width:842px;background:#fff;z-index:-1;font-family:${PDF_FONT};`;
-        m.innerHTML = `<div style="width:100%;padding:28px 32px 28px;letter-spacing:0;word-spacing:0;">${titleHtml}${infoGridHtml}${taTagsHtml}${powerHtml}${sensorHtml}</div>`;
-        document.body.appendChild(m);
-        void m.offsetHeight;
-        const fitsOnePage = m.firstElementChild.getBoundingClientRect().height <= MAX_CONTENT_Y;
-        document.body.removeChild(m);
-        if (fitsOnePage) {
-          return [wrapPageHTML(makeInner(titleHtml, infoGridHtml + taTagsHtml + powerHtml, '', sensorHtml))];
+        if (ci >= nC && si < nS) {
+          // continue with the sensors here only if at least two rows (or all that is left) fit
+          const minRows = Math.min(2, nS - si);
+          const e = pgMax(si + minRows, nS, e => fits({ ...sp, s1: e }));
+          if (e >= si + minRows) sp.s1 = e;
+          else if (sp.c1 === sp.c0 && !sp.first) sp.s1 = si + 1;   // an otherwise empty page always takes one row
+          si = sp.s1;
         }
-        return [
-          wrapPageHTML(makeInner(titleHtml, infoGridHtml + taTagsHtml + powerHtml, '', '')),
-          ...makeSensorPages(),
-        ];
-      }
-
-      // NOTE: the measurer is positioned off-screen but must stay *renderable*
-      // (no visibility:hidden) — a hidden element can be measured with fallback
-      // font metrics while the real export render uses the taller webfonts,
-      // which would make pagination under-count row heights and overflow.
-      const measurer = document.createElement('div');
-      measurer.style.cssText = `position:fixed;left:-9999px;top:0;width:842px;background:#fff;z-index:-1;font-family:${PDF_FONT};`;
-      document.body.appendChild(measurer);
-
-      // ── Pass 1: measure component row positions on page 1 layout ──
-      measurer.innerHTML = `<div style="width:100%;padding:28px 32px 28px;letter-spacing:0;word-spacing:0;">
-        ${titleHtml}${infoGridHtml}${taTagsHtml}${powerHtml}
-        <div style="border:1px solid #C2DFF8;">
-          <table style="width:100%;border-collapse:collapse;font-size:${fs}px;">
-            ${theadHtml}
-            <tbody data-measure-rows>${rowsHtml.join('')}</tbody>
-          </table>
-        </div>
-      </div>`;
-      void measurer.offsetHeight;
-
-      const mTop = measurer.getBoundingClientRect().top;
-      // Component rows only — the machine-power table above has rows of its own.
-      const trs = Array.from(measurer.querySelectorAll('tbody[data-measure-rows] > tr'));
-      const rowBottoms = trs.map(tr => tr.getBoundingClientRect().bottom - mTop);
-      const firstRowTop = trs[0].getBoundingClientRect().top - mTop;
-      const rowHeights = trs.map((tr, i) =>
-        i === 0 ? rowBottoms[0] - firstRowTop : rowBottoms[i] - rowBottoms[i - 1]
-      );
-
-      // ── Pass 2: measure sensor section height ──
-      let sensorH = 0;
-      if (sensorHtml) {
-        measurer.innerHTML = `<div style="width:100%;padding:0 32px;letter-spacing:0;word-spacing:0;">${sensorHtml}</div>`;
-        void measurer.offsetHeight;
-        sensorH = measurer.firstElementChild.getBoundingClientRect().height + 10;
-      }
-
-      // ── Pass 3: measure continuation page header overhead ──
-      measurer.innerHTML = `<div style="width:100%;padding:28px 32px 28px;letter-spacing:0;word-spacing:0;">
-        <div style="${titleStyle}">THERMAL TEST DATA</div>
-        <div style="border:1px solid #C2DFF8;">
-          <table style="width:100%;border-collapse:collapse;font-size:${fs}px;">
-            ${theadHtml}
-            <tbody><tr><td style="padding:0;height:0;line-height:0;font-size:0;border:none;"></td></tr></tbody>
-          </table>
-        </div>
-      </div>`;
-      void measurer.offsetHeight;
-      const contRowStartY = measurer.querySelector('tbody tr').getBoundingClientRect().top - measurer.getBoundingClientRect().top;
-      const contAvailH = MAX_CONTENT_Y - contRowStartY;
-
-      document.body.removeChild(measurer);
-
-      // ── Check single-page: all rows + sensor fit? ──
-      const lastRowBottom = rowBottoms[rowBottoms.length - 1];
-      if (lastRowBottom + sensorH <= MAX_CONTENT_Y) {
-        return [wrapPageHTML(makeInner(titleHtml, infoGridHtml + taTagsHtml + powerHtml, rowsHtml.join(''), sensorHtml))];
-      }
-
-      const sumRows = (a, b) => { let s = 0; for (let i = a; i < b; i++) s += rowHeights[i]; return s; };
-
-      // ── Split the component rows across pages (rows only; the sensor block is
-      //    placed afterwards so it can never be crammed onto an overflowing page). ──
-      //    Page 1 carries the info grid, so its rows start lower (firstRowTop);
-      //    continuation pages only repeat the table header (contRowStartY).
-      const rowPages = [];
-      let page1End = 0;
-      for (let i = 0; i < rowBottoms.length; i++) {
-        if (rowBottoms[i] <= MAX_CONTENT_Y) page1End = i + 1;
-        else break;
-      }
-      if (page1End === 0) page1End = 1; // always place at least one row
-      rowPages.push({ start: 0, end: page1End, top: firstRowTop });
-      let idx = page1End;
-      while (idx < rowsHtml.length) {
-        let accum = 0;
-        let end = idx;
-        while (end < rowsHtml.length && accum + rowHeights[end] <= contAvailH) {
-          accum += rowHeights[end];
-          end++;
-        }
-        if (end === idx) end = idx + 1;
-        rowPages.push({ start: idx, end, top: contRowStartY });
-        idx = end;
-      }
-
-      // ── Decide where the sensor block goes: on the last row page if it fits
-      //    below that page's rows, otherwise on a dedicated continuation page. ──
-      let sensorPageIndex = -1;
-      let sensorOwnPage = false;
-      if (sensorHtml) {
-        const lp = rowPages[rowPages.length - 1];
-        const rowsBottomOnLast = lp.top + sumRows(lp.start, lp.end);
-        if (rowsBottomOnLast + sensorH <= MAX_CONTENT_Y) {
-          sensorPageIndex = rowPages.length - 1;
-        } else {
-          sensorOwnPage = true;
-        }
-      }
-
-      // All pages keep the same "THERMAL TEST DATA" title (no page-number suffix).
-      const out = rowPages.map((rp, i) => {
-        const rows = rowsHtml.slice(rp.start, rp.end).join('');
-        const sensor = i === sensorPageIndex ? sensorHtml : '';
-        if (i === 0) {
-          return wrapPageHTML(makeInner(titleHtml, infoGridHtml + taTagsHtml + powerHtml, rows, sensor));
-        }
-        return wrapPageHTML(makeInner(titleHtml, '', rows, sensor));
-      });
-
-      if (sensorOwnPage) {
-        // Sensor section doesn't fit under the last component page — give it its
-        // own page(s), paginated so large sensor sets never overflow / clip.
-        out.push(...makeSensorPages());
-      }
-
-      return out;
+        specs.push(sp);
+      } while (ci < nC || si < nS);
+      return specs.map(html);
     }
 
-    // Returns an ARRAY of page HTML strings. The comparison table is paginated at
-    // ITEMS_PER_PAGE rows per page (title + table header repeat on each page) so
-    // long component lists no longer get clipped to the first page. The footer
+    // Returns an ARRAY of page HTML strings. The comparison table is paginated by
+    // measured height (title + table header repeat on each page) so long or
+    // wrapped component lists are never clipped. The footer
     // notes and 結論敘述 sit on the last page, or spill onto their own final page
     // when that last page is too full (measured, like the data page).
     function buildSimVsMeasPagesHTML(d) {
@@ -11414,48 +11184,18 @@
             <tbody>${rowsStr}</tbody>
           </table>
         </div>`;
-      const pageShell = (bodyHtml) => wrapPageHTML(`<div style="width:100%;height:100%;padding:22px 28px 28px;color:rgba(15,23,42,0.90);overflow:hidden;letter-spacing:0px;word-spacing:0px;">${titleHtml}${bodyHtml}</div>`);
+      const pageShell = (bodyHtml) => wrapPageHTML(`<div style="width:100%;height:100%;padding:22px 28px 28px;color:rgba(15,23,42,0.90);overflow:hidden;letter-spacing:0px;word-spacing:0px;">${titleHtml}${bodyHtml}${PG_END}</div>`);
 
-      // Landscape content (595px tall) must clear the footer band. Measure the
-      // last page's rows + extras with the export font; if it overflows, push the
-      // notes/結論敘述 to their own final page.
-      const SAFE_CONTENT_H = 560;   // matches the data page's calibrated cutoff (row-bottom 532 + 28px bottom padding)
-      const fits = (bodyHtml) => {
-        const m = document.createElement('div');
-        m.style.cssText = `position:fixed;left:-9999px;top:0;width:842px;background:#fff;z-index:-1;font-family:${PDF_FONT};letter-spacing:0;word-spacing:0;`;
-        m.innerHTML = `<div style="width:100%;padding:22px 28px 28px;letter-spacing:0;word-spacing:0;">${titleHtml}${bodyHtml}</div>`;
-        document.body.appendChild(m);
-        void m.offsetHeight;
-        const hgt = m.firstElementChild.getBoundingClientRect().height;
-        document.body.removeChild(m);
-        return hgt <= SAFE_CONTENT_H;
-      };
-
-      const ITEMS_PER_PAGE = 20;   // the 21st component starts a new page
-
-      if (items.length === 0) {
-        return [pageShell(tableBlock('') + extrasHtml)];
-      }
-
-      const chunks = [];
-      for (let i = 0; i < items.length; i += ITEMS_PER_PAGE) chunks.push(items.slice(i, i + ITEMS_PER_PAGE));
-
-      const pages = [];
-      chunks.forEach((chunk, ci) => {
-        const rowsStr = chunk.map(rowHtml).join('');
-        if (ci < chunks.length - 1) {
-          pages.push(pageShell(tableBlock(rowsStr)));         // middle pages: rows only
-        } else {
-          const combined = tableBlock(rowsStr) + extrasHtml;  // last page: rows + extras…
-          if (fits(combined)) {
-            pages.push(pageShell(combined));
-          } else {                                            // …unless it overflows
-            pages.push(pageShell(tableBlock(rowsStr)));
-            pages.push(pageShell(extrasHtml));
-          }
-        }
-      });
-      return pages;
+      if (items.length === 0) return [pageShell(tableBlock('') + extrasHtml)];
+      // Rows per page by measurement (a wrapped name or a "來源元件已變更" line makes a row taller).
+      const rowStrs = items.map(rowHtml);
+      const chunks = pgSplit(rowStrs.length, (a, b) => pageShell(tableBlock(rowStrs.slice(a, b).join(''))));
+      const pages = chunks.map(([a, b]) => tableBlock(rowStrs.slice(a, b).join('')));
+      // notes / chart / 結論敘述 go under the last rows, or onto their own final page
+      const last = pages.length - 1;
+      if (pgBottom(pageShell(pages[last] + extrasHtml)) <= PG_LIMIT) pages[last] += extrasHtml;
+      else pages.push(extrasHtml);
+      return pages.map(pageShell);
     }
 
     // HTML-escape any value (numbers included — 0 renders as "0", not "").
@@ -12925,15 +12665,14 @@
       const stale = t.sd.filter(x => x.ok && !x.live).length ? `<div style="font-size:8.5px;color:#b45309;margin-top:4px;">※ 部分比較對象的報告不在目前資料庫，使用加入時的數值快照。</div>` : '';
       const extras = `<div style="font-size:9px;color:rgba(15,23,42,0.6);padding-top:6px;line-height:1.6;">${escHtml(COMPARE_NOTE)}</div>${stale}
         ${compareSummaryLines(t).map(l => `<div style="font-size:10.5px;color:rgba(15,23,42,0.85);margin-top:6px;">■ ${escHtml(l)}</div>`).join('')}`;
-      const shell = body => wrapPageHTML(`<div style="width:100%;height:100%;padding:22px 28px 28px;color:rgba(15,23,42,0.9);overflow:hidden;letter-spacing:0;">${title}${body}</div>`);
-      const PER = 18;
-      if (t.rows.length <= PER) return [shell(compareTableHTML(t, t.rows) + extras)];
-      const pages = [];
-      for (let i = 0; i < t.rows.length; i += PER) {
-        const last = i + PER >= t.rows.length;
-        pages.push(shell(compareTableHTML(t, t.rows.slice(i, i + PER)) + (last ? extras : '')));
-      }
-      return pages;
+      const shell = body => wrapPageHTML(`<div style="width:100%;height:100%;padding:22px 28px 28px;color:rgba(15,23,42,0.9);overflow:hidden;letter-spacing:0;">${title}${body}${PG_END}</div>`);
+      if (!t.rows.length) return [shell(compareTableHTML(t, []) + extras)];
+      // rows per page by measurement; notes / summaries under the last rows or on their own page
+      const pages = pgSplit(t.rows.length, (a, b) => shell(compareTableHTML(t, t.rows.slice(a, b)))).map(([a, b]) => compareTableHTML(t, t.rows.slice(a, b)));
+      const last = pages.length - 1;
+      if (pgBottom(shell(pages[last] + extras)) <= PG_LIMIT) pages[last] += extras;
+      else pages.push(extras);
+      return pages.map(shell);
     }
 
     function renderComparePage(page) {
@@ -13490,6 +13229,7 @@
       state.pages.forEach((p, i) => { p.order = i; initPageSnapshot(p); });
       await loadSpecMemory();
       annoFitAllPages();
+      imFitAllPages();
       saveStructure();
       showEditor();
       renderPageList();
@@ -13509,6 +13249,7 @@
         (p.data.components || []).forEach(c => { if (!c.uid) { c.uid = newCompUid(); changed = true; } });
       });
       state.pages.forEach(p => { if (p.type === 'annotation' && annoNormalize(p.data)) changed = true; });
+      state.pages.forEach(p => { if (p.type === 'image' && imNormalize(p.data)) changed = true; });
       state.pages.forEach(p => {
         const rows = p.type === 'sim_vs_meas' ? (p.data.items || [])
           : p.type === 'conclusion' ? (p.data.compliance || []) : [];
@@ -13549,6 +13290,7 @@
       if (needsStructureSave) saveStructure();
       await loadSpecMemory();
       annoFitAllPages();
+      imFitAllPages();
 
       showEditor();
       renderPageList();

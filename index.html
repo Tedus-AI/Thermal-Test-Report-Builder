@@ -5107,6 +5107,14 @@
     function annoMovePhoto(from, to) {     // copy the photo fields of one photo object onto another
       ANNO_PHOTO_KEYS.forEach(k => { if (from[k] !== undefined) to[k] = from[k]; else delete to[k]; });
     }
+    // Photo 1's markers first, then photo 2's (each in its own order), so the numbers
+    // (TC1, TC2 …, badges, list, batch naming) run photo by photo. True if reordered.
+    function annoSortMarkers(d) {
+      const ms = d.markers;
+      if (ms.every((m, k) => k === 0 || annoPi(ms[k - 1]) <= annoPi(m))) return false;
+      d.markers = [...ms.filter(m => !annoPi(m)), ...ms.filter(m => annoPi(m))];
+      return true;
+    }
 
     // Pages saved by the previous version kept the frame in anno_photo_* and the
     // labels in % of the stage. Convert once, in place (idempotent).
@@ -5115,14 +5123,14 @@
       if (!Array.isArray(d.markers)) d.markers = [];
       let fixed = false;
       if (d.photo2 && (typeof d.photo2 !== 'object' || Array.isArray(d.photo2))) { delete d.photo2; fixed = true; }
-      if (d.photo2) {
-        if (!d.photo_url_or_base64 && d.photo2.photo_url_or_base64) {   // photo 1 always comes first: trade places
-          const tmp = {};
-          annoMovePhoto(d, tmp); annoMovePhoto(d.photo2, d); annoMovePhoto(tmp, d.photo2);
-          d.markers.forEach(m => { if (annoPi(m)) delete m.p; else m.p = 1; });
-          fixed = true;
-        } else if (!d.photo2.photo_url_or_base64 && !d.markers.some(m => annoPi(m) === 1)) { delete d.photo2; fixed = true; }
+      if (d.photo2 && !d.photo_url_or_base64 && d.photo2.photo_url_or_base64) {   // photo 1 always comes first: trade places
+        const tmp = {};
+        annoMovePhoto(d, tmp); annoMovePhoto(d.photo2, d); annoMovePhoto(tmp, d.photo2);
+        d.markers.forEach(m => { if (annoPi(m)) delete m.p; else m.p = 1; });
+        fixed = true;
       }
+      if (d.photo2 && !d.photo2.photo_url_or_base64 && !d.markers.some(m => annoPi(m) === 1)) { delete d.photo2; fixed = true; }
+      if (annoSortMarkers(d)) fixed = true;
       if (d.anno_v === 2) return fixed;
       if (d.photo_url_or_base64) {
         const w = d.anno_photo_w || 680, h = d.anno_photo_h || 430;
@@ -5219,14 +5227,15 @@
       return `position:absolute;left:${r1((B.w - iw) / 2)}px;top:${r1((B.h - ih) / 2)}px;width:${r1(iw)}px;height:${r1(ih)}px;display:flex;align-items:center;justify-content:center;${tf ? 'transform:' + tf.trim() + ';' : ''}`;
     }
     // Caption band under the photo (a little wider than it; long text is set smaller).
-    function annoCapRect(P) {
-      const B = P.img_box, w = Math.min(ANNO_SAFE.r - ANNO_SAFE.l, B.w + 60);
-      return { x: r1(clampN(B.x + B.w / 2 - w / 2, ANNO_SAFE.l, ANNO_SAFE.r - w)), y: r1(B.y + B.h), w: r1(w), h: ANNO_CAP_H };
+    // A = the photo's area (annoArea): next to the other photo the band stays on its own side.
+    function annoCapRect(P, A = ANNO_SAFE) {
+      const B = P.img_box, w = Math.max(40, Math.min(A.r - A.l, B.w + 60));
+      return { x: r1(clampN(B.x + B.w / 2 - w / 2, A.l, Math.max(A.l, A.r - w))), y: r1(B.y + B.h), w: r1(w), h: ANNO_CAP_H };
     }
-    function annoCapHTML(P, i, editor) {
+    function annoCapHTML(P, i, editor, A) {
       const cap = annoCap(P);
       if (!cap || !P.img_box) return '';
-      const R = annoCapRect(P);
+      const R = annoCapRect(P, A);
       const fs = r1(clampN(11 * (R.w - 8) / Math.max(1, annoTextW(cap, `11px ${ANNO_CAP_FONT}`)), 8, 11));
       return `<div ${editor ? `data-an-cap="${i}"` : ''} style="position:absolute;left:${R.x}px;top:${R.y}px;width:${R.w}px;height:${R.h}px;display:flex;align-items:center;justify-content:center;font-family:${ANNO_CAP_FONT};font-size:${fs}px;color:rgba(15,23,42,0.72);white-space:nowrap;overflow:hidden;z-index:1;">${escHtml(cap)}</div>`;
     }
@@ -5236,7 +5245,7 @@
         return `<div ${editor ? `data-an-img="${i}" id="${i ? 'an-img-1' : 'an-img'}"` : ''} style="position:absolute;left:${r1(B.x)}px;top:${r1(B.y)}px;width:${r1(B.w)}px;height:${r1(B.h)}px;overflow:hidden;z-index:1;">
           <div data-an-imgin style="${annoImgInnerStyle(P)}"><img src="${escapeAttr(P.photo_url_or_base64)}" draggable="false" style="${P.img_fit ? 'width:100%;height:100%;' : 'max-width:100%;max-height:100%;'}display:block;"></div>
           <div style="position:absolute;left:0;top:0;right:0;bottom:0;border:1px solid #C2DFF8;"></div>
-        </div>${annoCapHTML(P, i, editor)}`;
+        </div>${annoCapHTML(P, i, editor, annoArea(d, i))}`;
       }).join('');
     }
     // Leader lines, points and labels. opts.editor adds hit-test attributes and
@@ -5433,7 +5442,7 @@
       const rects = items.map(it => ({ x: it.m.lx - 6, y: it.m.ly - 6, w: it.w + 12, h: H + 12 }));
       if (items.some(it => rects.some(r => it.px > r.x && it.px < r.x + r.w && it.py > r.y && it.py < r.y + r.h))) return false;
       if (ch) {
-        const C = annoCapRect(P);
+        const C = annoCapRect(P, annoArea(d, pi));
         if (items.some(it => it.m.lx < C.x + C.w && C.x < it.m.lx + it.w && it.m.ly < C.y + C.h && C.y < it.m.ly + H)) return false;
       }
       return true;
@@ -5480,8 +5489,11 @@
       const s = annoLabelSize(d, m, i, tv && tv.byMarker.get(m.id));
       const p = annoDot(d, m), ch = annoCapH(P);
       const blocks = annoLabelRects(d, tv).filter(r => r.m !== m && r.m.lx != null);
-      annoPhotos(d).forEach(j => { if (j !== pi) blocks.push(annoFoot(annoPh(d, j))); });
-      if (ch) blocks.push(annoCapRect(P));
+      annoPhotos(d).forEach(j => {
+        const Q = annoPh(d, j);
+        if (j !== pi) blocks.push(annoFoot(Q));
+        if (annoCapH(Q)) blocks.push(annoCapRect(Q, annoArea(d, j)));
+      });
       const tryIn = (A) => {
         const free = (x, y) => x >= A.l - 0.5 && y >= A.t - 0.5 && x + s.w <= A.r + 0.5 && y + s.h <= A.b + 0.5
           && !blocks.some(o => x < o.x + o.w + 2 && o.x < x + s.w + 2 && y < o.y + o.h + 2 && o.y < y + s.h + 2);
@@ -5741,9 +5753,15 @@
       };
       if (!d.markers.length) return '<li class="an-empty">尚無標註點：按 <b>＋</b>（A）後點照片上的元件</li>';
       const idx = annoPhotos(d);
-      if (idx.length < 2) return d.markers.map((m, i) => annoPi(m) === (idx[0] || 0) ? row(m, i) : '').join('');
-      return idx.map(j => `<li class="an-grp">照片 ${j + 1}${annoCap(annoPh(d, j)) ? ' · ' + escHtml(annoCap(annoPh(d, j))) : ''}</li>`
+      // a group per photo on the page, plus one for points whose photo is not there (a template copy)
+      const groups = [0, 1].filter(j => idx.includes(j) || annoMk(d, j).length);
+      if (groups.length < 2 && idx.includes(groups[0])) return d.markers.map(row).join('');
+      return groups.map(j => `<li class="an-grp" data-an-grp="${j}">${escHtml(annoGrpTitle(d, j))}</li>`
         + (d.markers.map((m, i) => annoPi(m) === j ? row(m, i) : '').join('') || '<li class="an-empty">（尚無標註點）</li>')).join('');
+    }
+    function annoGrpTitle(d, j) {
+      const P = annoPh(d, j);
+      return annoHasPh(P) ? `照片 ${j + 1}${annoCap(P) ? ' · ' + annoCap(P) : ''}` : `照片 ${j + 1}（尚未放入照片，放入後顯示在頁面上）`;
     }
     // Photos (thumbnail + caption), layout picker, add / swap.
     function annoPhotosHTML(d) {
@@ -5896,7 +5914,7 @@
       const layer = document.getElementById('an-imglayer');
       if (!layer) return;
       layer.querySelectorAll('[data-an-cap]').forEach(el => el.remove());
-      layer.insertAdjacentHTML('beforeend', annoPhotos(d).map(i => annoCapHTML(annoPh(d, i), i, true)).join(''));
+      layer.insertAdjacentHTML('beforeend', annoPhotos(d).map(i => annoCapHTML(annoPh(d, i), i, true, annoArea(d, i))).join(''));
     }
     // Editor-only layer: frame handles, drop zone, safe-area guide.
     function annoRenderUI(page) {
@@ -5936,7 +5954,7 @@
     function annoSelect(page, id) {
       annoUI.sel = id;
       const m = id && page.data.markers.find(x => x.id === id);
-      if (m && annoPi(m) !== annoUI.photo) annoSelectPhoto(page, annoPi(m));
+      if (m && annoPi(m) !== annoUI.photo && annoHasPh(annoPh(page.data, annoPi(m)))) annoSelectPhoto(page, annoPi(m));
       annoRenderOverlay(page);
       document.querySelectorAll('#an-list [data-an-row]').forEach(li => li.classList.toggle('sel', li.dataset.anRow === id));
       const row = id && document.querySelector(`#an-list [data-an-row="${CSS.escape(id)}"]`);
@@ -6090,7 +6108,7 @@
       ui.querySelector('.an-rename')?.blur();
       ui.querySelector('.an-rename')?.remove();
       annoSelectPhoto(page, pi);
-      const R = annoCapRect(P);
+      const R = annoCapRect(P, annoArea(d, pi));
       const inp = document.createElement('input');
       inp.className = 'an-rename';
       inp.value = P.caption || '';
@@ -6108,6 +6126,9 @@
         inp.remove();
         if (commit && v !== annoCap(P)) annoSetCaption(page, pi, v);
         else if (document.getElementById('an-paper')) annoRenderUI(page);
+        if (!document.getElementById('an-paper')) return;
+        const row = document.querySelector(`#an-side [data-an-capin="${pi}"]`);   // side panel shows it too
+        if (row && document.activeElement !== row) row.value = P.caption || '';
       };
       inp.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') { e.preventDefault(); finish(true); }
@@ -6117,13 +6138,20 @@
       inp.addEventListener('blur', () => finish(true));
     }
     // A caption takes a band under the photo: keep photo + caption on the page.
+    // Saved on blur, i.e. often in the middle of the next click or drag: update the page in
+    // place (a full render would replace the paper under that gesture).
     function annoSetCaption(page, pi, v) {
       const d = page.data, P = annoPh(d, pi);
+      if (!P) return;
       P.caption = v;
       const B = P.img_box;
       if (B && B.y + B.h + annoCapH(P) > ANNO_SAFE.b + 0.5) P.img_box = annoFitInSafe(B, annoCapH(P));
       annoSave(page);
-      renderAnnotationPage(page);
+      if (state.pages[state.activePage] !== page || !document.getElementById('an-paper')) return;
+      annoApplyImgBox(d, pi);                                  // also redraws the captions
+      annoRenderOverlay(page);
+      // side panel: text only (re-rendering it could swallow the click that ended the edit)
+      document.querySelectorAll('#an-list [data-an-grp]').forEach(li => { li.textContent = annoGrpTitle(d, +li.dataset.anGrp); });
     }
     function annoDeletePhoto(page, pi) {
       const d = page.data, P = annoPh(d, pi);
@@ -6155,6 +6183,7 @@
       const tmp = {};
       annoMovePhoto(d, tmp); annoMovePhoto(d.photo2, d); annoMovePhoto(tmp, d.photo2);
       d.markers.forEach(m => { if (annoPi(m)) delete m.p; else m.p = 1; });
+      annoSortMarkers(d);
       annoUI.photo = 1 - annoUI.photo; annoUI.tv = undefined;
       annoAutoLayout(d, annoTv(d));
       annoSave(page);
@@ -6270,9 +6299,9 @@
       const P = annoPh(d, pi);
       const ar = im.naturalWidth / im.naturalHeight;
       annoCropUndo.delete(P); annoAdjOriginal.delete(P);
-      if (replacing) {                                  // replace: same width and centre, points kept
+      if (replacing) {                                  // replace: same width and centre (inside its half), points kept
         const B = P.img_box, h = B.w / ar;
-        P.img_box = annoFitInSafe({ x: B.x, y: B.y + (B.h - h) / 2, w: B.w, h }, annoCapH(P));
+        P.img_box = annoFitIn(annoArea(d, pi), { x: B.x, y: B.y + (B.h - h) / 2, w: B.w, h }, annoCapH(P));
       } else if (pi === 0) {
         P.img_box = annoDefaultBox(ar);
       } else {
@@ -6283,7 +6312,7 @@
       annoUI.tv = undefined; annoUI.photo = pi;
       const tv = annoTempOverlay(d);
       if (!replacing && pi === 1) annoAutoLayout(d, tv);                           // second photo: apply the layout
-      else if (!replacing && annoMk(d, pi).length) annoAutoArrange(d, tv, { photo: pi });   // e.g. a page copied from a template
+      else if ((!replacing || have.length > 1) && annoMk(d, pi).length) annoAutoArrange(d, tv, { photo: pi });   // template copy / new size in a half
       annoEnsureLabels(d, tv);
       annoSave(page);
       annoRerender(page);
@@ -6480,10 +6509,6 @@
         const g = e.target.closest('[data-an-capedit]');
         if (g) annoEditCaption(page, +g.dataset.anCapedit);
       });
-      paper.addEventListener('dblclick', (e) => {
-        const c = e.target.closest('[data-an-cap]');
-        if (c && annoUI.mode === 'select') annoEditCaption(page, +c.dataset.anCap);
-      });
       paper.addEventListener('contextmenu', (e) => {
         const t = e.target.closest('[data-an-lbl],[data-an-dot]');
         if (!t) return;
@@ -6513,12 +6538,14 @@
         if (!handle && !dot && !lbl && !onImg) { if (annoUI.sel) annoSelect(page, null); return; }
         e.preventDefault();
         document.activeElement?.blur?.();
-        const hitId = (dot && dot.dataset.anDot) || (lbl && lbl.dataset.anLbl) || null;
+        const capEl = !dot && !lbl && annoUI.mode === 'select' ? e.target.closest('[data-an-cap]') : null;
+        const hitId = (dot && dot.dataset.anDot) || (lbl && lbl.dataset.anLbl) || (capEl ? 'cap:' + capEl.dataset.anCap : null);
         const last = annoUI.lastPress;
         annoUI.lastPress = hitId ? { id: hitId, t: e.timeStamp, x: e.clientX, y: e.clientY } : null;
         if (hitId && last && last.id === hitId && e.timeStamp - last.t < 450 && Math.hypot(e.clientX - last.x, e.clientY - last.y) < 6) {
           annoUI.lastPress = null;
-          annoStartRename(page, hitId);
+          if (capEl) annoEditCaption(page, +capEl.dataset.anCap);
+          else annoStartRename(page, hitId);
           return;
         }
 
@@ -6602,6 +6629,7 @@
           if (pi === 1) m.p = 1;
           annoSelectPhoto(page, pi);
           d.markers.push(m);
+          annoSortMarkers(d);
           annoUI.sel = m.id; annoUI.tv = undefined;
           const tv2 = annoTv(d);
           annoPlaceLabel(d, m, tv2);

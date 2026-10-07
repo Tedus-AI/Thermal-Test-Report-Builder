@@ -1617,6 +1617,63 @@ const assert = (cond, msg, detail) => { if (!cond) throw new Error(msg + (detail
     assert(!r5.photo2 && r5.cap === 'Top view' && r5.labels === 'PA:0,LNA:0' && r5.add2 && !r5.one, 'photo 2 became photo 1', r5);
   });
 
+  await T('標註頁兩張照片：說明存檔不吃掉下一個拖曳、雙擊說明可改、上下版面換照片不蓋到另一張、編號依照片排、範本留下的標註點列出', async (page) => {
+    await page.evaluate(ANNO_SETUP);
+    await page.evaluate(async () => {
+      await useDb({ thermal_reports: { A: report('A', { 0: { type: 'annotation', order: 0, data: { anno_v: 2, img_fit: true, tc_category: 'RF', photo_url_or_base64: photo(800, 300), img_box: { x: 100, y: 100, w: 640, h: 240 }, markers: [{ id: 'a', x: 20, y: 50, label: '' }] } } }) } });
+      await openReport('A');
+      window.__f = async (n, w, h) => new File([await (await fetch(photo(w, h))).blob()], n, { type: 'image/png' });
+      await handleAnnotationPhoto(state.pages[0], await __f('w.png', 800, 300));   // two wide photos → stacked
+    });
+    // type a caption, then drag photo 1 straight away: the blur saves the caption, the drag still moves the photo
+    await page.fill('[data-an-capin="0"]', 'Top');
+    const x0 = await page.evaluate(() => state.pages[0].data.img_box.x);
+    const c0 = await page.evaluate(() => { const r = annoRect('#an-img'); return { x: r.left + r.width * 0.6, y: r.top + r.height * 0.3 }; });
+    const k = await page.evaluate(() => annoRect('#an-paper').width / 842);
+    await page.mouse.move(c0.x, c0.y); await page.mouse.down(); await page.mouse.move(c0.x - 40 * k, c0.y, { steps: 5 }); await page.mouse.up();
+    const r1 = await page.evaluate(() => ({ key: annoCurKey(state.pages[0].data), cap: state.pages[0].data.caption, x: state.pages[0].data.img_box.x }));
+    assert(r1.key === '2v' && r1.cap === 'Top' && Math.abs(r1.x - (x0 - 40)) < 2, 'caption saved and the drag moved the photo', { ...r1, x0 });
+    // double-click the caption on the page → edit it there
+    const cap = await page.evaluate(() => { const r = annoRect('[data-an-cap="0"]'); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; });
+    await page.mouse.dblclick(cap.x, cap.y);
+    const edit = await page.evaluate(() => { const i = document.querySelector('.an-rename'); return i && i.value; });
+    await page.keyboard.press('Escape');
+    assert(edit === 'Top', 'double-click opens the caption editor', edit);
+    // replace photo 1 with a 4:3 photo: it stays in the top half
+    const r2 = await page.evaluate(async () => {
+      await handleAnnotationPhoto(state.pages[0], await __f('q.png', 400, 300), 0);
+      const d = state.pages[0].data, A = annoFoot(d), B = annoFoot(d.photo2);
+      return { overlap: A.x < B.x + B.w && B.x < A.x + A.w && A.y < B.y + B.h && B.y < A.y + A.h, A, B };
+    });
+    assert(!r2.overlap, 'replacement keeps clear of the other photo', r2);
+    // a point added on photo 2, then one on photo 1: numbers still run photo by photo; also after a swap
+    const addAt = async (sel, fx, fy) => {
+      await page.evaluate(() => annoSetMode(state.pages[0], 'add'));
+      const q = await page.evaluate(([sel, fx, fy]) => { const r = annoRect(sel); return { x: r.left + r.width * fx, y: r.top + r.height * fy }; }, [sel, fx, fy]);
+      await page.mouse.click(q.x, q.y);
+      await page.waitForSelector('.an-rename');
+      await page.keyboard.press('Escape');
+      await page.keyboard.press('Escape');
+    };
+    await addAt('#an-img-1', 0.5, 0.5);
+    await addAt('#an-img', 0.7, 0.6);
+    const order = () => page.evaluate(() => state.pages[0].data.markers.map(m => annoPi(m)).join(''));
+    const o1 = await order();
+    await page.click('#an-swap');
+    const o2 = await order();
+    const names = await page.evaluate(() => { const d = state.pages[0].data; return annoMk(d, 0).map(m => annoMarkerName(m, d.markers.indexOf(m))).join(); });
+    assert(o1 === '001' && o2 === '011' && names === 'TC1', 'markers grouped by photo', { o1, o2, names });
+    // template copy without photos, one photo added back: photo-2 points are listed (not hidden)
+    const r3 = await page.evaluate(async () => {
+      const d = state.pages[0].data;
+      d.photo2.photo_url_or_base64 = '';
+      annoNormalize(d);
+      renderAnnotationPage(state.pages[0]);
+      return { photo2: !!d.photo2, groups: Array.from(document.querySelectorAll('#an-list .an-grp')).map(x => x.textContent), rows: document.querySelectorAll('#an-list [data-an-row]').length, n: d.markers.length };
+    });
+    assert(r3.photo2 && r3.groups.length === 2 && /尚未放入/.test(r3.groups[1]) && r3.rows === r3.n, 'orphan points listed', r3);
+  });
+
   await T('圖片頁：舊資料轉換（版面、旋轉翻轉、平移縮放與標註），編輯器與 PDF 相同', async (page) => {
     await page.evaluate(ANNO_SETUP);
     const r = await page.evaluate(async () => {

@@ -1171,6 +1171,23 @@ const assert = (cond, msg, detail) => { if (!cond) throw new Error(msg + (detail
     assert(/比對 2 顆元件：✅ 0、⚠️ 1、❌ 1/.test(r.concl) && /模擬整體偏高 \+6\.5°C/.test(r.concl) && /最大偏差 FPGA \+9\.0°C/.test(r.concl), 'sim conclusion', r.concl);
   });
 
+  await T('比對頁比較圖：元件多時拆成多張（每張 ≤ 18 顆、間距較寬），PDF 每個區塊放得下才放、不壓到頁尾', async (page) => {
+    const r = await page.evaluate(async () => {
+      const comps = Array.from({ length: 33 }, (_, i) => comp('ADMV49281-' + i, { ta_55: String(80 + i % 9) }, i % 7 ? 95 : 110, '1.00', { uid: 'u' + i }));
+      const items = comps.map((c, i) => ({ component_name: c.name, sim_tc: String(82 + i % 7), source_page: 'dp', source_uid: c.uid }));
+      await useDb({ thermal_reports: { A: report('A', { 0: { id: 'dp', ...dataPage(0, comps, [55]) }, 1: { type: 'sim_vs_meas', order: 1, data: { compare_ta: 55, items, conclusion: '結論' } } }) } });
+      await openReport('A');
+      selectPage(1);
+      const urls = simChartDataURLs(state.pages[1].data);
+      const editorImgs = document.querySelectorAll('.sim-chart-img').length;
+      const pages = buildSimVsMeasPagesHTML(state.pages[1].data);
+      const pdfImgs = pages.join('').split('data:image/png').length - 1;
+      return { charts: urls.length, editorImgs, pdfImgs, fit: pages.map(pgFits), concl: pages[pages.length - 1].includes('結論敘述') };
+    });
+    assert(r.charts === 2 && r.editorImgs === 2 && r.pdfImgs === 2, 'two charts (editor + PDF)', r);
+    assert(r.fit.every(Boolean) && r.concl, 'every page fits; conclusion last', r);
+  });
+
   await T('結論頁：由 Fail / Warning 產生行動（Owner = Tested by、期限兩週、不重複）', async (page) => {
     const r = await page.evaluate(async () => {
       await useDb({ thermal_reports: { A: report('A', {
@@ -1674,6 +1691,57 @@ const assert = (cond, msg, detail) => { if (!cond) throw new Error(msg + (detail
     assert(r3.photo2 && r3.groups.length === 2 && /尚未放入/.test(r3.groups[1]) && r3.rows === r3.n, 'orphan points listed', r3);
   });
 
+  await T('複製圖片：圖片頁 / 標註頁的圖片複製後可貼到其他頁（不重新壓縮、保留旋轉與說明），或直接貼到新的圖片頁 / 標註頁', async (page) => {
+    await page.evaluate(ANNO_SETUP);
+    const r1 = await page.evaluate(async () => {
+      const url = photo(400, 200);
+      await useDb({ thermal_reports: { A: report('A', {
+        0: { type: 'image', order: 0, data: { im_v: 2, title: 'T', layout: 'auto', split: { c: 50, r: 50 }, images: [{ url_or_base64: url, caption: 'IR 熱像', nar: 2, rot: 90, fh: false, callouts: [] }], texts: [] } },
+        1: { type: 'annotation', order: 1, data: { anno_v: 2, tc_category: 'RF', photo_url_or_base64: '', markers: [] } } }) } });
+      await openReport('A');
+      window.__url = url;
+      imUI.selImg = 0;
+      renderImagePage(state.pages[0]);
+      return { pages: state.pages.length };
+    });
+    // 「複製」 → menu → 貼到新的標註頁
+    await page.click('[data-im-tool="copyimg"]');
+    await page.waitForSelector('.an-copy-menu');
+    const note = await page.evaluate(() => document.querySelector('.an-copy-menu .an-ctx-note').textContent);
+    await page.click('.an-copy-menu [data-act="annotation"]');
+    await page.waitForFunction(() => state.pages.length === 3 && state.pages[1].data.photo_url_or_base64);
+    const r2 = await page.evaluate(async () => {
+      const d = state.pages[1].data;
+      return { type: state.pages[1].type, active: state.activePage, same: d.photo_url_or_base64 === __url, rot: d.img_rot, cap: d.caption, ar: d.img_box.w / d.img_box.h, png: !!(photoClip.sig && photoClip.sig.w === 200) };
+    });
+    assert(/Ctrl/.test(note), 'copied to the system clipboard', note);
+    assert(r2.type === 'annotation' && r2.active === 1 && r2.same && r2.rot === 90 && r2.cap === 'IR 熱像' && Math.abs(r2.ar - 0.5) < 0.02 && r2.png, 'new annotation page with the same photo, rotation, caption', r2);
+    // Ctrl+V of that clipboard image on the (empty) annotation page → the stored photo, not a recompressed copy
+    const r3 = await page.evaluate(async () => {
+      const items = await navigator.clipboard.read();
+      const blob = await items[0].getType('image/png');
+      const file = new File([blob], 'image.png', { type: 'image/png' });
+      selectPage(2);
+      await routePastedImage(state.pages[2], file);
+      const d = state.pages[2].data;
+      return { pngW: (await createImageBitmap(blob)).width, same: d.photo_url_or_base64 === __url, rot: d.img_rot };
+    });
+    assert(r3.pngW === 200 && r3.same && r3.rot === 90, 'clipboard PNG is the rotated view; paste uses the stored photo', r3);
+    // Ctrl+C on the annotation page, 📋 button on an image page → 貼到新的圖片頁 from the annotation copy
+    await page.evaluate(() => { annoSelectPhoto(state.pages[2], 0); document.activeElement && document.activeElement.blur(); });
+    await page.keyboard.press('Control+c');
+    await page.waitForFunction(() => photoClip && photoClip.sig);
+    const r4 = await page.evaluate(async () => {
+      selectPage(0);
+      await sleep(50);
+      document.getElementById('im-paste-clip').click();
+      await sleep(300);
+      const ims = state.pages[0].data.images;
+      return { n: ims.length, same: ims[1] && ims[1].url_or_base64 === __url, rot: ims[1] && ims[1].rot, cap: ims[1] && ims[1].caption };
+    });
+    assert(r4.n === 2 && r4.same && r4.rot === 90 && r4.cap === 'IR 熱像', 'pasted into the image page', r4);
+  }, { permissions: ['clipboard-read', 'clipboard-write'] });
+
   await T('圖片頁：舊資料轉換（版面、旋轉翻轉、平移縮放與標註），編輯器與 PDF 相同', async (page) => {
     await page.evaluate(ANNO_SETUP);
     const r = await page.evaluate(async () => {
@@ -1784,6 +1852,39 @@ const assert = (cond, msg, detail) => { if (!cond) throw new Error(msg + (detail
     });
     assert(r.res.every(x => x.max <= 548), 'no row below the footer limit', r.res);
     assert(r.dataRows === 14 + 45 && r.simRows === 14, 'every row printed exactly once', r);
+  });
+
+  await T('PDF = 預覽：換頁前就載入頁面上每個字（含 ΔT 等程式產生的文字）的字型；PDF 複本若仍較高會縮到頁尾上方', async (page) => {
+    const r = await page.evaluate(async () => {
+      const comps = Array.from({ length: 26 }, (_, i) => comp('ADMV49281-' + i, { ta_25: '63.5', ta_55: '90' }, 95, '1.00', { uid: 'u' + i, tim_type: 'CoolZorb Ultra' }));
+      await useDb({ thermal_reports: { A: report('A', { 0: cover('A'), 1: { id: 'dp', ...dataPage(1, comps, [25, 55]) } }) } });
+      await openReport('A');
+      const specs = ["'Space Grotesk'", "'DM Sans'", "'Noto Sans TC'", "'JetBrains Mono'"].flatMap(f => ['400', '500', '600', '700'].map(w => `${w} 12px ${f}`));
+      const vps = await buildVirtualPagesWithFonts();
+      const text = pagesText(numberVirtualPages(vps));
+      const missing = specs.filter(sp => !document.fonts.check(sp, text));
+      // a copy that lays out taller than measured (simulated: taller rows) is shrunk above the footer
+      const clone = [];
+      const orig = html2canvas;
+      window.html2canvas = (el, opts) => orig(el, { ...opts, onclone: async (doc, ref) => {
+        const st = doc.createElement('style');
+        st.textContent = '.pdf-offscreen td { padding-top: 6px !important; padding-bottom: 6px !important; }';
+        doc.head.appendChild(st);
+        await opts.onclone(doc, ref);
+        const t = ref.getBoundingClientRect().top;
+        const rows = Array.from(ref.querySelectorAll('tbody tr'));
+        const foot = Math.min(999, ...Array.from(ref.querySelectorAll('[data-pg-foot]'), f => f.getBoundingClientRect().top - t));
+        const end = ref.querySelector('[data-pg-end]');
+        clone.push({ last: Math.max(0, ...rows.map(tr => tr.getBoundingClientRect().bottom - t)), foot, scaled: !!(end && end.parentElement.style.transform) });
+      } });
+      const Orig = jspdf.jsPDF;
+      window.jspdf = { jsPDF: function (...a) { const inst = new Orig(...a); inst.save = () => {}; return inst; } };
+      await exportPDF(new Set([1]));
+      window.html2canvas = orig;
+      return { missing, hasDelta: text.includes('ΔT'), clone };
+    });
+    assert(r.hasDelta && r.missing.length === 0, 'every glyph of the built pages has its webfont loaded', r.missing);
+    assert(r.clone.length >= 2 && r.clone.some(c => c.scaled) && r.clone.every(c => c.last <= c.foot - 4), 'taller copy shrunk above the footer', r.clone);
   });
 
   await T('PDF 頁尾：灰色註釋與頁碼都實際量測，PDF 渲染（html2canvas 複本）中表格列不會壓到', async (page) => {

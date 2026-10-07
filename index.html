@@ -2928,6 +2928,9 @@
     .an-ctx button { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 12px; border: none; background: none; padding: 6px 9px; font: 12.5px var(--font-ui); color: var(--text-on-white); border-radius: 4px; cursor: pointer; }
     .an-ctx button:hover { background: rgba(35,87,167,0.08); }
     .an-ctx button.danger { color: #b91c1c; }
+    .an-ctx-note { font: 11.5px var(--font-ui); color: #166534; background: #f0fdf4; border-radius: 4px; padding: 6px 9px; margin-bottom: 3px; max-width: 290px; line-height: 1.5; }
+    .an-seq.alt { background: #fff; color: #2357A7; border: 1px solid rgba(35,87,167,0.35); }
+    .an-seq.alt:hover { background: rgba(35,87,167,0.07); }
     .an-pop { position: fixed; z-index: 9000; width: 280px; background: #fff; border: 1px solid rgba(15,23,42,0.12); border-radius: 8px; box-shadow: 0 10px 30px rgba(2,27,58,0.25); padding: 10px 12px; font-family: var(--font-ui); color: var(--text-on-white); }
     .an-pop-h { font: 700 11px var(--font-ui); color: #0B3D7A; margin-bottom: 8px; }
     .an-pop-row { display: grid; grid-template-columns: 44px 1fr 34px; align-items: center; gap: 8px; font-size: 12px; margin-bottom: 4px; }
@@ -3666,7 +3669,7 @@
     .note-tool-btn.note-to-image { width: auto; padding: 0 8px; font-size: 11px; font-weight: 600; white-space: nowrap; }
     .sim-chart-box { margin-top: 4px; }
     .sim-chart-toggle { font-size: 11px; color: #475569; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
-    #sim-chart-img { width: 100%; max-width: 786px; height: auto; margin-top: 6px; border: 1px solid rgba(15,23,42,0.08); border-radius: 4px; }
+    .sim-chart-img { display: block; width: 100%; max-width: 786px; height: auto; margin-top: 6px; border: 1px solid rgba(15,23,42,0.08); border-radius: 4px; }
     select.dt-sort-select { width: auto; cursor: pointer; }
     /* Annotation: measured-temperature overlay */
     .data-page.csv-dragover { outline: 3px dashed rgba(35,87,167,0.45); outline-offset: -6px; }
@@ -4881,6 +4884,8 @@
     }
 
     async function routePastedImage(page, file) {
+      const clip = (page.type === 'image' || page.type === 'annotation') ? await photoClipFor(file) : null;
+      if (clip) file = { clip };
       if (page.type === 'cover') {
         await handleCoverImage(page, file);
       } else if (page.type === 'image') {
@@ -5675,6 +5680,7 @@
       add: '<circle cx="10" cy="10" r="2.2"/><path d="M10 2.5V6M10 14v3.5M2.5 10H6M14 10h3.5"/>',
       image: '<rect x="2.5" y="4" width="15" height="12" rx="1.5"/><circle cx="7" cy="8.3" r="1.4"/><path d="M17.5 13l-4-4-6.5 7"/>',
       addimg: '<rect x="2" y="6" width="11.5" height="10" rx="1.3"/><path d="M13.5 13l-3.2-3.2-5.8 6.2"/><path d="M16 2.5v6M13 5.5h6"/>',
+      copy: '<rect x="6.5" y="6.5" width="10" height="11" rx="1.5"/><path d="M13.5 6.5V4a1.5 1.5 0 0 0-1.5-1.5H5A1.5 1.5 0 0 0 3.5 4v8.5A1.5 1.5 0 0 0 5 14h1.5"/>',
       rotl: '<path d="M4.5 9A6 6 0 1 1 6 14.2"/><path d="M4.2 4v5h5"/>',
       rotr: '<path d="M15.5 9A6 6 0 1 0 14 14.2"/><path d="M15.8 4v5h-5"/>',
       fliph: '<path d="M10 2.5v15"/><path d="M7.5 5.5L3 14.5h4.5z"/><path d="M12.5 5.5l4.5 9h-4.5z"/>',
@@ -5786,6 +5792,7 @@
           <div class="im-lays">${layouts}</div>
           <ol class="an-list an-plist">${rows}</ol>
           ${n < ANNO_MAX ? '<button type="button" class="an-seq an-add2" id="an-add2">＋ 加入第二張照片</button>' : ''}
+          ${n < ANNO_MAX && photoClip ? '<button type="button" class="an-seq alt" id="an-paste-clip">📋 貼上複製的圖片</button>' : ''}
         </section>`;
     }
     function annoSideHTML(d) {
@@ -5838,6 +5845,7 @@
             <div class="an-tgroup" aria-label="照片">
               ${annoBtn('replace', 'image', hasPhoto ? `更換照片${nth}（標註點保留）` : '選擇照片')}
               ${annoBtn('addimg', 'addimg', '加入第二張照片（最多 2 張）', hasPhoto && !two ? '' : 'disabled')}
+              ${annoBtn('copyimg', 'copy', `複製照片${nth}（Ctrl+C）→ 貼到其他圖片頁 / 標註頁，或新的一頁`, dis)}
               ${annoBtn('rotl', 'rotl', `照片${nth} 向左旋轉 90°（標註點跟著轉）`, dis)}
               ${annoBtn('rotr', 'rotr', `照片${nth} 向右旋轉 90°（標註點跟著轉）`, dis)}
               ${annoBtn('fliph', 'fliph', `照片${nth} 左右翻轉`, dis)}
@@ -5929,7 +5937,7 @@
         html += `<div class="an-drop" id="an-drop" style="left:${b.x}px;top:${b.y}px;width:${b.w}px;height:${b.h}px;">
             <div class="an-drop-icon">${annoIcon('image')}</div>
             <div>拖曳照片到這裡，或 Ctrl+V 貼上</div>
-            <button type="button" class="an-drop-btn">選擇檔案</button></div>`;
+            <button type="button" class="an-drop-btn">選擇檔案</button>${photoClip ? '<button type="button" class="an-drop-btn" id="an-drop-clip">📋 貼上複製的圖片</button>' : ''}</div>`;
       } else if (annoUI.mode === 'select' && annoHasPh(P)) {
         const B = P.img_box;
         html += `<div class="an-frame" style="left:${r1(B.x)}px;top:${r1(B.y)}px;width:${r1(B.w)}px;height:${r1(B.h)}px;"></div>`
@@ -6286,7 +6294,8 @@
     // target: index of the photo to replace, 'add' (a new photo), or undefined: add while
     // there is room (≤ 2), otherwise replace the selected photo.
     async function handleAnnotationPhoto(page, file, target) {
-      const url = await processImageCompressed(file, PHOTO_JPEG_QUALITY);
+      const clip = file && file.clip;              // copied in the tool: same bitmap, rotation, mirror, caption
+      const url = clip ? clip.url : await processImageCompressed(file, PHOTO_JPEG_QUALITY);
       const im = url && await annoLoadImage(url);
       if (!im) { showToast('無法讀取這張圖片', 'warn'); return; }
       const d = page.data;
@@ -6297,7 +6306,8 @@
       const replacing = have.includes(pi);
       if (pi === 1 && !d.photo2) d.photo2 = {};
       const P = annoPh(d, pi);
-      const ar = im.naturalWidth / im.naturalHeight;
+      const rot = clip ? clip.rot || 0 : 0;
+      const ar = rot % 180 ? im.naturalHeight / im.naturalWidth : im.naturalWidth / im.naturalHeight;   // as shown
       annoCropUndo.delete(P); annoAdjOriginal.delete(P);
       if (replacing) {                                  // replace: same width and centre (inside its half), points kept
         const B = P.img_box, h = B.w / ar;
@@ -6308,7 +6318,8 @@
         P.img_box = { x: ANNO_SAFE.l, y: ANNO_SAFE.t, w: r1(200 * ar), h: 200 };   // placed by the layout below
       }
       P.photo_url_or_base64 = url;
-      P.img_rot = 0; P.img_fh = false; P.img_fit = true;
+      P.img_rot = rot; P.img_fh = !!(clip && clip.fh); P.img_fit = true;
+      if (clip && clip.caption && !replacing && !annoCap(P)) P.caption = clip.caption;
       annoUI.tv = undefined; annoUI.photo = pi;
       const tv = annoTempOverlay(d);
       if (!replacing && pi === 1) annoAutoLayout(d, tv);                           // second photo: apply the layout
@@ -6337,6 +6348,7 @@
       if (tool === 'select' || tool === 'add') annoSetMode(page, tool);
       else if (tool === 'replace') { annoUI.fileTarget = annoHasPh(P) ? pi : undefined; fileInput?.click(); }
       else if (tool === 'addimg') { annoUI.fileTarget = 'add'; fileInput?.click(); }
+      else if (tool === 'copyimg') { if (annoHasPh(P)) showPhotoCopyMenu(btn, { url: P.photo_url_or_base64, rot: P.img_rot, fh: P.img_fh, caption: P.caption }); }
       else if (!annoHasPh(P) && !allOps.includes(tool) && !['size', 'num', 'zoomin', 'zoomout', 'zoomfit', 'uncrop'].includes(tool)) return;
       else if (tool === 'rotl' || tool === 'rotr') { annoRotate(d, tool === 'rotr' ? 1 : -1, pi); annoAutoArrange(d, tv, { photo: pi }); commit(); }
       else if (tool === 'fliph' || tool === 'flipv') { annoFlip(d, tool === 'fliph' ? 'h' : 'v', pi); annoAutoArrange(d, tv, { photo: pi }); commit(); }
@@ -6456,6 +6468,7 @@
         if (lay) { if (!lay.disabled) annoSetLayout(page, lay.dataset.anLayout); return; }
         if (e.target.closest('#an-swap')) { annoSwapPhotos(page); return; }
         if (e.target.closest('#an-add2')) { annoUI.fileTarget = 'add'; fileInput.click(); return; }
+        if (e.target.closest('#an-paste-clip')) { if (photoClip) handleAnnotationPhoto(page, { clip: photoClip }, 'add'); return; }
         const pdel = e.target.closest('[data-an-pdel]');
         if (pdel) { annoDeletePhoto(page, +pdel.dataset.anPdel); return; }
         const prow = e.target.closest('[data-an-prow]');
@@ -6505,6 +6518,7 @@
 
       // Page: drop zone button
       paper.addEventListener('click', (e) => {
+        if (e.target.closest('#an-drop-clip')) { if (photoClip) handleAnnotationPhoto(page, { clip: photoClip }); return; }
         if (e.target.closest('.an-drop-btn')) { annoUI.fileTarget = undefined; fileInput.click(); return; }
         const g = e.target.closest('[data-an-capedit]');
         if (g) annoEditCaption(page, +g.dataset.anCapedit);
@@ -6696,7 +6710,10 @@
       let handled = true;
       if (e.ctrlKey || e.metaKey) {
         if ((k === 'd' || k === 'D') && annoUI.sel) annoDuplicate(page, annoUI.sel);
-        else handled = false;
+        else if ((k === 'c' || k === 'C') && annoHasPh(annoPh(d, annoUI.photo)) && !String(window.getSelection() || '')) {
+          const P = annoPh(d, annoUI.photo);
+          copyPhotoKey({ url: P.photo_url_or_base64, rot: P.img_rot, fh: P.img_fh, caption: P.caption });
+        } else handled = false;
       } else if (k === 'v' || k === 'V') annoSetMode(page, 'select');
       else if (k === 'a' || k === 'A') annoSetMode(page, 'add');
       else if (k === 'Escape') {
@@ -6732,6 +6749,98 @@
       if (e.key === ' ' && annoUI.space) { e.preventDefault(); annoUI.space = false; document.getElementById('an-paper')?.classList.remove('panning'); }
     }, true);
     window.addEventListener('blur', () => { annoUI.space = false; document.getElementById('an-paper')?.classList.remove('panning'); });   // missed keyup (Alt+Tab)
+
+    // ━━━ Copy a photo between image / annotation pages ━━━
+    // 「複製」 keeps the stored bitmap plus its rotation / mirror and caption in photoClip,
+    // and puts what is shown on the system clipboard as PNG (so Ctrl+V works on any
+    // image / annotation page, or in PowerPoint …). Pasting that same picture back into
+    // the tool uses photoClip, so the photo is not compressed a second time. (The browser
+    // re-encodes clipboard images, so the match is by size + a 16 × 16 pixel signature.)
+    let photoClip = null;                    // { url, rot, fh, caption, sig: { w, h, px } }
+    function photoSig(src, w, h) {
+      const c = document.createElement('canvas');
+      c.width = 16; c.height = 16;
+      const g = c.getContext('2d');
+      g.drawImage(src, 0, 0, 16, 16);
+      return { w, h, px: g.getImageData(0, 0, 16, 16).data };
+    }
+    async function photoBakePNG(url, rot, fh, clip) {
+      const im = await annoLoadImage(url);
+      if (!im) return null;
+      const w = im.naturalWidth, h = im.naturalHeight, swap = (rot || 0) % 180 !== 0;
+      const c = document.createElement('canvas');
+      c.width = swap ? h : w; c.height = swap ? w : h;
+      const g = c.getContext('2d');
+      g.translate(c.width / 2, c.height / 2);
+      g.rotate((rot || 0) * Math.PI / 180);   // same order as the CSS: mirror first, then rotate
+      if (fh) g.scale(-1, 1);
+      g.drawImage(im, -w / 2, -h / 2);
+      if (clip) clip.sig = photoSig(c, c.width, c.height);
+      return new Promise(r => c.toBlob(r, 'image/png'));
+    }
+    async function copyPhoto(src) {
+      const clip = photoClip = { url: src.url, rot: src.rot || 0, fh: !!src.fh, caption: src.caption || '', sig: null };
+      try {
+        const blob = photoBakePNG(clip.url, clip.rot, clip.fh, clip).then(b => { if (!b) throw new Error('image'); return b; });
+        await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+        return true;
+      } catch (e) { return false; }   // no clipboard access: still pastable inside the tool (menu / 📋 button)
+    }
+    // The pasted picture is the one copyPhoto put on the clipboard → the stored photo instead.
+    async function photoClipFor(file) {
+      const clip = photoClip;
+      if (!clip || !clip.sig || !file || !(file.type || '').startsWith('image/')) return null;
+      try {
+        const bmp = await createImageBitmap(file);
+        if (bmp.width !== clip.sig.w || bmp.height !== clip.sig.h) return null;
+        const px = photoSig(bmp, bmp.width, bmp.height).px;
+        let diff = 0;
+        for (let k = 0; k < px.length; k++) diff += Math.abs(px[k] - clip.sig.px[k]);
+        return diff / px.length < 3 ? clip : null;
+      } catch (e) { return null; }
+    }
+    async function pastePhotoClipToNewPage(type, clip = photoClip) {
+      if (!clip) return;
+      const at = state.activePage === null ? state.pages.length : state.activePage + 1;
+      const page = makePage(type);
+      state.pages.splice(at, 0, page);
+      initPageSnapshot(page);
+      saveStructure();
+      renderPageList();
+      selectPage(at);
+      if (type === 'image') await imAddFiles(page, [{ clip }]);
+      else await handleAnnotationPhoto(page, { clip });
+      showToast(`已貼到新的${type === 'image' ? '圖片頁' : '標註頁'}`, 'ok');
+    }
+    // 「複製」: copy now, then offer to start a new page with it.
+    async function showPhotoCopyMenu(anchor, src) {
+      document.querySelector('.an-ctx')?.remove();
+      const sys = await copyPhoto(src);
+      const menu = document.createElement('div');
+      menu.className = 'an-ctx an-copy-menu';
+      menu.innerHTML = `<div class="an-ctx-note">✓ 已複製${sys ? '：到任何圖片頁 / 標註頁按 <kbd>Ctrl</kbd>+<kbd>V</kbd> 貼上' : '：到任何圖片頁 / 標註頁按「📋 貼上複製的圖片」'}</div>
+        <button type="button" data-act="image">貼到新的圖片頁</button>
+        <button type="button" data-act="annotation">貼到新的標註頁</button>`;
+      document.body.appendChild(menu);
+      const r = anchor.getBoundingClientRect();
+      menu.style.left = Math.min(r.left, window.innerWidth - menu.offsetWidth - 8) + 'px';
+      menu.style.top = Math.min(r.bottom + 6, window.innerHeight - menu.offsetHeight - 8) + 'px';
+      const close = () => { menu.remove(); document.removeEventListener('pointerdown', outside, true); };
+      menu._close = close;
+      const outside = (e) => { if (!menu.contains(e.target) && !anchor.contains(e.target)) close(); };
+      document.addEventListener('pointerdown', outside, true);
+      menu.addEventListener('click', (e) => {
+        const act = e.target.closest('[data-act]')?.dataset.act;
+        if (!act) return;
+        close();
+        pastePhotoClipToNewPage(act);
+      });
+      return sys;
+    }
+    async function copyPhotoKey(src) {
+      const sys = await copyPhoto(src);
+      showToast(sys ? '已複製圖片：到任何圖片頁 / 標註頁按 Ctrl+V 貼上' : '已複製圖片：到任何圖片頁 / 標註頁按「📋 貼上複製的圖片」', 'ok');
+    }
 
     // ━━━ Image page ━━━
     // Same approach as the annotation page: the editor shows the very page the PDF
@@ -6982,6 +7091,11 @@
       });
     }
     async function imMakeImage(file, caption) {
+      if (file && file.clip) {                      // copied in the tool: same bitmap, rotation, mirror, caption
+        const c = file.clip, el = await annoLoadImage(c.url);
+        if (!el) return null;
+        return { url_or_base64: c.url, caption: c.caption || caption || '', nar: Math.round(el.naturalWidth / el.naturalHeight * 1e5) / 1e5, rot: c.rot || 0, fh: !!c.fh, callouts: [] };
+      }
       const url = await processImageCompressed(file, PHOTO_JPEG_QUALITY);
       const el = url && await annoLoadImage(url);
       if (!el) return null;
@@ -7074,6 +7188,7 @@
           <div class="an-sec-h">圖片 <span class="an-count">${n} / ${IM_MAX}</span><span class="sp"></span></div>
           <ol class="an-list im-list" id="im-list">${rows || '<li class="an-empty">尚無圖片：拖曳到頁面、Ctrl+V 貼上，或按下方按鈕</li>'}</ol>
           <button type="button" class="an-seq" id="im-add">＋ 加入圖片…（可多選，放不下自動續頁）</button>
+          ${photoClip ? '<button type="button" class="an-seq alt" id="im-paste-clip">📋 貼上複製的圖片</button>' : ''}
         </section>`;
     }
     function imStatusHTML(d) {
@@ -7111,6 +7226,7 @@
             </div>
             <div class="an-tgroup" aria-label="選取的圖片">
               ${imBtn('replace', 'image', hasImg ? '更換這張圖片（標註保留）' : '先點選一張圖片', dis)}
+              ${imBtn('copyimg', 'copy', '複製這張圖片（Ctrl+C）→ 貼到其他圖片頁 / 標註頁，或新的一頁', dis)}
               ${imBtn('rotl', 'rotl', '向左旋轉 90°', dis)}
               ${imBtn('rotr', 'rotr', '向右旋轉 90°', dis)}
               ${imBtn('fliph', 'fliph', '左右翻轉', dis)}
@@ -7348,7 +7464,7 @@
     }
     async function imAddFiles(page, files, at) {
       const d = page.data;
-      const list = Array.from(files || []).filter(f => f && (f.type || '').startsWith('image/')).sort((a, b) => naturalCompare(a.name, b.name));
+      const list = Array.from(files || []).filter(f => f && (f.clip || (f.type || '').startsWith('image/'))).sort((a, b) => naturalCompare(a.name || '', b.name || ''));
       if (!list.length) return;
       const captions = userPrefs().batch_captions !== false;
       const rid = state.reportId;
@@ -7356,7 +7472,7 @@
       const free = IM_MAX - d.images.length;
       const here = list.slice(0, Math.max(0, free));
       for (const f of here) {
-        const im = await imMakeImage(f, captions && list.length > 1 ? fileStem(f.name) : '');
+        const im = await imMakeImage(f, captions && list.length > 1 && f.name ? fileStem(f.name) : '');
         if (state.reportId !== rid || !state.pages.includes(page)) return;
         if (!im) continue;
         d.images.splice(Math.min(idx, d.images.length), 0, im);
@@ -7375,7 +7491,7 @@
       const im = await imMakeImage(file, old ? old.caption : '');
       if (!im || !old) return;
       imAdjOriginal.delete(old); imCropUndo.delete(old);
-      Object.assign(old, { url_or_base64: im.url_or_base64, nar: im.nar, rot: 0, fh: false, z: 1, cx: 0.5, cy: 0.5 });
+      Object.assign(old, { url_or_base64: im.url_or_base64, nar: im.nar, rot: im.rot, fh: im.fh, z: 1, cx: 0.5, cy: 0.5 });
       imSave(page);
       imRerender(page);
     }
@@ -7407,6 +7523,7 @@
         if (await imEnsureAspect(d)) annoSaveNow(page);
       }
       if (tool === 'replace') { const fi = document.getElementById('im-file'); fi.dataset.slot = i; fi.click(); }
+      else if (tool === 'copyimg') showPhotoCopyMenu(btn, { url: im.url_or_base64, rot: im.rot, fh: im.fh, caption: im.caption });
       else if (tool === 'rotl' || tool === 'rotr') { imRotate(im, tool === 'rotr' ? 1 : -1); imClampView(im, F); commit(); }
       else if (tool === 'fliph' || tool === 'flipv') { imFlip(im, tool === 'fliph' ? 'h' : 'v'); commit(); }
       else if (tool === 'zin' || tool === 'zout') {
@@ -7514,6 +7631,7 @@
         const lay = e.target.closest('[data-im-layout]');
         if (lay && !lay.disabled) { d.layout = lay.dataset.imLayout; imSave(page); renderImagePage(page); return; }
         if (e.target.closest('#im-add')) { fileMany.dataset.at = ''; fileMany.click(); return; }
+        if (e.target.closest('#im-paste-clip') && photoClip) { if (d.images.length >= IM_MAX) showToast('這頁已放滿 6 張，請新增圖片頁', 'warn'); else imAddFiles(page, [{ clip: photoClip }], imUI.selImg !== null ? imUI.selImg + 1 : d.images.length); return; }
         const del = e.target.closest('[data-im-del]');
         if (del) { imUI.selImg = +del.dataset.imDel; imTool(page, 'delimg'); return; }
         const row = e.target.closest('[data-im-row]');
@@ -7776,7 +7894,11 @@
       const d = page.data, k = e.key;
       let handled = true;
       if (e.ctrlKey || e.metaKey) {
-        if ((k === 'd' || k === 'D') && imUI.sel) imDuplicate(page, imUI.sel); else handled = false;
+        if ((k === 'd' || k === 'D') && imUI.sel) imDuplicate(page, imUI.sel);
+        else if ((k === 'c' || k === 'C') && imUI.selImg !== null && d.images[imUI.selImg] && !String(window.getSelection() || '')) {
+          const im = d.images[imUI.selImg];
+          copyPhotoKey({ url: im.url_or_base64, rot: im.rot, fh: im.fh, caption: im.caption });
+        } else handled = false;
       } else if (k === 'v' || k === 'V') imSetMode(page, 'select');
       else if (k === 'd' || k === 'D') imSetMode(page, 'dot');
       else if (k === 'c' || k === 'C') imSetMode(page, 'circle');
@@ -10039,7 +10161,7 @@
           <!-- Sim vs Meas chart (same image goes into the PDF) -->
           <div class="sim-chart-box">
             <label class="sim-chart-toggle"><input type="checkbox" id="sim-chart-on"${d.show_chart !== false ? ' checked' : ''}> 顯示比較圖（PDF 也會印出）</label>
-            <img id="sim-chart-img" alt="Sim vs Meas chart" style="display:none;">
+            <img id="sim-chart-img" class="sim-chart-img" alt="Sim vs Meas chart" style="display:none;">
           </div>
 
           <!-- Conclusion description -->
@@ -10065,9 +10187,18 @@
       // ── Chart ──
       const chartImg = document.getElementById('sim-chart-img');
       const refreshChart = () => {
-        const url = d.show_chart !== false ? simChartDataURL(d) : '';
-        chartImg.style.display = url ? 'block' : 'none';
-        if (url) chartImg.src = url;
+        const urls = d.show_chart !== false ? simChartDataURLs(d) : [];
+        chartImg.style.display = urls.length ? 'block' : 'none';
+        if (urls.length) chartImg.src = urls[0];
+        chartImg.parentElement.querySelectorAll('.sim-chart-more').forEach(el => el.remove());
+        urls.slice(1).reduce((prev, u) => {
+          const im = document.createElement('img');
+          im.className = 'sim-chart-img sim-chart-more';
+          im.alt = 'Sim vs Meas chart';
+          im.src = u;
+          prev.after(im);
+          return im;
+        }, chartImg);
       };
       refreshChart();
       document.getElementById('sim-chart-on').addEventListener('change', (e) => {
@@ -10934,9 +11065,11 @@
     let previewIdx = 0;
     let _virtualPages = [];
 
+    let _previewSeq = 0;
     function openPreview() {
       if (state.pages.length === 0) return;
-      _virtualPages = numberVirtualPages(buildVirtualPages());
+      const raw = buildVirtualPages();
+      _virtualPages = numberVirtualPages(raw);
       if (state.activePage !== null) {
         const vpIdx = _virtualPages.findIndex(vp => vp.pageIdx === state.activePage);
         previewIdx = vpIdx >= 0 ? vpIdx : 0;
@@ -10945,6 +11078,19 @@
       }
       renderPreviewPage();
       document.getElementById('preview-overlay').classList.add('open');
+      // Shown at once; then laid out again with the fonts of the built pages (as the PDF is).
+      const seq = ++_previewSeq;
+      buildVirtualPagesWithFonts(raw).then(vps => {
+        if (vps === raw) return;
+        if (seq !== _previewSeq || !document.getElementById('preview-overlay').classList.contains('open')) return;
+        const next = numberVirtualPages(vps);
+        if (next.length === _virtualPages.length && next.every((vp, i) => vp.html === _virtualPages[i].html)) return;
+        const at = _virtualPages[previewIdx];
+        _virtualPages = next;
+        const same = at ? _virtualPages.findIndex(vp => vp.pageIdx === at.pageIdx) : -1;
+        previewIdx = Math.min(_virtualPages.length - 1, same >= 0 ? same : previewIdx);
+        renderPreviewPage();
+      }).catch(() => {});
     }
 
     function closePreview() {
@@ -11589,9 +11735,10 @@
           <div style="font-family:'Space Grotesk',sans-serif;font-size:11px;font-weight:600;color:#0B3D7A;margin-bottom:4px;">結論敘述</div>
           <div style="font-size:10px;line-height:1.7;color:rgba(15,23,42,0.85);white-space:pre-wrap;border:1px solid #C2DFF8;border-radius:4px;padding:8px 10px;background:#F7F9FC;">${conclBody}</div>
         </div>` : '';
-      const chartUrl = d.show_chart !== false ? simChartDataURL(d) : '';
-      const chartHtml = chartUrl ? `<div style="margin-top:8px;"><img src="${chartUrl}" style="display:block;width:${SIM_CHART_W}px;height:${SIM_CHART_H}px;"></div>` : '';
-      const extrasHtml = notesHtml + chartHtml + conclusionHtml;
+      const chartUrls = d.show_chart !== false ? simChartDataURLs(d) : [];
+      const chartsHtml = chartUrls.map(u => `<div style="margin-top:8px;"><img src="${u}" style="display:block;width:${SIM_CHART_W}px;height:${SIM_CHART_H}px;"></div>`);
+      const extras = [notesHtml, ...chartsHtml, conclusionHtml].filter(Boolean);
+      const extrasHtml = extras.join('');
 
       const tableBlock = (rowsStr) => `<div style="border:1px solid #C2DFF8;">
           <table style="width:100%;border-collapse:collapse;font-size:10px;">
@@ -11606,10 +11753,12 @@
       const rowStrs = items.map(rowHtml);
       const chunks = pgSplit(rowStrs.length, (a, b) => pageShell(tableBlock(rowStrs.slice(a, b).join(''))));
       const pages = chunks.map(([a, b]) => tableBlock(rowStrs.slice(a, b).join('')));
-      // notes / chart / 結論敘述 go under the last rows, or onto their own final page
-      const last = pages.length - 1;
-      if (pgFits(pageShell(pages[last] + extrasHtml))) pages[last] += extrasHtml;
-      else pages.push(extrasHtml);
+      // notes, chart(s) and 結論敘述 follow the last rows, each on the page where it still fits
+      extras.forEach(x => {
+        const last = pages.length - 1;
+        if (pgFits(pageShell(pages[last] + x))) pages[last] += x;
+        else pages.push(x);
+      });
       return pages.map(pageShell);
     }
 
@@ -11740,6 +11889,47 @@
       await (timeoutMs ? Promise.race([all, new Promise(r => setTimeout(r, timeoutMs))]) : all);
     }
 
+    // Pages laid out with exactly the fonts they are drawn with. Loading by the data alone
+    // misses text the builders add (「ΔT」, the margin note, titles …); html2canvas loads
+    // those subsets in its copy of the page, so rows drawn there came out taller than
+    // measured (preview fine, PDF over the footer). So: lay out, load the fonts for the
+    // text of the built pages, and lay out again if that brought in any new font.
+    const PDF_GLYPHS = '類別元件名稱備註類型實測頁THERMAL TEST DATA EMBEDDED SENSOR READINGS SensorLocalRemoteRFDigitalPWRRecAbs0123456789.-/%°CΔT✓✗—–−×≥≤±→※·（）：；、，。';
+    const pagesText = (vps) => vps.map(vp => { const t = document.createElement('template'); t.innerHTML = vp.html; return t.content.textContent; }).join('');
+    const loadedFaces = () => { let n = 0; document.fonts.forEach(f => { if (f.status === 'loaded') n++; }); return n; };
+    const nextFrames = () => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+    // built: pages already laid out with the fonts loaded right now (reused when no font arrives).
+    async function buildVirtualPagesWithFonts(built) {
+      if (!document.fonts || !document.fonts.load) return built || buildVirtualPages();
+      let glyphs = PDF_GLYPHS;
+      try { glyphs += JSON.stringify((state.pages || []).map(p => p.data), (k, v) => typeof v === 'string' && v.startsWith('data:') ? '' : v); } catch (_) {}
+      const start = loadedFaces();
+      try { await loadPdfFonts(document, glyphs); await nextFrames(); } catch (e) { /* lay out with what is there */ }
+      let vps = built && loadedFaces() === start ? built : buildVirtualPages();
+      try {
+        const before = loadedFaces();
+        await loadPdfFonts(document, pagesText(numberVirtualPages(vps)));
+        if (loadedFaces() !== before) { await nextFrames(); vps = buildVirtualPages(); }
+      } catch (e) { /* keep the first layout */ }
+      return vps;
+    }
+    // Safety net for the html2canvas copy: if a page there still ends lower than the
+    // pagination measured (a font that did not arrive in time …), shrink its content a
+    // little so it stays above the footer note / page number instead of running over them.
+    function pdfFitToFooter(root) {
+      const end = root.querySelector('[data-pg-end]'), box = end && end.parentElement;
+      if (!box) return 1;
+      const top = root.getBoundingClientRect().top;
+      const foots = Array.from(root.querySelectorAll('[data-pg-foot]'), f => f.getBoundingClientRect().top - top);
+      const room = Math.min(PG_LIMIT, ...foots.map(f => f - PG_FOOT_GAP));
+      const y = end.getBoundingClientRect().top - top, y0 = box.getBoundingClientRect().top - top;
+      if (y <= room + 0.5 || y - y0 < 1) return 1;
+      const k = Math.max(0.8, (room - y0) / (y - y0));
+      box.style.transformOrigin = 'top center';
+      box.style.transform = `scale(${k})`;
+      return k;
+    }
+
     async function exportPDF(selectedPageIdxs, opts = {}) {
       if (state.pages.length === 0) return;
       if (typeof html2canvas === 'undefined' || typeof jspdf === 'undefined') {
@@ -11774,21 +11964,8 @@
       // glyphs that will be rendered, or the measurer lays CJK out with a shorter
       // system fallback (under-measuring) while the export renders the taller
       // webfont — pushing the last row onto the footer.
-      try {
-        if (document.fonts && document.fonts.load) {
-          let glyphs = '類別元件名稱備註類型實測頁THERMAL TEST DATA EMBEDDED SENSOR READINGS SensorLocalRemoteRFDigitalPWRRecAbs0123456789.-/%°C';
-          try {
-            // every text of every page (sim / compare / conclusion paginate too); images left out
-            glyphs += JSON.stringify((state.pages || []).map(p => p.data), (k, v) => typeof v === 'string' && v.startsWith('data:') ? '' : v);
-          } catch (_) {}
-          await loadPdfFonts(document, glyphs);
-          // let layout pick up the freshly-applied fonts before we measure
-          await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-        }
-      } catch (e) { /* non-fatal: fall back to immediate render */ }
-
       let pdf = null;
-      let virtualPages = buildVirtualPages();
+      let virtualPages = await buildVirtualPagesWithFonts();   // see there: same fonts as the render
       // Optional page selection: keep only virtual pages whose source page was picked.
       if (selectedPageIdxs instanceof Set) {
         virtualPages = virtualPages.filter(vp => selectedPageIdxs.has(vp.pageIdx));
@@ -11841,7 +12018,7 @@
               // html2canvas lays the page out again in a cloned document, which loads
               // the webfonts anew: wait for the glyphs of this page there too, or it
               // can draw rows with fallback metrics, taller than the pagination measured.
-              onclone: (doc, el) => loadPdfFonts(doc, el.textContent, 4000),
+              onclone: async (doc, el) => { await loadPdfFonts(doc, el.textContent, 4000); pdfFitToFooter(el); },
             });
           } finally {
             offscreen.remove();   // always clean up, even when rendering fails
@@ -12574,12 +12751,27 @@
     // for colour-vision deficiency), the derated spec as a dashed tick, the
     // comparison Ta as the baseline. Drawn on a canvas and embedded as a PNG so
     // the editor and html2canvas (PDF) show exactly the same picture.
-    const SIM_CHART_W = 786, SIM_CHART_H = 230;
-    function simChartDataURL(d) {
+    // Dev % sits in one aligned row above the plot (coloured like the table's 判斷),
+    // not on top of each group — there it rode up and down with every spec tick.
+    // More than SIM_CHART_MAX components are split over several charts (same Tc
+    // scale) so every group keeps room for its bars, label and name.
+    const SIM_CHART_W = 786, SIM_CHART_H = 230, SIM_CHART_MAX = 18;
+    const SIM_JUDGE_COLOR = { good: '#1E8E4E', warn: '#C27A06', bad: '#D23B2A', none: '#64748B' };
+    function simChartDataURLs(d) {
       const all = getDataPageComponents();
       const ta = simCompareTa(d);
       const pts = (d.items || []).map(it => simRowValues(it, all, ta)).filter(v => !isNaN(v.simTc) && !isNaN(v.measTc));
-      if (!pts.length) return '';
+      if (!pts.length) return [];
+      const vals = pts.flatMap(v => [v.simTc, v.measTc, v.derated].filter(x => isFinite(x)));
+      const base = ta !== null ? ta : Math.min(...vals) - 5;
+      const yMin = Math.floor(Math.min(base, ...vals) / 5) * 5;   // the Ta baseline sits on a grid line
+      const yMax = Math.ceil((Math.max(...vals) + 4) / 10) * 10;
+      const n = Math.ceil(pts.length / SIM_CHART_MAX), size = Math.ceil(pts.length / n);
+      return Array.from({ length: n }, (_, k) => simChartPNG(pts.slice(k * size, (k + 1) * size), { ta, base, yMin, yMax, part: n > 1 ? `${k + 1} / ${n}` : '' }));
+    }
+    const simChartDataURL = d => simChartDataURLs(d)[0] || '';
+    function simChartPNG(pts, o) {
+      const { ta, base, yMin, yMax } = o;
       const W = SIM_CHART_W, H = SIM_CHART_H, S = 2;
       const c = document.createElement('canvas');
       c.width = W * S; c.height = H * S;
@@ -12588,11 +12780,7 @@
       g.fillStyle = '#ffffff'; g.fillRect(0, 0, W, H);
       const C = { meas: '#2357A7', sim: '#EB6834', spec: '#334155', grid: '#E5E9F0', ink: '#334155', muted: '#64748B' };
       const font = (px, w) => `${w || 400} ${px}px 'DM Sans','Noto Sans TC','Microsoft JhengHei',sans-serif`;
-      const vals = pts.flatMap(v => [v.simTc, v.measTc, v.derated].filter(x => isFinite(x)));
-      const base = ta !== null ? ta : Math.min(...vals) - 5;
-      const yMin = Math.floor(Math.min(base, ...vals) / 5) * 5;   // the Ta baseline sits on a grid line
-      const yMax = Math.ceil((Math.max(...vals) + 4) / 10) * 10;
-      const L = 44, R = 12, T = 30, B = pts.length > 10 ? 50 : 34;
+      const L = 44, R = 12, T = 42, B = pts.length > 10 ? 50 : 34, DEV_Y = 31;
       const pw = W - L - R, ph = H - T - B;
       const y = v => T + ph - (v - yMin) / (yMax - yMin) * ph;
       // grid + axis labels
@@ -12602,6 +12790,7 @@
         g.fillStyle = C.muted; g.fillText(String(v), L - 6, y(v));
       }
       g.save(); g.translate(11, T + ph / 2); g.rotate(-Math.PI / 2); g.textAlign = 'center'; g.fillStyle = C.muted; g.fillText('Tc (°C)', 0, 0); g.restore();
+      g.font = font(8.5, 600); g.fillStyle = C.muted; g.textAlign = 'right'; g.fillText('Dev', L - 6, DEV_Y);
       const yBase = y(Math.max(yMin, base));
       // bars
       const gw = pw / pts.length;
@@ -12614,16 +12803,18 @@
       };
       pts.forEach((v, i) => {
         const cx = L + gw * i + gw / 2;
+        if (i % 2) { g.fillStyle = 'rgba(15,23,42,0.025)'; g.fillRect(L + gw * i, T, gw, ph); }   // zebra: which bars belong together
         bar(cx - bw - 1, v.measTc, C.meas);                // 2px gap between the pair
         bar(cx + 1, v.simTc, C.sim);
         if (isFinite(v.derated)) {                         // derated spec tick
           g.strokeStyle = C.spec; g.lineWidth = 1.5; g.setLineDash([3, 2]);
-          g.beginPath(); g.moveTo(cx - bw - 5, y(v.derated)); g.lineTo(cx + bw + 5, y(v.derated)); g.stroke(); g.setLineDash([]);
+          const tk = Math.min(bw + 5, gw / 2 - 3);           // a gap between neighbouring groups' ticks
+          g.beginPath(); g.moveTo(cx - tk, y(v.derated)); g.lineTo(cx + tk, y(v.derated)); g.stroke(); g.setLineDash([]);
         }
-        if (!isNaN(v.devPct) || !isNaN(v.devC)) {          // deviation label (ink, not series colour)
-          g.font = font(8.5, 600); g.textAlign = 'center'; g.textBaseline = 'bottom'; g.fillStyle = C.ink;
+        if (!isNaN(v.devPct) || !isNaN(v.devC)) {          // deviation: one aligned row, coloured by 判斷
+          g.font = font(gw < 30 ? 7.5 : 8.5, 700); g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = SIM_JUDGE_COLOR[v.judge] || C.ink;
           const txt = !isNaN(v.devPct) ? (v.devPct >= 0 ? '+' : '') + v.devPct.toFixed(0) + '%' : (v.devC >= 0 ? '+' : '') + v.devC.toFixed(1) + '°';
-          g.fillText(txt, cx, Math.min(y(v.simTc), y(v.measTc), isFinite(v.derated) ? y(v.derated) : Infinity) - 3);
+          g.fillText(txt, cx, DEV_Y);
         }
         // x label (rotated when the groups are narrow)
         g.fillStyle = C.ink; g.font = font(9);
@@ -12634,11 +12825,12 @@
         if (gw < 60) { g.save(); g.translate(cx, yBase + 8); g.rotate(-Math.PI / 5); g.textAlign = 'right'; g.textBaseline = 'middle'; g.fillText(name, 0, 0); g.restore(); }
         else { g.textAlign = 'center'; g.textBaseline = 'top'; g.fillText(name, cx, yBase + 6); }
       });
+      g.strokeStyle = C.grid; g.lineWidth = 1; g.beginPath(); g.moveTo(L, DEV_Y + 7); g.lineTo(W - R, DEV_Y + 7); g.stroke();
       // baseline (comparison Ta)
       g.strokeStyle = '#94A3B8'; g.lineWidth = 1; g.beginPath(); g.moveTo(L, yBase); g.lineTo(W - R, yBase); g.stroke();
       // legend (top-right) + title (top-left)
       g.textBaseline = 'middle'; g.font = font(9.5, 600); g.textAlign = 'left'; g.fillStyle = '#0B3D7A';
-      g.fillText(`Sim vs Meas Tc${ta !== null ? ` @ Ta = ${ta}°C（基準線 = Ta）` : ''}`, L, 12);
+      g.fillText(`Sim vs Meas Tc${ta !== null ? ` @ Ta = ${ta}°C（基準線 = Ta）` : ''}${o.part ? `（${o.part}）` : ''}`, L, 12);
       const items = [['Meas Tc', 'box', C.meas], ['Sim Tc', 'box', C.sim], ['Derated Spec', 'dash', C.spec]];
       g.font = font(9);
       let lx = W - R;

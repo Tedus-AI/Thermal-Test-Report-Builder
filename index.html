@@ -2902,6 +2902,10 @@
     .an-seq.on { background: #fff; color: #b91c1c; border: 1px solid rgba(185,28,28,0.4); }
     .an-empty { font-size: 11px; color: rgba(15,23,42,0.45); padding: 4px 2px; line-height: 1.5; list-style: none; }
     .an-list { list-style: none; margin: 0; padding: 0; overflow-y: auto; flex: 1; }
+    .an-plist { flex: none; margin-top: 6px; }
+    .an-plist .im-row { gap: 6px; padding: 3px 2px; }
+    .an-grp { list-style: none; font: 700 10px var(--font-ui); letter-spacing: 0.04em; color: rgba(15,23,42,0.5); padding: 6px 2px 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .an-grp:first-child { padding-top: 0; }
     .an-row { display: flex; align-items: center; gap: 4px; padding: 1px 2px; border-radius: 4px; cursor: pointer; }
     .an-row:hover { background: rgba(35,87,167,0.05); }
     .an-row.sel { background: rgba(14,165,233,0.13); }
@@ -5067,6 +5071,10 @@
     //   marker.x / y 0–100 % of img_box → points move and scale with the photo
     //   marker.lx/ly label top-left on the stage
     //   d.label_size 'S' | 'M' | 'L', d.show_idx (number badge), d.temp_src { page_id, ta }
+    // Up to two photos (ANNO_MAX). Photo 1 keeps the fields above on d itself (older
+    // pages stay as they are); photo 2 has the same fields in d.photo2, and its
+    // markers carry m.p = 1. caption (on d / d.photo2) prints under the photo;
+    // d.layout 'auto' | '1' | '2h' | '2v' says how two photos share the page.
     const ANNO_TITLE_H = 36;
     const ANNO_W = 842, ANNO_H = 595 - ANNO_TITLE_H;
     const ANNO_SAFE = { l: 18, t: 4, r: ANNO_W - 18, b: ANNO_H - 26 };   // clear of the page bars and footer
@@ -5082,12 +5090,40 @@
     const p2 = v => Math.round(v * 100) / 100;          // marker % (0.01)
     const clampN = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
+    const ANNO_MAX = 2;
+    const ANNO_CAP_H = 18;                                                // caption band under a photo
+    const ANNO_CAP_FONT = "'Noto Sans TC','DM Sans',sans-serif";
+    const ANNO_SLOT_GAP = 16;
+    const ANNO_LAYOUTS = [{ k: '1', cap: 1, name: '1 張' }, { k: '2h', cap: 2, name: '2 張左右' }, { k: '2v', cap: 2, name: '2 張上下' }];
+    const ANNO_PHOTO_KEYS = ['photo_url_or_base64', 'img_box', 'img_rot', 'img_fh', 'img_fit', 'caption'];
+    const annoPh = (d, i) => i ? (d.photo2 || null) : d;                 // photo i (same field names on both)
+    const annoHasPh = P => !!(P && P.photo_url_or_base64 && P.img_box);
+    const annoPhotos = d => [0, 1].filter(i => annoHasPh(annoPh(d, i)));
+    const annoPi = m => (m && m.p === 1) ? 1 : 0;                         // photo of a marker
+    const annoMk = (d, i) => d.markers.filter(m => annoPi(m) === i);
+    const annoCap = P => String((P && P.caption) || '').trim();
+    const annoCapH = P => annoCap(P) ? ANNO_CAP_H : 0;
+    const annoFoot = P => ({ x: P.img_box.x, y: P.img_box.y, w: P.img_box.w, h: P.img_box.h + annoCapH(P) });   // photo + caption
+    function annoMovePhoto(from, to) {     // copy the photo fields of one photo object onto another
+      ANNO_PHOTO_KEYS.forEach(k => { if (from[k] !== undefined) to[k] = from[k]; else delete to[k]; });
+    }
+
     // Pages saved by the previous version kept the frame in anno_photo_* and the
     // labels in % of the stage. Convert once, in place (idempotent).
     function annoNormalize(d) {
       if (!d) return false;
       if (!Array.isArray(d.markers)) d.markers = [];
-      if (d.anno_v === 2) return false;
+      let fixed = false;
+      if (d.photo2 && (typeof d.photo2 !== 'object' || Array.isArray(d.photo2))) { delete d.photo2; fixed = true; }
+      if (d.photo2) {
+        if (!d.photo_url_or_base64 && d.photo2.photo_url_or_base64) {   // photo 1 always comes first: trade places
+          const tmp = {};
+          annoMovePhoto(d, tmp); annoMovePhoto(d.photo2, d); annoMovePhoto(tmp, d.photo2);
+          d.markers.forEach(m => { if (annoPi(m)) delete m.p; else m.p = 1; });
+          fixed = true;
+        } else if (!d.photo2.photo_url_or_base64 && !d.markers.some(m => annoPi(m) === 1)) { delete d.photo2; fixed = true; }
+      }
+      if (d.anno_v === 2) return fixed;
       if (d.photo_url_or_base64) {
         const w = d.anno_photo_w || 680, h = d.anno_photo_h || 430;
         d.img_box = { x: d.anno_photo_x != null ? d.anno_photo_x : (ANNO_W - w) / 2, y: d.anno_photo_y != null ? d.anno_photo_y : (ANNO_H - h) / 2, w, h };
@@ -5126,14 +5162,18 @@
     function annoClampLabel(x, y, w, h) {
       return { x: clampN(x, ANNO_SAFE.l, Math.max(ANNO_SAFE.l, ANNO_SAFE.r - w)), y: clampN(y, ANNO_SAFE.t, Math.max(ANNO_SAFE.t, ANNO_SAFE.b - h)) };
     }
-    const annoDot = (d, m) => ({ x: d.img_box.x + m.x / 100 * d.img_box.w, y: d.img_box.y + m.y / 100 * d.img_box.h });
-    // Label rectangles as drawn (clamped into the page).
+    const annoDot = (d, m) => { const B = annoPh(d, annoPi(m)).img_box; return { x: B.x + m.x / 100 * B.w, y: B.y + m.y / 100 * B.h }; };
+    // Label rectangles as drawn (clamped into the page); i = number of the marker.
+    // Markers whose photo is not there (a template copy without photos) are left out.
     function annoLabelRects(d, tv) {
-      return d.markers.map((m, i) => {
+      const out = [];
+      d.markers.forEach((m, i) => {
+        if (!annoHasPh(annoPh(d, annoPi(m)))) return;
         const s = annoLabelSize(d, m, i, tv && tv.byMarker.get(m.id));
         const p = annoClampLabel(m.lx, m.ly, s.w, s.h);
-        return { m, i, x: p.x, y: p.y, w: s.w, h: s.h };
+        out.push({ m, i, x: p.x, y: p.y, w: s.w, h: s.h });
       });
+      return out;
     }
 
     // Measured-temperature overlay: each marker shows the Tc of the data-page
@@ -5172,24 +5212,37 @@
     // Fitted frames (img_fit: frame aspect = photo aspect) are filled exactly, small photos
     // included; old frames not yet fitted keep the old layout (photo fitted into the
     // unrotated frame, then rotated) so their points stay where they were drawn.
-    function annoImgInnerStyle(d) {
-      const B = d.img_box, rot = d.img_rot || 0, swap = !!d.img_fit && (rot === 90 || rot === 270);
+    function annoImgInnerStyle(P) {
+      const B = P.img_box, rot = P.img_rot || 0, swap = !!P.img_fit && (rot === 90 || rot === 270);
       const iw = swap ? B.h : B.w, ih = swap ? B.w : B.h;
-      const tf = (rot ? `rotate(${rot}deg)` : '') + (d.img_fh ? ' scaleX(-1)' : '');
+      const tf = (rot ? `rotate(${rot}deg)` : '') + (P.img_fh ? ' scaleX(-1)' : '');
       return `position:absolute;left:${r1((B.w - iw) / 2)}px;top:${r1((B.h - ih) / 2)}px;width:${r1(iw)}px;height:${r1(ih)}px;display:flex;align-items:center;justify-content:center;${tf ? 'transform:' + tf.trim() + ';' : ''}`;
     }
+    // Caption band under the photo (a little wider than it; long text is set smaller).
+    function annoCapRect(P) {
+      const B = P.img_box, w = Math.min(ANNO_SAFE.r - ANNO_SAFE.l, B.w + 60);
+      return { x: r1(clampN(B.x + B.w / 2 - w / 2, ANNO_SAFE.l, ANNO_SAFE.r - w)), y: r1(B.y + B.h), w: r1(w), h: ANNO_CAP_H };
+    }
+    function annoCapHTML(P, i, editor) {
+      const cap = annoCap(P);
+      if (!cap || !P.img_box) return '';
+      const R = annoCapRect(P);
+      const fs = r1(clampN(11 * (R.w - 8) / Math.max(1, annoTextW(cap, `11px ${ANNO_CAP_FONT}`)), 8, 11));
+      return `<div ${editor ? `data-an-cap="${i}"` : ''} style="position:absolute;left:${R.x}px;top:${R.y}px;width:${R.w}px;height:${R.h}px;display:flex;align-items:center;justify-content:center;font-family:${ANNO_CAP_FONT};font-size:${fs}px;color:rgba(15,23,42,0.72);white-space:nowrap;overflow:hidden;z-index:1;">${escHtml(cap)}</div>`;
+    }
     function annoImageHTML(d, editor) {
-      const B = d.img_box;
-      if (!d.photo_url_or_base64 || !B) return '';
-      return `<div ${editor ? 'data-an-img="1" id="an-img"' : ''} style="position:absolute;left:${r1(B.x)}px;top:${r1(B.y)}px;width:${r1(B.w)}px;height:${r1(B.h)}px;overflow:hidden;z-index:1;">
-          <div data-an-imgin style="${annoImgInnerStyle(d)}"><img src="${escapeAttr(d.photo_url_or_base64)}" draggable="false" style="${d.img_fit ? 'width:100%;height:100%;' : 'max-width:100%;max-height:100%;'}display:block;"></div>
+      return annoPhotos(d).map(i => {
+        const P = annoPh(d, i), B = P.img_box;
+        return `<div ${editor ? `data-an-img="${i}" id="${i ? 'an-img-1' : 'an-img'}"` : ''} style="position:absolute;left:${r1(B.x)}px;top:${r1(B.y)}px;width:${r1(B.w)}px;height:${r1(B.h)}px;overflow:hidden;z-index:1;">
+          <div data-an-imgin style="${annoImgInnerStyle(P)}"><img src="${escapeAttr(P.photo_url_or_base64)}" draggable="false" style="${P.img_fit ? 'width:100%;height:100%;' : 'max-width:100%;max-height:100%;'}display:block;"></div>
           <div style="position:absolute;left:0;top:0;right:0;bottom:0;border:1px solid #C2DFF8;"></div>
-        </div>`;
+        </div>${annoCapHTML(P, i, editor)}`;
+      }).join('');
     }
     // Leader lines, points and labels. opts.editor adds hit-test attributes and
     // selection classes only (no geometry differences).
     function annoOverlayHTML(d, tv, opts = {}) {
-      if (!d.img_box || !d.photo_url_or_base64) return '';
+      if (!annoPhotos(d).length) return '';
       const fs = annoFs(d), pad = annoPad(d);
       let lines = '', dots = '', labels = '';
       annoLabelRects(d, tv).forEach(r => {
@@ -5228,19 +5281,72 @@
     }
 
     // ── Layout helpers ──
-    function annoFitInSafe(b) {
-      const sw = ANNO_SAFE.r - ANNO_SAFE.l, sh = ANNO_SAFE.b - ANNO_SAFE.t;
+    // Areas are { l, t, r, b } on the stage (ANNO_SAFE is one).
+    function annoFitIn(A, b, capH = 0) {
+      const sw = A.r - A.l, sh = A.b - A.t - capH;
       let { x, y, w, h } = b;
       const s = Math.min(1, sw / w, sh / h);
       if (s < 1) { x += (w - w * s) / 2; y += (h - h * s) / 2; w *= s; h *= s; }
-      return { x: r1(clampN(x, ANNO_SAFE.l, ANNO_SAFE.r - w)), y: r1(clampN(y, ANNO_SAFE.t, ANNO_SAFE.b - h)), w: r1(w), h: r1(h) };
+      return { x: r1(clampN(x, A.l, A.r - w)), y: r1(clampN(y, A.t, A.b - capH - h)), w: r1(w), h: r1(h) };
     }
+    const annoFitInSafe = (b, capH = 0) => annoFitIn(ANNO_SAFE, b, capH);
     // Default frame for a new photo: centred, leaving ~150 px each side for labels.
     function annoDefaultBox(ar) {
       const maxW = ANNO_SAFE.r - ANNO_SAFE.l - 300, maxH = ANNO_SAFE.b - ANNO_SAFE.t - 20;
       let w = maxW, h = w / ar;
       if (h > maxH) { h = maxH; w = h * ar; }
       return annoFitInSafe({ x: (ANNO_W - w) / 2, y: ANNO_SAFE.t + (ANNO_SAFE.b - ANNO_SAFE.t - h) / 2, w, h });
+    }
+    // The two halves of a layout (one photo: the whole page).
+    function annoSlots(key) {
+      const S = ANNO_SAFE, g = ANNO_SLOT_GAP, full = { l: S.l, t: S.t, r: S.r, b: S.b };
+      if (key === '2h') { const m = (S.l + S.r) / 2; return [{ ...full, r: m - g / 2 }, { ...full, l: m + g / 2 }]; }
+      if (key === '2v') { const m = (S.t + S.b) / 2; return [{ ...full, b: m - g / 2 }, { ...full, t: m + g / 2 }]; }
+      return [full, full];
+    }
+    // 自動: the split that leaves both photos the most area once their label columns are
+    // set aside (landscape photos usually stack, portrait ones sit side by side).
+    function annoAutoKey(d, tv) {
+      const S = ANNO_SAFE, g = ANNO_SLOT_GAP, sw = S.r - S.l, sh = S.b - S.t;
+      const side = i => {
+        const ws = d.markers.map((m, k) => annoPi(m) === i ? annoLabelSize(d, m, k, tv && tv.byMarker.get(m.id)).w : 0).filter(Boolean);
+        return ws.length ? Math.min(160, Math.max(...ws) + ANNO_GAP) : 0;
+      };
+      const area = (i, w, h) => {
+        const P = annoPh(d, i), ar = P.img_box.w / P.img_box.h;
+        const fw = Math.max(0, Math.min(w - 2 * side(i), (h - annoCapH(P)) * ar));
+        return fw * fw / ar;
+      };
+      const h2 = area(0, (sw - g) / 2, sh) + area(1, (sw - g) / 2, sh);
+      const v2 = area(0, sw, (sh - g) / 2) + area(1, sw, (sh - g) / 2);
+      return v2 > h2 ? '2v' : '2h';
+    }
+    // Layout to apply now: one photo → '1'; two → the chosen split, or 自動.
+    function annoLayoutKey(d, tv) {
+      if (annoPhotos(d).length < 2) return '1';
+      return d.layout === '2h' || d.layout === '2v' ? d.layout : annoAutoKey(d, tv);
+    }
+    // How the photos sit right now (for the layout picker): side by side, stacked, or ''.
+    function annoCurKey(d) {
+      const idx = annoPhotos(d);
+      if (idx.length < 2) return idx.length ? '1' : '';
+      const A = annoFoot(d), B = annoFoot(d.photo2);
+      const gx = Math.max(B.x - (A.x + A.w), A.x - (B.x + B.w)), gy = Math.max(B.y - (A.y + A.h), A.y - (B.y + B.h));
+      return gx >= 0 && gx >= gy ? '2h' : gy >= 0 ? '2v' : '';
+    }
+    // Room for photo i's labels: the page, or its side of the line midway between the
+    // two photos (follows the photos wherever they were dragged).
+    function annoArea(d, i) {
+      const S = { l: ANNO_SAFE.l, t: ANNO_SAFE.t, r: ANNO_SAFE.r, b: ANNO_SAFE.b };
+      if (annoPhotos(d).length < 2) return S;
+      const A = annoFoot(annoPh(d, i)), O = annoFoot(annoPh(d, 1 - i)), g = ANNO_SLOT_GAP / 2;
+      const gx = Math.max(O.x - (A.x + A.w), A.x - (O.x + O.w)), gy = Math.max(O.y - (A.y + A.h), A.y - (O.y + O.h));
+      if (gx >= 0 && gx >= gy) {
+        if (A.x < O.x) S.r = (A.x + A.w + O.x) / 2 - g; else S.l = (O.x + O.w + A.x) / 2 + g;
+      } else if (gy >= 0) {
+        if (A.y < O.y) S.b = (A.y + A.h + O.y) / 2 - g; else S.t = (O.y + O.h + A.y) / 2 + g;
+      }
+      return S;
     }
     // 1-D spreading: keep each item as close to its wish as possible, no overlap, inside [lo, hi].
     function annoSpread(items, lo, hi, gap) {
@@ -5251,23 +5357,33 @@
       cur = lo;
       items.forEach(it => { it.p = Math.max(it.p, cur); cur = it.p + it.size + gap; });
     }
-    // Put every label in a column left / right of the photo (rows above / below when
-    // the columns are full or too narrow), ordered like their points so lines don't cross.
-    // opt.overlap: columns / rows may sit over the photo's edge (never over a point);
-    // returns false when that covers a point or a label found no place.
+    // Put every label in a column left / right of its photo (rows above / below when
+    // the columns are full or too narrow), ordered like their points so lines don't cross,
+    // inside the photo's area (annoArea). opt.photo: only that photo; opt.area: area to use.
+    // opt.overlap: columns / rows may sit over the photo's edge (never over a point or the
+    // caption); returns false when that covers one or a label found no place.
     function annoAutoArrange(d, tv, opt = {}) {
-      const B = d.img_box;
-      if (!B || !d.markers.length) return true;
-      const H = annoLabelH(d), vg = 4, over = !!opt.overlap;
-      const items = d.markers.map((m, i) => {
+      let ok = true;
+      (opt.photo != null ? [opt.photo] : annoPhotos(d)).forEach(i => {
+        if (!annoArrangeOne(d, tv, i, opt.area || annoArea(d, i), !!opt.overlap)) ok = false;
+      });
+      return ok;
+    }
+    function annoArrangeOne(d, tv, pi, A, over) {
+      const P = annoPh(d, pi);
+      if (!annoHasPh(P)) return true;
+      const B = P.img_box, ch = annoCapH(P);
+      const items = d.markers.map((m, i) => ({ m, i })).filter(o => annoPi(o.m) === pi).map(({ m, i }) => {
         const p = annoDot(d, m);
         return { m, i, px: p.x, py: p.y, w: annoLabelSize(d, m, i, tv && tv.byMarker.get(m.id)).w };
       });
-      const colX = (s, w) => s === 'L' ? Math.max(ANNO_SAFE.l, B.x - ANNO_GAP - w) : Math.min(ANNO_SAFE.r - w, B.x + B.w + ANNO_GAP);
-      const rowY = s => s === 'T' ? Math.max(ANNO_SAFE.t, B.y - ANNO_GAP - H) : Math.min(ANNO_SAFE.b - H, B.y + B.h + ANNO_GAP);
-      const room = (s, it) => over || (s === 'L' ? B.x - ANNO_GAP - it.w >= ANNO_SAFE.l : s === 'R' ? B.x + B.w + ANNO_GAP + it.w <= ANNO_SAFE.r
-        : s === 'T' ? B.y - ANNO_GAP - H >= ANNO_SAFE.t : B.y + B.h + ANNO_GAP + H <= ANNO_SAFE.b);
-      const colCap = Math.floor((ANNO_SAFE.b - ANNO_SAFE.t + vg) / (H + vg));
+      if (!items.length) return true;
+      const H = annoLabelH(d), vg = 4;
+      const colX = (s, w) => s === 'L' ? Math.max(A.l, B.x - ANNO_GAP - w) : Math.min(A.r - w, B.x + B.w + ANNO_GAP);
+      const rowY = s => s === 'T' ? Math.max(A.t, B.y - ANNO_GAP - H) : Math.min(A.b - H, B.y + B.h + ch + ANNO_GAP);
+      const room = (s, it) => over || (s === 'L' ? B.x - ANNO_GAP - it.w >= A.l : s === 'R' ? B.x + B.w + ANNO_GAP + it.w <= A.r
+        : s === 'T' ? B.y - ANNO_GAP - H >= A.t : B.y + B.h + ch + ANNO_GAP + H <= A.b);
+      const colCap = Math.floor((A.b - A.t + vg) / (H + vg));
       const rowW = B.w + ANNO_GAP * 2;
       const used = { L: 0, R: 0, T: 0, B: 0 };
       const sides = { L: [], R: [], T: [], B: [] };
@@ -5286,7 +5402,7 @@
         });
       ['L', 'R'].forEach(s => {
         const list = sides[s].sort((a, b) => a.py - b.py).map(it => ({ it, want: it.py - H / 2, size: H }));
-        annoSpread(list, ANNO_SAFE.t, ANNO_SAFE.b, vg);
+        annoSpread(list, A.t, A.b, vg);
         list.forEach(({ it, p }) => { it.m.lx = r1(colX(s, it.w)); it.m.ly = r1(p); });
       });
       // Untangle: two labels of one column swap places while their leader lines cross.
@@ -5305,76 +5421,97 @@
         }
       });
       // Rows run between the two label columns.
-      const lo = Math.max(ANNO_SAFE.l, ...sides.L.map(it => it.m.lx + it.w + 6)), hi = Math.min(ANNO_SAFE.r, ...sides.R.map(it => it.m.lx - 6));
+      const lo = Math.max(A.l, ...sides.L.map(it => it.m.lx + it.w + 6)), hi = Math.min(A.r, ...sides.R.map(it => it.m.lx - 6));
       ['T', 'B'].forEach(s => {
         const list = sides[s].sort((a, b) => a.px - b.px).map(it => ({ it, want: it.px - it.w / 2, size: it.w }));
-        annoSpread(list, Math.min(lo, B.x), Math.max(hi, B.x + B.w), 8);
+        annoSpread(list, Math.max(A.l, Math.min(lo, B.x)), Math.min(A.r, Math.max(hi, B.x + B.w)), 8);
         list.forEach(({ it, p }) => { it.m.lx = r1(p); it.m.ly = r1(rowY(s)); });
       });
       if (!placedAll) return false;
       if (!over) return true;
-      // no label may cover a measuring point
+      // no label may cover a measuring point or the caption
       const rects = items.map(it => ({ x: it.m.lx - 6, y: it.m.ly - 6, w: it.w + 12, h: H + 12 }));
-      return !items.some(it => rects.some(r => it.px > r.x && it.px < r.x + r.w && it.py > r.y && it.py < r.y + r.h));
-    }
-    // One-click layout: the largest photo for which every label still finds a place
-    // that covers no point (labels may sit over the photo's empty edges), then arrange.
-    function annoAutoLayout(d, tv) {
-      const B = d.img_box;
-      if (!B) return false;
-      const ar = B.w / B.h;
-      const sw = ANNO_SAFE.r - ANNO_SAFE.l, sh = ANNO_SAFE.b - ANNO_SAFE.t;
-      let fw = sw, fh = fw / ar;
-      if (fh > sh) { fh = sh; fw = fh * ar; }
-      const box = k => annoFitInSafe({ x: (ANNO_W - fw * k) / 2, y: ANNO_SAFE.t + (sh - fh * k) / 2, w: fw * k, h: fh * k });
-      if (!d.markers.length) { d.img_box = box(0.8); return true; }
-      for (let k = 1; k >= 0.3; k -= 0.025) {
-        d.img_box = box(k);
-        if (annoAutoArrange(d, tv, { overlap: true })) return true;
+      if (items.some(it => rects.some(r => it.px > r.x && it.px < r.x + r.w && it.py > r.y && it.py < r.y + r.h))) return false;
+      if (ch) {
+        const C = annoCapRect(P);
+        if (items.some(it => it.m.lx < C.x + C.w && C.x < it.m.lx + it.w && it.m.ly < C.y + C.h && C.y < it.m.ly + H)) return false;
       }
-      // nothing fits over the photo: keep the labels clear of it
-      const n = d.markers.length, H = annoLabelH(d);
-      const maxLw = Math.max(...d.markers.map((m, i) => annoLabelSize(d, m, i, tv && tv.byMarker.get(m.id)).w));
-      const side = Math.min(240, maxLw + ANNO_GAP + 4);
-      const perCol = Math.floor((sh + 4) / (H + 4));
-      const rows = n > perCol * 2 ? H + ANNO_GAP + 2 : 0;
-      let w = sw - side * 2, h = w / ar;
-      if (h > sh - rows * 2 - 4) { h = sh - rows * 2 - 4; w = h * ar; }
-      d.img_box = annoFitInSafe({ x: (ANNO_W - w) / 2, y: ANNO_SAFE.t + (sh - h) / 2, w, h });
-      annoAutoArrange(d, tv);
       return true;
     }
-    // Spot for one new label: the nearest free slot beside the photo.
-    function annoPlaceLabel(d, m, tv) {
-      const B = d.img_box, i = d.markers.indexOf(m);
-      const s = annoLabelSize(d, m, i, tv && tv.byMarker.get(m.id));
-      const p = annoDot(d, m);
-      const others = annoLabelRects(d, tv).filter(r => r.m !== m && r.m.lx != null);
-      const free = (x, y) => x >= ANNO_SAFE.l - 0.5 && y >= ANNO_SAFE.t - 0.5 && x + s.w <= ANNO_SAFE.r + 0.5 && y + s.h <= ANNO_SAFE.b + 0.5
-        && !others.some(o => x < o.x + o.w + 2 && o.x < x + s.w + 2 && y < o.y + o.h + 2 && o.y < y + s.h + 2);
-      const cands = [
-        { x: B.x - ANNO_GAP - s.w, y: p.y - s.h / 2, axis: 'y', cost: p.x - B.x },
-        { x: B.x + B.w + ANNO_GAP, y: p.y - s.h / 2, axis: 'y', cost: B.x + B.w - p.x },
-        { x: p.x - s.w / 2, y: B.y - ANNO_GAP - s.h, axis: 'x', cost: (p.y - B.y) * 2 + 30 },
-        { x: p.x - s.w / 2, y: B.y + B.h + ANNO_GAP, axis: 'x', cost: (B.y + B.h - p.y) * 2 + 30 },
-      ].sort((a, b) => a.cost - b.cost);
-      for (const c of cands) {
-        const step = c.axis === 'y' ? s.h + 4 : 12;
-        for (let k = 0; k < 120; k++) {
-          const off = (k % 2 ? 1 : -1) * Math.ceil(k / 2) * step;
-          const x = c.axis === 'x' ? clampN(c.x + off, ANNO_SAFE.l, ANNO_SAFE.r - s.w) : c.x;
-          const y = c.axis === 'y' ? clampN(c.y + off, ANNO_SAFE.t, ANNO_SAFE.b - s.h) : c.y;
-          if (free(x, y)) { m.lx = r1(x); m.ly = r1(y); return; }
-        }
+    // One-click layout: one photo uses the page, two share it as d.layout says (自動:
+    // annoAutoKey). Each photo becomes the largest for which every label still finds a
+    // place that covers no point (labels may sit over the photo's empty edges).
+    function annoAutoLayout(d, tv) {
+      const idx = annoPhotos(d);
+      if (!idx.length) return false;
+      const slots = annoSlots(annoLayoutKey(d, tv));
+      idx.forEach(i => annoLayoutOne(d, tv, i, slots[i]));
+      return true;
+    }
+    function annoLayoutOne(d, tv, pi, A) {
+      const P = annoPh(d, pi), B = P.img_box, ch = annoCapH(P);
+      const ar = B.w / B.h;
+      const sw = A.r - A.l, sh = A.b - A.t - ch;
+      let fw = sw, fh = fw / ar;
+      if (fh > sh) { fh = sh; fw = fh * ar; }
+      const box = k => annoFitIn(A, { x: A.l + (sw - fw * k) / 2, y: A.t + (sh - fh * k) / 2, w: fw * k, h: fh * k }, ch);
+      const mk = annoMk(d, pi);
+      if (!mk.length) { P.img_box = box(0.8); return; }
+      for (let k = 1; k >= 0.3; k -= 0.025) {
+        P.img_box = box(k);
+        if (annoArrangeOne(d, tv, pi, A, true)) return;
       }
+      // nothing fits over the photo: keep the labels clear of it
+      const n = mk.length, H = annoLabelH(d);
+      const maxLw = Math.max(...mk.map(m => { const i = d.markers.indexOf(m); return annoLabelSize(d, m, i, tv && tv.byMarker.get(m.id)).w; }));
+      const side = Math.min(240, maxLw + ANNO_GAP + 4);
+      const perCol = Math.floor((A.b - A.t + 4) / (H + 4));
+      const rows = n > perCol * 2 ? H + ANNO_GAP + 2 : 0;
+      let w = Math.max(60, sw - side * 2), h = w / ar;
+      if (h > sh - rows * 2 - 4) { h = Math.max(40, sh - rows * 2 - 4); w = h * ar; }
+      P.img_box = annoFitIn(A, { x: A.l + (sw - w) / 2, y: A.t + (sh - h) / 2, w, h }, ch);
+      annoArrangeOne(d, tv, pi, A, false);
+    }
+    // Spot for one new label: the nearest free slot beside its photo (in the photo's
+    // area first, then anywhere on the page), clear of the other labels, the other photo
+    // and the caption.
+    function annoPlaceLabel(d, m, tv) {
+      const pi = annoPi(m), P = annoPh(d, pi), B = P.img_box, i = d.markers.indexOf(m);
+      const s = annoLabelSize(d, m, i, tv && tv.byMarker.get(m.id));
+      const p = annoDot(d, m), ch = annoCapH(P);
+      const blocks = annoLabelRects(d, tv).filter(r => r.m !== m && r.m.lx != null);
+      annoPhotos(d).forEach(j => { if (j !== pi) blocks.push(annoFoot(annoPh(d, j))); });
+      if (ch) blocks.push(annoCapRect(P));
+      const tryIn = (A) => {
+        const free = (x, y) => x >= A.l - 0.5 && y >= A.t - 0.5 && x + s.w <= A.r + 0.5 && y + s.h <= A.b + 0.5
+          && !blocks.some(o => x < o.x + o.w + 2 && o.x < x + s.w + 2 && y < o.y + o.h + 2 && o.y < y + s.h + 2);
+        const cands = [
+          { x: B.x - ANNO_GAP - s.w, y: p.y - s.h / 2, axis: 'y', cost: p.x - B.x },
+          { x: B.x + B.w + ANNO_GAP, y: p.y - s.h / 2, axis: 'y', cost: B.x + B.w - p.x },
+          { x: p.x - s.w / 2, y: B.y - ANNO_GAP - s.h, axis: 'x', cost: (p.y - B.y) * 2 + 30 },
+          { x: p.x - s.w / 2, y: B.y + B.h + ch + ANNO_GAP, axis: 'x', cost: (B.y + B.h - p.y) * 2 + 30 },
+        ].sort((a, b) => a.cost - b.cost);
+        for (const c of cands) {
+          const step = c.axis === 'y' ? s.h + 4 : 12;
+          for (let k = 0; k < 120; k++) {
+            const off = (k % 2 ? 1 : -1) * Math.ceil(k / 2) * step;
+            const x = c.axis === 'x' ? clampN(c.x + off, A.l, A.r - s.w) : c.x;
+            const y = c.axis === 'y' ? clampN(c.y + off, A.t, A.b - s.h) : c.y;
+            if (free(x, y)) { m.lx = r1(x); m.ly = r1(y); return true; }
+          }
+        }
+        return false;
+      };
+      if (tryIn(annoArea(d, pi)) || tryIn(ANNO_SAFE)) return;
       const q = annoClampLabel(p.x + 14, p.y - s.h - 10, s.w, s.h);   // no room beside the photo: next to the point
       m.lx = r1(q.x); m.ly = r1(q.y);
     }
     // Markers without a label position (old data / new points) get one.
     function annoEnsureLabels(d, tv) {
-      if (!d.img_box) return false;
       let changed = false;
-      d.markers.forEach(m => { if (m.lx == null || m.ly == null) { annoPlaceLabel(d, m, tv); changed = true; } });
+      d.markers.forEach(m => {
+        if ((m.lx == null || m.ly == null) && annoHasPh(annoPh(d, annoPi(m)))) { annoPlaceLabel(d, m, tv); changed = true; }
+      });
       return changed;
     }
     // Persist the drawn (clamped) label positions so data = what is printed.
@@ -5385,35 +5522,38 @@
     // Make the frame exactly the photo as the old editor drew it — fitted into the
     // unrotated frame, then rotated about its centre — keeping every point on the
     // same spot of the photo.
-    function annoFitBoxToImage(d, nw, nh) {
-      const B = d.img_box;
+    function annoFitBoxToImage(d, nw, nh, pi = 0) {
+      const P = annoPh(d, pi), B = P && P.img_box;
       if (!B || !nw || !nh) return false;
-      const swap = (d.img_rot || 0) % 180 !== 0;
+      const swap = (P.img_rot || 0) % 180 !== 0;
       const s = Math.min(B.w / nw, B.h / nh);
       const cw = swap ? nh * s : nw * s, ch = swap ? nw * s : nh * s;
-      d.img_fit = true;
+      P.img_fit = true;
       if (Math.abs(cw - B.w) < 0.5 && Math.abs(ch - B.h) < 0.5) return false;
       const cx = B.x + (B.w - cw) / 2, cy = B.y + (B.h - ch) / 2;
-      d.markers.forEach(m => {
+      annoMk(d, pi).forEach(m => {
         const X = B.x + m.x / 100 * B.w, Y = B.y + m.y / 100 * B.h;
         m.x = p2(clampN((X - cx) / cw * 100, 0, 100));
         m.y = p2(clampN((Y - cy) / ch * 100, 0, 100));
       });
-      d.img_box = annoFitInSafe({ x: cx, y: cy, w: cw, h: ch });
+      P.img_box = annoFitInSafe({ x: cx, y: cy, w: cw, h: ch }, annoCapH(P));
       return true;
     }
     // On open: fit every old frame once (in the background), so preview / export
     // are right even for annotation pages that are never opened in the editor.
     function annoFitAllPages() {
-      state.pages.filter(p => p.type === 'annotation' && !p.data.img_fit && p.data.photo_url_or_base64).forEach(p => {
-        annoEnsureFit(p.data).then(done => { if (done) { annoSaveNow(p); annoRerender(p); } });
+      state.pages.filter(p => p.type === 'annotation').forEach(p => {
+        annoPhotos(p.data).filter(i => !annoPh(p.data, i).img_fit).forEach(i => {
+          annoEnsureFit(p.data, i).then(done => { if (done) { annoSaveNow(p); annoRerender(p); } });
+        });
       });
     }
-    async function annoEnsureFit(d) {
-      if (d.img_fit || !d.photo_url_or_base64 || !d.img_box) return false;
-      const im = await annoLoadImage(d.photo_url_or_base64);
-      if (!im || d.img_fit) return false;
-      annoFitBoxToImage(d, im.naturalWidth, im.naturalHeight);
+    async function annoEnsureFit(d, pi = 0) {
+      const P = annoPh(d, pi);
+      if (!annoHasPh(P) || P.img_fit) return false;
+      const im = await annoLoadImage(P.photo_url_or_base64);
+      if (!im || P.img_fit || annoPh(d, pi) !== P) return false;
+      annoFitBoxToImage(d, im.naturalWidth, im.naturalHeight, pi);
       return true;
     }
     function annoLoadImage(url) {
@@ -5427,34 +5567,34 @@
 
     // ── Photo operations (points stay on the same spot of the photo) ──
     // Rotation / mirror are lossless display transforms (CSS in editor and PDF).
-    function annoRotate(d, dir) {           // dir +1 = 90° clockwise, −1 = counter-clockwise
-      const B = d.img_box;
-      d.img_rot = (((d.img_rot || 0) + 90 * dir) % 360 + 360) % 360;
-      d.markers.forEach(m => {
+    function annoRotate(d, dir, pi = 0) {   // dir +1 = 90° clockwise, −1 = counter-clockwise
+      const P = annoPh(d, pi), B = P.img_box;
+      P.img_rot = (((P.img_rot || 0) + 90 * dir) % 360 + 360) % 360;
+      annoMk(d, pi).forEach(m => {
         const u = m.x / 100, v = m.y / 100;
         const [nu, nv] = dir > 0 ? [1 - v, u] : [v, 1 - u];
         m.x = p2(nu * 100); m.y = p2(nv * 100);
       });
       const cx = B.x + B.w / 2, cy = B.y + B.h / 2;
-      d.img_box = annoFitInSafe({ x: cx - B.h / 2, y: cy - B.w / 2, w: B.h, h: B.w });
+      P.img_box = annoFitInSafe({ x: cx - B.h / 2, y: cy - B.w / 2, w: B.h, h: B.w }, annoCapH(P));
     }
-    function annoFlip(d, axis) {            // mirror what is on screen: 'h' left↔right, 'v' top↔bottom
-      const rot = d.img_rot || 0;
-      d.img_rot = axis === 'h' ? (360 - rot) % 360 : (540 - rot) % 360;
-      d.img_fh = !d.img_fh;
-      d.markers.forEach(m => { if (axis === 'h') m.x = p2(100 - m.x); else m.y = p2(100 - m.y); });
+    function annoFlip(d, axis, pi = 0) {    // mirror what is on screen: 'h' left↔right, 'v' top↔bottom
+      const P = annoPh(d, pi), rot = P.img_rot || 0;
+      P.img_rot = axis === 'h' ? (360 - rot) % 360 : (540 - rot) % 360;
+      P.img_fh = !P.img_fh;
+      annoMk(d, pi).forEach(m => { if (axis === 'h') m.x = p2(100 - m.x); else m.y = p2(100 - m.y); });
     }
     // Crop keeps the remaining part of the photo exactly where it was on the page.
-    function annoApplyCrop(d, url, r) {
-      const B = d.img_box;
-      d.photo_url_or_base64 = url;
-      d.img_rot = 0; d.img_fh = false;
-      d.markers.forEach(m => {
+    function annoApplyCrop(d, url, r, pi = 0) {
+      const P = annoPh(d, pi), B = P.img_box;
+      P.photo_url_or_base64 = url;
+      P.img_rot = 0; P.img_fh = false;
+      annoMk(d, pi).forEach(m => {
         m.x = p2(clampN((m.x / 100 - r.x) / r.w * 100, 0, 100));
         m.y = p2(clampN((m.y / 100 - r.y) / r.h * 100, 0, 100));
       });
-      d.img_box = { x: r1(B.x + r.x * B.w), y: r1(B.y + r.y * B.h), w: r1(B.w * r.w), h: r1(B.h * r.h) };
-      d.img_fit = true;
+      P.img_box = { x: r1(B.x + r.x * B.w), y: r1(B.y + r.y * B.h), w: r1(B.w * r.w), h: r1(B.h * r.h) };
+      P.img_fit = true;
     }
     // Brightness / contrast / saturation, baked into the bitmap (html2canvas
     // ignores CSS filters). Same maths as the CSS filters used for the live preview.
@@ -5502,13 +5642,15 @@
     }
 
     // ── Editor ──
-    const annoUI = { pageId: null, mode: 'select', sel: null, hover: null, zoom: 1, armed: null, seq: false, tv: undefined, space: false, lastPress: null };
+    // photo = the selected photo (0 / 1): the photo tools act on it.
+    const annoUI = { pageId: null, mode: 'select', sel: null, hover: null, zoom: 1, armed: null, seq: false, tv: undefined, space: false, lastPress: null, photo: 0, fileTarget: undefined };
     let _annoRO = null;
-    const annoCropUndo = new WeakMap();      // page.data → state before the last crop (this session)
-    const annoAdjOriginal = new WeakMap();   // page.data → bitmap before brightness / contrast (this session)
+    const annoCropUndo = new WeakMap();      // photo object (d / d.photo2) → state before the last crop (this session)
+    const annoAdjOriginal = new WeakMap();   // photo object → bitmap before brightness / contrast (this session)
+    function annoForgetPhotoState(d) { [d, d.photo2].forEach(P => { if (P) { annoCropUndo.delete(P); annoAdjOriginal.delete(P); } }); }
     const ANNO_ZOOMS = [1, 1.5, 2, 3, 4];    // × fit
     function annoResetUI(pageId) {
-      Object.assign(annoUI, { pageId, mode: 'select', sel: null, hover: null, zoom: 1, armed: null, seq: false, tv: undefined, lastPress: null });
+      Object.assign(annoUI, { pageId, mode: 'select', sel: null, hover: null, zoom: 1, armed: null, seq: false, tv: undefined, lastPress: null, photo: 0, fileTarget: undefined });
     }
     function annoSave(page, opts) { scheduleSave(state.pages.indexOf(page), opts); }
     // Data conversions (not user edits): write now, so the next edit still gets its undo step.
@@ -5520,6 +5662,7 @@
       select: '<path d="M5 3l11 6.5-4.6 1.3L9 15.6z"/>',
       add: '<circle cx="10" cy="10" r="2.2"/><path d="M10 2.5V6M10 14v3.5M2.5 10H6M14 10h3.5"/>',
       image: '<rect x="2.5" y="4" width="15" height="12" rx="1.5"/><circle cx="7" cy="8.3" r="1.4"/><path d="M17.5 13l-4-4-6.5 7"/>',
+      addimg: '<rect x="2" y="6" width="11.5" height="10" rx="1.3"/><path d="M13.5 13l-3.2-3.2-5.8 6.2"/><path d="M16 2.5v6M13 5.5h6"/>',
       rotl: '<path d="M4.5 9A6 6 0 1 1 6 14.2"/><path d="M4.2 4v5h5"/>',
       rotr: '<path d="M15.5 9A6 6 0 1 0 14 14.2"/><path d="M15.8 4v5h-5"/>',
       fliph: '<path d="M10 2.5v15"/><path d="M7.5 5.5L3 14.5h4.5z"/><path d="M12.5 5.5l4.5 9h-4.5z"/>',
@@ -5574,7 +5717,7 @@
     }
     function annoPlaceHTML(d) {
       const dps = state.pages.map((p, i) => ({ p, i })).filter(x => x.p.type === 'data' && (x.p.data.components || []).length);
-      if (!dps.length || !d.photo_url_or_base64) return '';
+      if (!dps.length || !annoPhotos(d).length) return '';
       const src = annoSourcePage(d);
       const left = annoUnplaced(d);
       return `<section class="an-sec">
@@ -5587,7 +5730,7 @@
     }
     function annoListHTML(d) {
       const tv = annoTv(d);
-      return d.markers.length ? d.markers.map((m, i) => {
+      const row = (m, i) => {
         const t = tv && tv.byMarker.get(m.id);
         return `<li class="an-row${annoUI.sel === m.id ? ' sel' : ''}" data-an-row="${escapeAttr(m.id)}">
             <span class="an-idx">${i + 1}</span>
@@ -5595,10 +5738,40 @@
             ${t ? `<span class="an-temp ${t.status}">${escHtml(t.text)}</span>` : ''}
             <button type="button" class="an-del" data-an-del="${escapeAttr(m.id)}" aria-label="刪除標註點" title="刪除">×</button>
           </li>`;
-      }).join('') : '<li class="an-empty">尚無標註點：按 <b>＋</b>（A）後點照片上的元件</li>';
+      };
+      if (!d.markers.length) return '<li class="an-empty">尚無標註點：按 <b>＋</b>（A）後點照片上的元件</li>';
+      const idx = annoPhotos(d);
+      if (idx.length < 2) return d.markers.map((m, i) => annoPi(m) === (idx[0] || 0) ? row(m, i) : '').join('');
+      return idx.map(j => `<li class="an-grp">照片 ${j + 1}${annoCap(annoPh(d, j)) ? ' · ' + escHtml(annoCap(annoPh(d, j))) : ''}</li>`
+        + (d.markers.map((m, i) => annoPi(m) === j ? row(m, i) : '').join('') || '<li class="an-empty">（尚無標註點）</li>')).join('');
+    }
+    // Photos (thumbnail + caption), layout picker, add / swap.
+    function annoPhotosHTML(d) {
+      const idx = annoPhotos(d);
+      if (!idx.length) return '';
+      const lay = d.layout || 'auto', cur = annoCurKey(d), n = idx.length;
+      const layouts = `<button type="button" class="im-lay${lay === 'auto' ? ' on' : ''}" data-an-layout="auto" title="依照片比例自動選擇">自動</button>`
+        + ANNO_LAYOUTS.map(l => `<button type="button" class="im-lay${lay === l.k ? ' on' : ''}${cur === l.k ? ' cur' : ''}" data-an-layout="${l.k}" title="${escapeAttr(l.name + (l.cap < n ? '（放不下 2 張）' : n < l.cap ? '（加入第二張照片時套用）' : ''))}" ${l.cap < n ? 'disabled' : ''}>${imLayoutIcon(l.k)}</button>`).join('');
+      const rows = idx.map(i => {
+        const P = annoPh(d, i);
+        return `<li class="an-row im-row${annoUI.photo === i ? ' sel' : ''}" data-an-prow="${i}">
+            <span class="an-idx">${i + 1}</span>
+            <img class="im-thumb" src="${escapeAttr(P.photo_url_or_base64)}" alt="" draggable="false">
+            <input class="an-name" data-an-capin="${i}" value="${escapeAttr(P.caption || '')}" placeholder="圖片說明（印在圖下）" spellcheck="false">
+            <span class="an-count" title="標註點數">${annoMk(d, i).length}</span>
+            <button type="button" class="an-del" data-an-pdel="${i}" aria-label="刪除照片" title="刪除照片">×</button>
+          </li>`;
+      }).join('');
+      return `<section class="an-sec">
+          <div class="an-sec-h">照片與版面 <span class="an-count">${n} / ${ANNO_MAX}</span><span class="sp"></span>
+            ${n > 1 ? '<button type="button" class="an-mini" id="an-swap" title="兩張照片交換位置（標註點跟著照片）">⇄ 交換</button>' : ''}</div>
+          <div class="im-lays">${layouts}</div>
+          <ol class="an-list an-plist">${rows}</ol>
+          ${n < ANNO_MAX ? '<button type="button" class="an-seq an-add2" id="an-add2">＋ 加入第二張照片</button>' : ''}
+        </section>`;
     }
     function annoSideHTML(d) {
-      return `${annoTempControlsHTML(d)}${annoPlaceHTML(d)}
+      return `${annoPhotosHTML(d)}${annoTempControlsHTML(d)}${annoPlaceHTML(d)}
         <section class="an-sec grow">
           <div class="an-sec-h">標註點 <span class="an-count">${d.markers.length}</span><span class="sp"></span>
             ${d.markers.length ? '<button type="button" class="an-mini" id="anno-batch-name" title="一次輸入所有名稱（可從 Excel 貼上一欄）">✎ 批次命名</button>' : ''}</div>
@@ -5606,11 +5779,11 @@
         </section>`;
     }
     function annoStatusHTML(d) {
-      if (!d.photo_url_or_base64) return '先放入照片：拖曳圖片到頁面、Ctrl+V 貼上，或按「選擇檔案」';
+      if (!annoPhotos(d).length) return '先放入照片：拖曳圖片到頁面、Ctrl+V 貼上，或按「選擇檔案」（最多 2 張）';
       if (annoUI.mode === 'add') {
         return `<b>標註模式</b>點照片新增標註點；按住拖曳可直接拉出標籤位置${annoUI.armed ? ` · 下一個：<b class="an-next">${escHtml(annoUI.armed)}</b>` : ''} · <kbd>Esc</kbd> 結束`;
       }
-      return '<b>選取模式</b>拖曳照片＝整組移動（按住 <kbd>Alt</kbd> 只移動照片）· 拖曳四角縮放 · 雙擊標籤改名 · <kbd>Del</kbd> 刪除 · 方向鍵微調 · <kbd>Ctrl</kbd>+滾輪縮放檢視';
+      return `<b>選取模式</b>${annoPhotos(d).length > 1 ? '點照片選取（工具列操作這張）· ' : ''}拖曳照片＝整組移動（按住 <kbd>Alt</kbd> 只移動照片）· 拖曳四角縮放 · 雙擊標籤改名、雙擊說明改字 · <kbd>Del</kbd> 刪除 · 方向鍵微調 · <kbd>Ctrl</kbd>+滾輪縮放檢視`;
     }
 
     function renderAnnotationPage(page) {
@@ -5625,7 +5798,10 @@
       d.title = d.tc_category + ' Thermocouple Location';
       if (annoEnsureLabels(d, annoTv(d))) annoSaveNow(page);
       if (annoUI.sel && !d.markers.some(m => m.id === annoUI.sel)) annoUI.sel = null;
-      const hasPhoto = !!d.photo_url_or_base64;
+      const photos = annoPhotos(d);
+      if (!photos.includes(annoUI.photo)) annoUI.photo = photos[0] || 0;
+      const hasPhoto = photos.length > 0, two = photos.length > 1;
+      const nth = two ? ` ${annoUI.photo + 1}` : '';
       const names = Array.from(new Set(state.pages.filter(p => p.type === 'data').flatMap(p => (p.data.components || []).map(c => String(c.name || '').trim())).filter(Boolean)));
       const dis = hasPhoto ? '' : 'disabled';
       const sizeName = { S: '小', M: '中', L: '大' }[d.label_size || 'M'];
@@ -5642,19 +5818,20 @@
               ${annoBtn('add', 'add', '新增標註點（A）', `aria-pressed="${annoUI.mode === 'add'}" ${dis}`)}
             </div>
             <div class="an-tgroup" aria-label="照片">
-              ${annoBtn('replace', 'image', hasPhoto ? '更換照片（標註點保留）' : '選擇照片')}
-              ${annoBtn('rotl', 'rotl', '向左旋轉 90°（標註點跟著轉）', dis)}
-              ${annoBtn('rotr', 'rotr', '向右旋轉 90°（標註點跟著轉）', dis)}
-              ${annoBtn('fliph', 'fliph', '左右翻轉', dis)}
-              ${annoBtn('flipv', 'flipv', '上下翻轉', dis)}
-              ${annoBtn('crop', 'crop', '裁切（標註點留在原位）', dis)}
-              ${annoCropUndo.has(d) ? annoBtn('uncrop', 'uncrop', '還原裁切') : ''}
-              ${annoBtn('adjust', 'adjust', '亮度 / 對比 / 自動增強', dis)}
-              ${annoBtn('center', 'center', '置中（整組移動）', dis)}
-              ${annoBtn('delimg', 'trash', '刪除照片', dis + ' data-danger="1"')}
+              ${annoBtn('replace', 'image', hasPhoto ? `更換照片${nth}（標註點保留）` : '選擇照片')}
+              ${annoBtn('addimg', 'addimg', '加入第二張照片（最多 2 張）', hasPhoto && !two ? '' : 'disabled')}
+              ${annoBtn('rotl', 'rotl', `照片${nth} 向左旋轉 90°（標註點跟著轉）`, dis)}
+              ${annoBtn('rotr', 'rotr', `照片${nth} 向右旋轉 90°（標註點跟著轉）`, dis)}
+              ${annoBtn('fliph', 'fliph', `照片${nth} 左右翻轉`, dis)}
+              ${annoBtn('flipv', 'flipv', `照片${nth} 上下翻轉`, dis)}
+              ${annoBtn('crop', 'crop', `裁切照片${nth}（標註點留在原位）`, dis)}
+              ${photos.some(j => annoCropUndo.has(annoPh(d, j))) ? annoBtn('uncrop', 'uncrop', '還原裁切') : ''}
+              ${annoBtn('adjust', 'adjust', `照片${nth} 亮度 / 對比 / 自動增強`, dis)}
+              ${annoBtn('center', 'center', two ? `照片${nth} 置中於它的半邊（整組移動）` : '置中（整組移動）', dis)}
+              ${annoBtn('delimg', 'trash', `刪除照片${nth}`, dis + ' data-danger="1"')}
             </div>
             <div class="an-tgroup" aria-label="標籤">
-              ${annoBtn('layout', 'layout', '一鍵排版：調整照片大小並把標籤排在兩側', dis)}
+              ${annoBtn('layout', 'layout', two ? '一鍵排版：依版面配置擺放兩張照片並排好標籤' : '一鍵排版：調整照片大小並把標籤排在兩側', dis)}
               ${annoBtn('arrange', 'arrange', '自動排列標籤（照片不動）', dis)}
               ${annoBtn('size', 'size', `標籤字級：${sizeName}（點擊切換 小 / 中 / 大）`)}
               ${annoBtn('num', 'num', '標籤顯示編號', `aria-pressed="${!!d.show_idx}"`)}
@@ -5692,9 +5869,9 @@
         });
       }
       // Old pages: match the frame to the photo once its size is known.
-      if (hasPhoto && !d.img_fit) {
-        annoEnsureFit(d).then(done => { if (done) { annoSaveNow(page); annoRerender(page); } });
-      }
+      photos.filter(i => !annoPh(d, i).img_fit).forEach(i => {
+        annoEnsureFit(d, i).then(done => { if (done) { annoSaveNow(page); annoRerender(page); } });
+      });
     }
 
     // Overlay (points / lines / labels) + editor handles, re-rendered cheaply while dragging.
@@ -5705,13 +5882,21 @@
       ov.innerHTML = annoOverlayHTML(d, annoTv(d), { editor: true, sel: annoUI.sel, hover: annoUI.hover });
       annoRenderUI(page);
     }
-    function annoApplyImgBox(d) {
-      const el = document.getElementById('an-img');
-      if (!el || !d.img_box) return;
-      const B = d.img_box;
+    function annoApplyImgBox(d, pi = 0) {
+      const P = annoPh(d, pi), el = document.getElementById(pi ? 'an-img-1' : 'an-img');
+      if (!el || !P || !P.img_box) return;
+      const B = P.img_box;
       Object.assign(el.style, { left: r1(B.x) + 'px', top: r1(B.y) + 'px', width: r1(B.w) + 'px', height: r1(B.h) + 'px' });
       const inner = el.querySelector('[data-an-imgin]');
-      if (inner) inner.setAttribute('style', annoImgInnerStyle(d));
+      if (inner) inner.setAttribute('style', annoImgInnerStyle(P));
+      annoRenderCaps(d);
+    }
+    // Captions only (cheap: the photos themselves are not re-parsed).
+    function annoRenderCaps(d) {
+      const layer = document.getElementById('an-imglayer');
+      if (!layer) return;
+      layer.querySelectorAll('[data-an-cap]').forEach(el => el.remove());
+      layer.insertAdjacentHTML('beforeend', annoPhotos(d).map(i => annoCapHTML(annoPh(d, i), i, true)).join(''));
     }
     // Editor-only layer: frame handles, drop zone, safe-area guide.
     function annoRenderUI(page) {
@@ -5720,16 +5905,18 @@
       if (!ui) return;
       let html = `<div class="an-safe" style="left:${ANNO_SAFE.l}px;top:${ANNO_SAFE.t}px;width:${ANNO_SAFE.r - ANNO_SAFE.l}px;height:${ANNO_SAFE.b - ANNO_SAFE.t}px;"></div><div class="an-guide" style="display:none"></div>
         <svg class="an-rubber" width="${ANNO_W}" height="${ANNO_H}" style="display:none"><line/></svg>`;
-      if (!d.photo_url_or_base64) {
+      const P = annoPh(d, annoUI.photo);
+      if (!annoPhotos(d).length) {
         const b = annoDefaultBox(4 / 3);
         html += `<div class="an-drop" id="an-drop" style="left:${b.x}px;top:${b.y}px;width:${b.w}px;height:${b.h}px;">
             <div class="an-drop-icon">${annoIcon('image')}</div>
             <div>拖曳照片到這裡，或 Ctrl+V 貼上</div>
             <button type="button" class="an-drop-btn">選擇檔案</button></div>`;
-      } else if (annoUI.mode === 'select' && d.img_box) {
-        const B = d.img_box;
+      } else if (annoUI.mode === 'select' && annoHasPh(P)) {
+        const B = P.img_box;
         html += `<div class="an-frame" style="left:${r1(B.x)}px;top:${r1(B.y)}px;width:${r1(B.w)}px;height:${r1(B.h)}px;"></div>`
           + ['nw', 'ne', 'sw', 'se'].map(c => `<div class="an-handle" data-an-handle="${c}" style="left:${r1(B.x + (c[1] === 'e' ? B.w : 0))}px;top:${r1(B.y + (c[0] === 's' ? B.h : 0))}px;"></div>`).join('');
+        if (!annoCap(P)) html += `<button type="button" class="im-capghost" data-an-capedit="${annoUI.photo}" style="left:${r1(B.x + B.w / 2 - 50)}px;top:${r1(B.y + B.h - 24)}px;">＋ 說明</button>`;
       }
       ui.innerHTML = html;
     }
@@ -5737,9 +5924,9 @@
       const d = page.data;
       const side = document.getElementById('an-side');
       if (side && !side.contains(document.activeElement)) {
-        const sc = side.querySelector('.an-list')?.scrollTop || 0;
+        const sc = side.querySelector('#an-list')?.scrollTop || 0;
         side.innerHTML = annoSideHTML(d);
-        const list = side.querySelector('.an-list');
+        const list = side.querySelector('#an-list');
         if (list) list.scrollTop = sc;
       } else if (side) side.querySelectorAll('[data-an-row]').forEach(li => li.classList.toggle('sel', li.dataset.anRow === annoUI.sel));
       const st = document.getElementById('an-status');
@@ -5748,13 +5935,22 @@
     function annoRefresh(page) { annoRenderOverlay(page); annoRefreshSide(page); }
     function annoSelect(page, id) {
       annoUI.sel = id;
+      const m = id && page.data.markers.find(x => x.id === id);
+      if (m && annoPi(m) !== annoUI.photo) annoSelectPhoto(page, annoPi(m));
       annoRenderOverlay(page);
       document.querySelectorAll('#an-list [data-an-row]').forEach(li => li.classList.toggle('sel', li.dataset.anRow === id));
       const row = id && document.querySelector(`#an-list [data-an-row="${CSS.escape(id)}"]`);
       if (row) row.scrollIntoView({ block: 'nearest' });
     }
+    // Select photo i for the photo tools (toolbar tips / undo-crop are refreshed by the next full render).
+    function annoSelectPhoto(page, i) {
+      if (annoUI.photo === i) return;
+      annoUI.photo = i;
+      annoRenderUI(page);
+      document.querySelectorAll('#an-side [data-an-prow]').forEach(li => li.classList.toggle('sel', +li.dataset.anProw === i));
+    }
     function annoSetMode(page, mode) {
-      if (mode === 'add' && !page.data.photo_url_or_base64) return;
+      if (mode === 'add' && !annoPhotos(page.data).length) return;
       annoUI.mode = mode;
       if (mode === 'select') { annoUI.armed = null; annoUI.seq = false; }
       renderAnnotationPage(page);
@@ -5839,6 +6035,7 @@
       const m = d.markers.find(x => x.id === id);
       if (!m) return;
       const dup = { id: annoNewId(), x: Math.min(100, m.x + 3), y: Math.min(100, m.y + 3), label: m.label || '', lx: m.lx, ly: (m.ly || 0) + annoLabelH(d) + 4 };
+      if (annoPi(m)) dup.p = 1;
       d.markers.splice(d.markers.indexOf(m) + 1, 0, dup);
       annoUI.sel = dup.id; annoUI.tv = undefined;
       annoSave(page);
@@ -5853,7 +6050,8 @@
       ui.querySelector('.an-rename')?.blur();
       ui.querySelector('.an-rename')?.remove();
       const m = d.markers[i];
-      const r = annoLabelRects(d, annoTv(d))[i];
+      const r = annoLabelRects(d, annoTv(d)).find(x => x.m === m);
+      if (!r) return;
       const inp = document.createElement('input');
       inp.className = 'an-rename';
       inp.value = m.label || '';
@@ -5884,6 +6082,93 @@
         e.stopPropagation();
       });
       inp.addEventListener('blur', () => finish(true, false));
+    }
+    // Caption typed straight on the page (Enter = done, Esc = cancel).
+    function annoEditCaption(page, pi) {
+      const d = page.data, P = annoPh(d, pi), ui = document.getElementById('an-ui');
+      if (!annoHasPh(P) || !ui) return;
+      ui.querySelector('.an-rename')?.blur();
+      ui.querySelector('.an-rename')?.remove();
+      annoSelectPhoto(page, pi);
+      const R = annoCapRect(P);
+      const inp = document.createElement('input');
+      inp.className = 'an-rename';
+      inp.value = P.caption || '';
+      inp.placeholder = '圖片說明';
+      inp.spellcheck = false;
+      Object.assign(inp.style, { left: R.x + 'px', top: R.y + 'px', width: R.w + 'px', height: (R.h + 2) + 'px', fontSize: '11px', textAlign: 'center', fontFamily: ANNO_CAP_FONT, fontWeight: '400' });
+      ui.appendChild(inp);
+      inp.focus();
+      inp.select();
+      let done = false;
+      const finish = (commit) => {
+        if (done) return;
+        done = true;
+        const v = inp.value.trim();
+        inp.remove();
+        if (commit && v !== annoCap(P)) annoSetCaption(page, pi, v);
+        else if (document.getElementById('an-paper')) annoRenderUI(page);
+      };
+      inp.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); finish(true); }
+        else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); finish(false); }
+        e.stopPropagation();
+      });
+      inp.addEventListener('blur', () => finish(true));
+    }
+    // A caption takes a band under the photo: keep photo + caption on the page.
+    function annoSetCaption(page, pi, v) {
+      const d = page.data, P = annoPh(d, pi);
+      P.caption = v;
+      const B = P.img_box;
+      if (B && B.y + B.h + annoCapH(P) > ANNO_SAFE.b + 0.5) P.img_box = annoFitInSafe(B, annoCapH(P));
+      annoSave(page);
+      renderAnnotationPage(page);
+    }
+    function annoDeletePhoto(page, pi) {
+      const d = page.data, P = annoPh(d, pi);
+      if (!annoHasPh(P)) return;
+      const n = annoMk(d, pi).length, two = annoPhotos(d).length > 1;
+      if (!confirm(`刪除照片${two ? ' ' + (pi + 1) : ''}${n ? `與它的 ${n} 個標註點` : ''}？（可用 Ctrl+Z 復原）`)) return;
+      annoForgetPhotoState(d);
+      d.markers = d.markers.filter(m => annoPi(m) !== pi);
+      if (pi === 1) delete d.photo2;
+      else if (annoHasPh(d.photo2)) {                    // photo 2 becomes photo 1
+        annoMovePhoto(d.photo2, d);
+        delete d.photo2;
+        d.markers.forEach(m => { delete m.p; });
+      } else {
+        d.photo_url_or_base64 = '';
+        delete d.img_box; delete d.img_fit; delete d.caption;
+        d.img_rot = 0; d.img_fh = false;
+      }
+      annoUI.photo = 0; annoUI.sel = null; annoUI.tv = undefined;
+      if (!annoPhotos(d).length) annoUI.mode = 'select';
+      annoSave(page);
+      renderAnnotationPage(page);
+    }
+    // Photos trade places; each keeps its points, labels and caption.
+    function annoSwapPhotos(page) {
+      const d = page.data;
+      if (annoPhotos(d).length < 2) return;
+      annoForgetPhotoState(d);
+      const tmp = {};
+      annoMovePhoto(d, tmp); annoMovePhoto(d.photo2, d); annoMovePhoto(tmp, d.photo2);
+      d.markers.forEach(m => { if (annoPi(m)) delete m.p; else m.p = 1; });
+      annoUI.photo = 1 - annoUI.photo; annoUI.tv = undefined;
+      annoAutoLayout(d, annoTv(d));
+      annoSave(page);
+      renderAnnotationPage(page);
+    }
+    function annoSetLayout(page, k) {
+      const d = page.data;
+      d.layout = k;
+      if (annoPhotos(d).length > 1) {
+        annoAutoLayout(d, annoTv(d));
+        showToast('已套用版面（Ctrl+Z 可復原）', 'ok');
+      } else if (k !== '1' && k !== 'auto') showToast('加入第二張照片時套用這個版面', 'ok');
+      annoSave(page);
+      renderAnnotationPage(page);
     }
     function annoNextArmed(d) {
       if (!annoUI.seq) { annoUI.armed = null; return; }
@@ -5959,84 +6244,100 @@
       preview();
     }
     function annoShowAdjust(page, anchor) {
-      const d = page.data;
-      photoAdjustPopover(anchor, document.querySelector('#an-img img'), {
-        url: () => d.photo_url_or_base64,
-        original: () => annoAdjOriginal.get(d),
-        apply: (url, base) => { if (!annoAdjOriginal.has(d)) annoAdjOriginal.set(d, base); d.photo_url_or_base64 = url; annoSave(page); annoRerender(page); },
-        restore: () => { d.photo_url_or_base64 = annoAdjOriginal.get(d); annoAdjOriginal.delete(d); annoSave(page); annoRerender(page); },
+      const d = page.data, pi = annoUI.photo, P = annoPh(d, pi);
+      if (!annoHasPh(P)) return;
+      photoAdjustPopover(anchor, document.querySelector(`#${pi ? 'an-img-1' : 'an-img'} img`), {
+        url: () => P.photo_url_or_base64,
+        original: () => annoAdjOriginal.get(P),
+        apply: (url, base) => { if (!annoAdjOriginal.has(P)) annoAdjOriginal.set(P, base); P.photo_url_or_base64 = url; annoSave(page); annoRerender(page); },
+        restore: () => { P.photo_url_or_base64 = annoAdjOriginal.get(P); annoAdjOriginal.delete(P); annoSave(page); annoRerender(page); },
       });
     }
 
-    async function handleAnnotationPhoto(page, file) {
+    // target: index of the photo to replace, 'add' (a new photo), or undefined: add while
+    // there is room (≤ 2), otherwise replace the selected photo.
+    async function handleAnnotationPhoto(page, file, target) {
       const url = await processImageCompressed(file, PHOTO_JPEG_QUALITY);
       const im = url && await annoLoadImage(url);
       if (!im) { showToast('無法讀取這張圖片', 'warn'); return; }
       const d = page.data;
       annoNormalize(d);
+      const have = annoPhotos(d), room = have.length < ANNO_MAX;
+      if (target === 'add' && !room) { showToast(`標註頁最多 ${ANNO_MAX} 張照片`, 'warn'); return; }
+      let pi = typeof target === 'number' && have.includes(target) ? target : room ? (have.includes(0) ? 1 : 0) : annoUI.photo;
+      const replacing = have.includes(pi);
+      if (pi === 1 && !d.photo2) d.photo2 = {};
+      const P = annoPh(d, pi);
       const ar = im.naturalWidth / im.naturalHeight;
-      annoCropUndo.delete(d); annoAdjOriginal.delete(d);
-      const hadPhoto = !!(d.photo_url_or_base64 && d.img_box);
-      if (hadPhoto) {                                   // replace: same width and centre, points kept
-        const B = d.img_box, h = B.w / ar;
-        d.img_box = annoFitInSafe({ x: B.x, y: B.y + (B.h - h) / 2, w: B.w, h });
+      annoCropUndo.delete(P); annoAdjOriginal.delete(P);
+      if (replacing) {                                  // replace: same width and centre, points kept
+        const B = P.img_box, h = B.w / ar;
+        P.img_box = annoFitInSafe({ x: B.x, y: B.y + (B.h - h) / 2, w: B.w, h }, annoCapH(P));
+      } else if (pi === 0) {
+        P.img_box = annoDefaultBox(ar);
       } else {
-        d.img_box = annoDefaultBox(ar);
+        P.img_box = { x: ANNO_SAFE.l, y: ANNO_SAFE.t, w: r1(200 * ar), h: 200 };   // placed by the layout below
       }
-      d.photo_url_or_base64 = url;
-      d.img_rot = 0; d.img_fh = false; d.img_fit = true;
-      annoUI.tv = undefined;
+      P.photo_url_or_base64 = url;
+      P.img_rot = 0; P.img_fh = false; P.img_fit = true;
+      annoUI.tv = undefined; annoUI.photo = pi;
       const tv = annoTempOverlay(d);
-      if (!hadPhoto && d.markers.length) annoAutoArrange(d, tv);   // e.g. a page copied from a template
+      if (!replacing && pi === 1) annoAutoLayout(d, tv);                           // second photo: apply the layout
+      else if (!replacing && annoMk(d, pi).length) annoAutoArrange(d, tv, { photo: pi });   // e.g. a page copied from a template
       annoEnsureLabels(d, tv);
       annoSave(page);
       annoRerender(page);
+      if (!replacing && pi === 1) showToast('已加入第二張照片並排版（右側「照片與版面」可切換左右 / 上下）', 'ok');
+      else if (replacing && target === undefined) showToast(`已更換照片 ${pi + 1}（標註頁最多 ${ANNO_MAX} 張）`, 'ok');
     }
 
     async function annoTool(page, tool, btn) {
       const d = page.data;
       const tv = annoTv(d);
+      const pi = annoUI.photo, P = annoPh(d, pi);
       const commit = () => { annoUI.tv = undefined; annoSave(page); annoRerender(page); };
-      const photoOps = ['rotl', 'rotr', 'fliph', 'flipv', 'crop', 'center', 'layout', 'arrange'];
-      if (photoOps.includes(tool) && !d.img_fit && await annoEnsureFit(d)) annoSaveNow(page);   // old frame: fit before remapping points
+      const fileInput = document.getElementById('anno-file-input');
+      const photoOps = ['rotl', 'rotr', 'fliph', 'flipv', 'crop', 'center'], allOps = ['layout', 'arrange'];
+      // old frames: fit before remapping points
+      let fitted = false;
+      for (const j of photoOps.includes(tool) ? [pi] : allOps.includes(tool) ? annoPhotos(d) : []) {
+        const Q = annoPh(d, j);
+        if (Q && !Q.img_fit && await annoEnsureFit(d, j)) fitted = true;
+      }
+      if (fitted) annoSaveNow(page);
       if (tool === 'select' || tool === 'add') annoSetMode(page, tool);
-      else if (tool === 'replace') document.getElementById('anno-file-input')?.click();
-      else if (tool === 'rotl' || tool === 'rotr') { annoRotate(d, tool === 'rotr' ? 1 : -1); annoAutoArrange(d, tv); commit(); }
-      else if (tool === 'fliph' || tool === 'flipv') { annoFlip(d, tool === 'fliph' ? 'h' : 'v'); annoAutoArrange(d, tv); commit(); }
+      else if (tool === 'replace') { annoUI.fileTarget = annoHasPh(P) ? pi : undefined; fileInput?.click(); }
+      else if (tool === 'addimg') { annoUI.fileTarget = 'add'; fileInput?.click(); }
+      else if (!annoHasPh(P) && !allOps.includes(tool) && !['size', 'num', 'zoomin', 'zoomout', 'zoomfit', 'uncrop'].includes(tool)) return;
+      else if (tool === 'rotl' || tool === 'rotr') { annoRotate(d, tool === 'rotr' ? 1 : -1, pi); annoAutoArrange(d, tv, { photo: pi }); commit(); }
+      else if (tool === 'fliph' || tool === 'flipv') { annoFlip(d, tool === 'fliph' ? 'h' : 'v', pi); annoAutoArrange(d, tv, { photo: pi }); commit(); }
       else if (tool === 'crop') {
-        openImageCropper(d.photo_url_or_base64, { rotate: d.img_rot || 0, flipH: !!d.img_fh }, (url, r) => {
-          if (!r) return;
-          annoCropUndo.set(d, { url: d.photo_url_or_base64, box: { ...d.img_box }, rot: d.img_rot || 0, fh: !!d.img_fh, pts: d.markers.map(m => [m.id, m.x, m.y]) });
-          annoAdjOriginal.delete(d);
-          annoApplyCrop(d, url, r);
+        openImageCropper(P.photo_url_or_base64, { rotate: P.img_rot || 0, flipH: !!P.img_fh }, (url, r) => {
+          if (!r || annoPh(d, pi) !== P) return;
+          annoCropUndo.set(P, { url: P.photo_url_or_base64, box: { ...P.img_box }, rot: P.img_rot || 0, fh: !!P.img_fh, pts: annoMk(d, pi).map(m => [m.id, m.x, m.y]) });
+          annoAdjOriginal.delete(P);
+          annoApplyCrop(d, url, r, pi);
           commit();
         });
       } else if (tool === 'uncrop') {
-        const o = annoCropUndo.get(d);
-        if (!o) return;
-        annoCropUndo.delete(d);
-        d.photo_url_or_base64 = o.url; d.img_box = o.box; d.img_rot = o.rot; d.img_fh = o.fh;
+        const j = [pi, 1 - pi].find(k => annoHasPh(annoPh(d, k)) && annoCropUndo.has(annoPh(d, k)));
+        if (j === undefined) return;
+        const Q = annoPh(d, j), o = annoCropUndo.get(Q);
+        annoCropUndo.delete(Q);
+        Q.photo_url_or_base64 = o.url; Q.img_box = o.box; Q.img_rot = o.rot; Q.img_fh = o.fh;
         const pts = new Map(o.pts.map(p => [p[0], p]));
         d.markers.forEach(m => { const p = pts.get(m.id); if (p) { m.x = p[1]; m.y = p[2]; } });
         commit();
       } else if (tool === 'adjust') annoShowAdjust(page, btn);
       else if (tool === 'center') {
-        const B = d.img_box;
-        const dx = r1((ANNO_SAFE.l + ANNO_SAFE.r) / 2 - (B.x + B.w / 2)), dy = r1((ANNO_SAFE.t + ANNO_SAFE.b) / 2 - (B.y + B.h / 2));
-        d.img_box = { ...B, x: B.x + dx, y: B.y + dy };
-        d.markers.forEach(m => { m.lx += dx; m.ly += dy; });
+        const B = P.img_box, A = annoArea(d, pi), ch = annoCapH(P);
+        const dx = r1((A.l + A.r) / 2 - (B.x + B.w / 2)), dy = r1((A.t + A.b) / 2 - (B.y + (B.h + ch) / 2));
+        P.img_box = { ...B, x: B.x + dx, y: B.y + dy };
+        annoMk(d, pi).forEach(m => { m.lx += dx; m.ly += dy; });
         annoCommitLabels(d, tv);
         commit();
-      } else if (tool === 'delimg') {
-        if (!confirm(`刪除照片${d.markers.length ? `與 ${d.markers.length} 個標註點` : ''}？（可用 Ctrl+Z 復原）`)) return;
-        annoCropUndo.delete(d); annoAdjOriginal.delete(d);
-        d.photo_url_or_base64 = '';
-        d.markers = [];
-        delete d.img_box; delete d.img_fit;
-        d.img_rot = 0; d.img_fh = false;
-        annoUI.mode = 'select'; annoUI.sel = null;
-        commit();
-      } else if (tool === 'layout') { annoAutoLayout(d, tv); commit(); showToast('已排版（Ctrl+Z 可復原）', 'ok'); }
+      } else if (tool === 'delimg') annoDeletePhoto(page, pi);
+      else if (tool === 'layout') { annoAutoLayout(d, tv); commit(); showToast('已排版（Ctrl+Z 可復原）', 'ok'); }
       else if (tool === 'arrange') {
         if (!d.markers.length) return;
         annoAutoArrange(d, tv); commit();
@@ -6066,17 +6367,27 @@
         annoSave(page);
         renderAnnotationPage(page);
       });
-      fileInput.addEventListener('change', async () => { if (fileInput.files[0]) await handleAnnotationPhoto(page, fileInput.files[0]); });
+      fileInput.addEventListener('change', async () => {
+        const f = fileInput.files[0], target = annoUI.fileTarget;
+        annoUI.fileTarget = undefined;
+        fileInput.value = '';
+        if (f) await handleAnnotationPhoto(page, f, target);
+      });
 
       // Drop a photo anywhere on the page area
       vp.addEventListener('dragover', (e) => { if (Array.from(e.dataTransfer?.types || []).includes('Files')) { e.preventDefault(); vp.classList.add('dragover'); } });
       vp.addEventListener('dragleave', (e) => { if (e.target === vp) vp.classList.remove('dragover'); });
       vp.addEventListener('drop', async (e) => {
         vp.classList.remove('dragover');
-        const f = Array.from(e.dataTransfer?.files || []).find(x => x.type.startsWith('image/'));
-        if (!f) return;
+        const fs = Array.from(e.dataTransfer?.files || []).filter(x => x.type.startsWith('image/'));
+        if (!fs.length) return;
         e.preventDefault();
-        await handleAnnotationPhoto(page, f);
+        // onto a photo: replace it; elsewhere: add (up to 2), then replace the selected one
+        const onImg = document.elementsFromPoint(e.clientX, e.clientY).find(el => el.matches && el.matches('[data-an-img]'));
+        if (onImg) { await handleAnnotationPhoto(page, fs[0], +onImg.dataset.anImg); return; }
+        const n = Math.max(1, ANNO_MAX - annoPhotos(d).length);
+        for (const f of fs.slice(0, n)) await handleAnnotationPhoto(page, f);
+        if (fs.length > n) showToast(`標註頁最多 ${ANNO_MAX} 張照片，其餘未加入`, 'warn');
       });
       vp.addEventListener('wheel', (e) => {
         if (!e.ctrlKey && !e.metaKey) return;
@@ -6099,6 +6410,9 @@
           annoSave(page);
           renderAnnotationPage(page);
           return;
+        } else if (t.matches('[data-an-capin]')) {
+          annoSetCaption(page, +t.dataset.anCapin, t.value.trim());
+          return;
         } else {
           if (t.closest('[data-an-name]')) { annoUI.tv = undefined; annoRefreshSide(page); }
           return;
@@ -6109,6 +6423,14 @@
         renderAnnotationPage(page);
       });
       side.addEventListener('click', (e) => {
+        const lay = e.target.closest('[data-an-layout]');
+        if (lay) { if (!lay.disabled) annoSetLayout(page, lay.dataset.anLayout); return; }
+        if (e.target.closest('#an-swap')) { annoSwapPhotos(page); return; }
+        if (e.target.closest('#an-add2')) { annoUI.fileTarget = 'add'; fileInput.click(); return; }
+        const pdel = e.target.closest('[data-an-pdel]');
+        if (pdel) { annoDeletePhoto(page, +pdel.dataset.anPdel); return; }
+        const prow = e.target.closest('[data-an-prow]');
+        if (prow) { if (!e.target.closest('input')) annoSelectPhoto(page, +prow.dataset.anProw); return; }
         const chip = e.target.closest('[data-an-arm]');
         if (chip) { annoArm(page, annoUI.armed === chip.dataset.anArm ? null : chip.dataset.anArm, false); return; }
         if (e.target.closest('#an-seq')) { if (annoUI.seq) { annoUI.seq = false; annoUI.armed = null; renderAnnotationPage(page); } else annoArm(page, annoUnplaced(d)[0], true); return; }
@@ -6118,8 +6440,19 @@
         const row = e.target.closest('[data-an-row]');
         if (row && !e.target.closest('input')) annoSelect(page, row.dataset.anRow);
       });
-      side.addEventListener('focusin', (e) => { const n = e.target.closest('[data-an-name]'); if (n && annoUI.sel !== n.dataset.anName) annoSelect(page, n.dataset.anName); });
+      side.addEventListener('focusin', (e) => {
+        const c = e.target.closest('[data-an-capin]');
+        if (c) { annoSelectPhoto(page, +c.dataset.anCapin); return; }
+        const n = e.target.closest('[data-an-name]');
+        if (n && annoUI.sel !== n.dataset.anName) annoSelect(page, n.dataset.anName);
+      });
       side.addEventListener('input', (e) => {
+        const c = e.target.closest('[data-an-capin]');
+        if (c) {                                               // live on the page; committed (and saved) on change
+          const P = annoPh(d, +c.dataset.anCapin);
+          if (P) { P.caption = c.value; annoRenderCaps(d); }
+          return;
+        }
         const n = e.target.closest('[data-an-name]');
         if (!n) return;
         const m = d.markers.find(x => x.id === n.dataset.anName);
@@ -6130,6 +6463,7 @@
         annoSave(page);
       });
       side.addEventListener('keydown', (e) => {
+        if (e.target.closest('[data-an-capin]') && e.key === 'Enter') { e.preventDefault(); e.target.blur(); return; }
         const n = e.target.closest('[data-an-name]');
         if (n && e.key === 'Enter') { e.preventDefault(); const next = n.closest('li').nextElementSibling?.querySelector('[data-an-name]'); if (next) next.focus(); else n.blur(); }
       });
@@ -6141,7 +6475,15 @@
       side.addEventListener('mouseleave', () => { if (annoUI.hover) { annoUI.hover = null; annoRenderOverlay(page); } });
 
       // Page: drop zone button
-      paper.addEventListener('click', (e) => { const b = e.target.closest('.an-drop-btn'); if (b) fileInput.click(); });
+      paper.addEventListener('click', (e) => {
+        if (e.target.closest('.an-drop-btn')) { annoUI.fileTarget = undefined; fileInput.click(); return; }
+        const g = e.target.closest('[data-an-capedit]');
+        if (g) annoEditCaption(page, +g.dataset.anCapedit);
+      });
+      paper.addEventListener('dblclick', (e) => {
+        const c = e.target.closest('[data-an-cap]');
+        if (c && annoUI.mode === 'select') annoEditCaption(page, +c.dataset.anCap);
+      });
       paper.addEventListener('contextmenu', (e) => {
         const t = e.target.closest('[data-an-lbl],[data-an-dot]');
         if (!t) return;
@@ -6151,7 +6493,7 @@
         annoShowMenu(page, id, e.clientX, e.clientY);
       });
       paper.addEventListener('pointerdown', (e) => {
-        if (e.target.closest('.an-rename, .an-drop-btn')) return;
+        if (e.target.closest('.an-rename, .an-drop-btn, [data-an-capedit]')) return;
         // pan: middle button, or Space + drag
         if (e.button === 1 || (e.button === 0 && annoUI.space)) {
           e.preventDefault();
@@ -6159,11 +6501,13 @@
           annoDrag(paper, e, ev => { vp.scrollLeft = sl - (ev.clientX - sx); vp.scrollTop = st - (ev.clientY - sy); }, () => {});
           return;
         }
-        if (e.button !== 0 || !d.photo_url_or_base64 || !d.img_box) return;
+        if (e.button !== 0 || !annoPhotos(d).length) return;
         const handle = e.target.closest('[data-an-handle]');
         const dot = e.target.closest('[data-an-dot]');
         const lbl = e.target.closest('[data-an-lbl]');
-        const onImg = e.target.closest('[data-an-img]');
+        const onImg = e.target.closest('[data-an-img]') || (annoUI.mode === 'select' ? e.target.closest('[data-an-cap]') : null);
+        const pi = onImg ? +(onImg.dataset.anImg ?? onImg.dataset.anCap) : annoUI.photo;
+        const P = annoPh(d, pi);
         const tv = annoTv(d);
         const p0 = annoPt(paper, e);
         if (!handle && !dot && !lbl && !onImg) { if (annoUI.sel) annoSelect(page, null); return; }
@@ -6178,21 +6522,23 @@
           return;
         }
 
-        if (handle) {                                            // resize, aspect locked, opposite corner fixed
-          const c = handle.dataset.anHandle, B0 = { ...d.img_box }, ar = B0.w / B0.h;
+        if (handle) {                                            // resize the selected photo, aspect locked, opposite corner fixed
+          const hp = annoUI.photo, H = annoPh(d, hp);
+          if (!annoHasPh(H)) return;
+          const c = handle.dataset.anHandle, B0 = { ...H.img_box }, ar = B0.w / B0.h, ch = annoCapH(H);
           const ax = c[1] === 'e' ? B0.x : B0.x + B0.w, ay = c[0] === 's' ? B0.y : B0.y + B0.h;
           const sx = c[1] === 'e' ? 1 : -1, sy = c[0] === 's' ? 1 : -1;
-          const maxW = Math.min(sx > 0 ? ANNO_SAFE.r - ax : ax - ANNO_SAFE.l, (sy > 0 ? ANNO_SAFE.b - ay : ay - ANNO_SAFE.t) * ar);
-          const L0 = d.markers.map(m => { const s = annoLabelSize(d, m, d.markers.indexOf(m), tv && tv.byMarker.get(m.id)); return { m, cx: m.lx + s.w / 2, cy: m.ly + s.h / 2, w: s.w, h: s.h }; });
+          const maxW = Math.min(sx > 0 ? ANNO_SAFE.r - ax : ax - ANNO_SAFE.l, (sy > 0 ? ANNO_SAFE.b - ch - ay : ay - ANNO_SAFE.t) * ar);
+          const L0 = annoMk(d, hp).map(m => { const s = annoLabelSize(d, m, d.markers.indexOf(m), tv && tv.byMarker.get(m.id)); return { m, cx: m.lx + s.w / 2, cy: m.ly + s.h / 2, w: s.w, h: s.h }; });
           annoDrag(paper, e, (ev) => {
             const p = annoPt(paper, ev);
             const w = clampN(Math.max((p.x - ax) * sx, (p.y - ay) * sy * ar), 60, maxW), h = w / ar;
-            d.img_box = { x: r1(sx > 0 ? ax : ax - w), y: r1(sy > 0 ? ay : ay - h), w: r1(w), h: r1(h) };
+            H.img_box = { x: r1(sx > 0 ? ax : ax - w), y: r1(sy > 0 ? ay : ay - h), w: r1(w), h: r1(h) };
             if (!ev.altKey) {
               const k = w / B0.w;
               L0.forEach(o => { o.m.lx = r1(ax + (o.cx - ax) * k - o.w / 2); o.m.ly = r1(ay + (o.cy - ay) * k - o.h / 2); });
             }
-            annoApplyImgBox(d);
+            annoApplyImgBox(d, hp);
             annoRenderOverlay(page);
           }, () => { annoCommitLabels(d, tv); annoSave(page); annoRenderOverlay(page); });
           return;
@@ -6207,7 +6553,7 @@
             const p = annoPt(paper, ev);
             if (!moved && Math.hypot(p.x - p0.x, p.y - p0.y) * p.k < 3) return;
             moved = true;
-            const B = d.img_box;
+            const B = annoPh(d, annoPi(m)).img_box;
             m.x = p2(clampN((p.x - B.x) / B.w * 100, 0, 100));
             m.y = p2(clampN((p.y - B.y) / B.h * 100, 0, 100));
             annoRenderOverlay(page);
@@ -6251,8 +6597,10 @@
         }
 
         if (onImg && annoUI.mode === 'add') {                     // new point; drag out to place its label
-          const B = d.img_box;
+          const B = P.img_box;
           const m = { id: annoNewId(), x: p2(clampN((p0.x - B.x) / B.w * 100, 0, 100)), y: p2(clampN((p0.y - B.y) / B.h * 100, 0, 100)), label: annoUI.armed || '' };
+          if (pi === 1) m.p = 1;
+          annoSelectPhoto(page, pi);
           d.markers.push(m);
           annoUI.sel = m.id; annoUI.tv = undefined;
           const tv2 = annoTv(d);
@@ -6281,25 +6629,27 @@
           return;
         }
 
-        if (onImg) {                                             // move the whole group (Alt: photo + points only)
-          const B0 = { ...d.img_box };
-          const L0 = d.markers.map(m => [m, m.lx, m.ly]);
+        if (onImg) {                                             // move photo i with its labels (Alt: photo + points only)
+          const reselect = pi !== annoUI.photo;
+          annoSelectPhoto(page, pi);
+          const B0 = { ...P.img_box }, ch = annoCapH(P);
+          const L0 = annoMk(d, pi).map(m => [m, m.lx, m.ly]);
           let moved = false;
           annoDrag(paper, e, (ev) => {
             const p = annoPt(paper, ev);
             if (!moved && Math.hypot(p.x - p0.x, p.y - p0.y) * p.k < 3) return;
             moved = true;
             const dx = clampN(p.x - p0.x, ANNO_SAFE.l - B0.x, Math.max(ANNO_SAFE.l - B0.x, ANNO_SAFE.r - B0.x - B0.w));
-            const dy = clampN(p.y - p0.y, ANNO_SAFE.t - B0.y, Math.max(ANNO_SAFE.t - B0.y, ANNO_SAFE.b - B0.y - B0.h));
-            d.img_box = { ...B0, x: r1(B0.x + dx), y: r1(B0.y + dy) };
+            const dy = clampN(p.y - p0.y, ANNO_SAFE.t - B0.y, Math.max(ANNO_SAFE.t - B0.y, ANNO_SAFE.b - ch - B0.y - B0.h));
+            P.img_box = { ...B0, x: r1(B0.x + dx), y: r1(B0.y + dy) };
             L0.forEach(([m, lx, ly]) => { m.lx = ev.altKey ? lx : r1(lx + dx); m.ly = ev.altKey ? ly : r1(ly + dy); });
-            annoApplyImgBox(d);
+            annoApplyImgBox(d, pi);
             annoRenderOverlay(page);
           }, () => {
-            if (!moved) { if (annoUI.sel) annoSelect(page, null); return; }
+            if (!moved) { if (annoUI.sel) annoSelect(page, null); if (reselect) renderAnnotationPage(page); return; }
             annoCommitLabels(d, tv);
             annoSave(page);
-            annoRenderOverlay(page);
+            if (reselect) renderAnnotationPage(page); else annoRenderOverlay(page);
           });
         }
       });
@@ -12568,7 +12918,7 @@
         } else if (p.type === 'image') {
           if (!o.keepImages) d.images = [];
         } else if (p.type === 'annotation') {
-          if (!o.keepImages) d.photo_url_or_base64 = '';
+          if (!o.keepImages) { d.photo_url_or_base64 = ''; if (d.photo2) d.photo2.photo_url_or_base64 = ''; }
         } else if (p.type === 'data') {
           clearDataPageValues(d);
           d.header = Object.assign({}, d.header || {}, { test_date: o.date, stage: o.stage, sw_images: [] });

@@ -847,7 +847,7 @@ const assert = (cond, msg, detail) => { if (!cond) throw new Error(msg + (detail
       document.getElementById('ab-text').value = 'PA-1\n\nFPGA\nextra';
       document.getElementById('ab-ok').click();
       await flushAllSaves();
-      return { labels: disk().thermal_reports.A.pages['0'].data.markers.map(m => m.label), list: Array.from(document.querySelectorAll('.an-name')).map(i => i.value) };
+      return { labels: disk().thermal_reports.A.pages['0'].data.markers.map(m => m.label), list: Array.from(document.querySelectorAll('[data-an-name]')).map(i => i.value) };
     });
     assert(r.labels.join() === 'PA-1,TC2,FPGA' && r.list.join() === 'PA-1,TC2,FPGA', 'renamed in order, blank keeps', r);
   });
@@ -1535,6 +1535,87 @@ const assert = (cond, msg, detail) => { if (!cond) throw new Error(msg + (detail
 
 
   console.log('Image page (shared editor / PDF layout) · pagination');
+
+  await T('標註頁兩張照片：自動版面（左右 / 上下）、第二張上加標註、圖片說明（側欄 / 頁面）、編輯器 = PDF、交換、刪除後遞補', async (page) => {
+    await page.evaluate(ANNO_SETUP);
+    const r1 = await page.evaluate(async () => {
+      const markers = [{ id: 'a', x: 25, y: 50, label: 'PA', lx: 60, ly: 150 }, { id: 'b', x: 75, y: 25, label: 'LNA', lx: 680, ly: 100 }];
+      await useDb({ thermal_reports: { A: report('A', { 0: { type: 'annotation', order: 0, data: { anno_v: 2, img_fit: true, tc_category: 'RF', photo_url_or_base64: photo(400, 300), img_box: { x: 200, y: 100, w: 400, h: 300 }, markers } } }) } });
+      await openReport('A');
+      const f = async (n, w, h) => new File([await (await fetch(photo(w, h))).blob()], n, { type: 'image/png' });
+      window.__f = f;
+      await handleAnnotationPhoto(state.pages[0], await f('p.png', 300, 400));    // portrait second photo
+      const d = state.pages[0].data, mid = (ANNO_SAFE.l + ANNO_SAFE.r) / 2;
+      const rects = annoLabelRects(d, null);
+      return {
+        n: annoPhotos(d).length, key: annoCurKey(d), sel: annoUI.photo,
+        b0: d.img_box, b1: d.photo2.img_box, mid,
+        labelsLeft: rects.every(r => r.x + r.w <= mid), pts: d.markers.map(m => [m.x, m.y].join()).join('|'),
+        one: document.querySelector('[data-an-layout="1"]').disabled, imgs: document.querySelectorAll('#an-imglayer [data-an-img]').length,
+        add2: !!document.getElementById('an-add2'), addTool: document.querySelector('[data-an-tool="addimg"]').disabled,
+      };
+    });
+    assert(r1.n === 2 && r1.key === '2h' && r1.sel === 1 && r1.imgs === 2, 'second photo added, side by side (auto)', r1);
+    assert(r1.b0.x + r1.b0.w <= r1.mid && r1.b1.x >= r1.mid && r1.labelsLeft, 'each photo (and its labels) in its half', r1);
+    assert(r1.pts === '25,50|75,25' && r1.one && !r1.add2 && r1.addTool, 'points kept; layout 1 / add disabled with 2 photos', r1);
+    // two wide photos → 自動 stacks them
+    const r2 = await page.evaluate(async () => {
+      await handleAnnotationPhoto(state.pages[0], await __f('w.png', 800, 300), 1);   // replace photo 2
+      document.querySelector('[data-an-layout="auto"]').click();
+      const d = state.pages[0].data;
+      return { key: annoCurKey(d), b0: d.img_box, b1: d.photo2.img_box, midY: (ANNO_SAFE.t + ANNO_SAFE.b) / 2, layout: d.layout };
+    });
+    assert(r2.key === '2v' && r2.b0.y + r2.b0.h <= r2.midY && r2.b1.y >= r2.midY && r2.layout === 'auto', 'wide photos stack', r2);
+    // a point on photo 2 (add mode), named in place
+    await page.evaluate(() => annoSetMode(state.pages[0], 'add'));
+    const c = await page.evaluate(() => { const r = annoRect('#an-img-1'); return { x: r.left + r.width * 0.3, y: r.top + r.height * 0.5 }; });
+    await page.mouse.click(c.x, c.y);
+    await page.waitForSelector('.an-rename');
+    await page.keyboard.type('U2');
+    await page.keyboard.press('Enter');
+    await page.keyboard.press('Escape');                     // back to select mode
+    // captions: side panel (photo 2), on the page via the ghost button (photo 1)
+    await page.fill('[data-an-capin="1"]', 'IR 熱像');
+    await page.evaluate(() => document.querySelector('[data-an-capin="1"]').dispatchEvent(new Event('change', { bubbles: true })));
+    await page.click('[data-an-prow="0"] .an-idx');
+    await page.click('[data-an-capedit="0"]');
+    await page.waitForSelector('.an-rename');
+    await page.keyboard.type('Top view');
+    await page.keyboard.press('Enter');
+    const r3 = await page.evaluate(async () => {
+      await flushAllSaves();
+      const d = disk().thermal_reports.A.pages['0'].data;
+      const live = state.pages[0].data;
+      const pdf = new DOMParser().parseFromString(buildAnnotationHTML(live), 'text/html');
+      const geo = el => [el.style.left, el.style.top, el.style.width, el.style.height].join(',');
+      const caps = el => Array.from(el.querySelectorAll('div')).filter(x => x.style.fontFamily.includes('Noto Sans TC') && x.style.height === '18px').map(x => x.textContent + '@' + geo(x)).sort().join('|');
+      return {
+        u2: d.markers.find(m => m.label === 'U2'), caps: [d.caption, d.photo2.caption],
+        pdfImgs: pdf.querySelectorAll('img').length,
+        sameLabels: Array.from(pdf.querySelectorAll('div[style*="border:1px solid #2357A7"]')).map(geo).join('|') === Array.from(document.querySelectorAll('#an-ov [data-an-lbl]')).map(geo).join('|'),
+        sameDots: Array.from(pdf.querySelectorAll('div[style*="border-radius:50%"]')).map(geo).join('|') === Array.from(document.querySelectorAll('#an-ov [data-an-dot]')).map(geo).join('|'),
+        pdfCaps: caps(pdf), edCaps: caps(document.getElementById('an-imglayer')),
+        foot: [annoFoot(live), annoFoot(live.photo2)].every(F => F.y + F.h <= ANNO_SAFE.b + 0.5),
+        groups: Array.from(document.querySelectorAll('#an-list .an-grp')).map(x => x.textContent),
+      };
+    });
+    assert(r3.u2 && r3.u2.p === 1 && r3.u2.x > 20 && r3.u2.x < 40, 'point on photo 2', r3.u2);
+    assert(r3.caps.join() === 'Top view,IR 熱像' && r3.foot, 'captions saved, photo + caption on the page', r3);
+    assert(r3.pdfImgs === 2 && r3.sameLabels && r3.sameDots && r3.pdfCaps && r3.pdfCaps === r3.edCaps && /Top view/.test(r3.pdfCaps) && /IR 熱像/.test(r3.pdfCaps), 'editor = PDF (photos, labels, captions)', r3);
+    assert(r3.groups.length === 2 && /照片 2 · IR 熱像/.test(r3.groups[1]), 'marker list grouped by photo', r3.groups);
+    // swap, then delete photo 1: photo 2 moves up
+    await page.click('#an-swap');
+    const r4 = await page.evaluate(() => { const d = state.pages[0].data; return { cap: d.caption, u2: d.markers.find(m => m.label === 'U2').p, pa: d.markers.find(m => m.label === 'PA').p }; });
+    assert(r4.cap === 'IR 熱像' && r4.u2 === undefined && r4.pa === 1, 'swapped with points + captions', r4);
+    await page.evaluate(() => annoSelectPhoto(state.pages[0], 0));
+    await page.evaluate(() => document.querySelector('[data-an-pdel="0"]').click());
+    const r5 = await page.evaluate(async () => {
+      await flushAllSaves();
+      const d = disk().thermal_reports.A.pages['0'].data;
+      return { photo2: 'photo2' in d, cap: d.caption, labels: d.markers.map(m => m.label + ':' + (m.p || 0)).join(), add2: !!document.getElementById('an-add2'), one: document.querySelector('[data-an-layout="1"]').disabled };
+    });
+    assert(!r5.photo2 && r5.cap === 'Top view' && r5.labels === 'PA:0,LNA:0' && r5.add2 && !r5.one, 'photo 2 became photo 1', r5);
+  });
 
   await T('圖片頁：舊資料轉換（版面、旋轉翻轉、平移縮放與標註），編輯器與 PDF 相同', async (page) => {
     await page.evaluate(ANNO_SETUP);

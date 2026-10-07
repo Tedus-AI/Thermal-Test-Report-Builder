@@ -1465,6 +1465,73 @@ const assert = (cond, msg, detail) => { if (!cond) throw new Error(msg + (detail
     assert(r.check.some(t => t.startsWith('1 個標註點未命名')), 'report check', r.check);
   });
 
+
+  await T('標註頁：小照片填滿框、舊頁（含 90° 旋轉）對齊照片、轉換後第一個修改可復原', async (page) => {
+    await page.evaluate(ANNO_SETUP);
+    const r = await page.evaluate(async () => {
+      await useDb({ thermal_reports: { A: report('A', {
+        0: { type: 'annotation', order: 0, data: { anno_v: 2, img_fit: true, tc_category: 'RF', photo_url_or_base64: photo(100, 50), img_box: { x: 200, y: 100, w: 400, h: 200 }, markers: [{ id: 'a', x: 100, y: 100, label: 'corner', lx: 650, ly: 320 }] } },
+        1: { type: 'annotation', order: 1, data: { tc_category: 'RF', photo_url_or_base64: photo(200, 100), anno_photo_x: 200, anno_photo_y: 50, anno_photo_w: 400, anno_photo_h: 400, markers: [{ id: 'b', x: 50, y: 25, label: 'top' }] } },
+        2: { type: 'annotation', order: 2, data: { tc_category: 'RF', photo_url_or_base64: photo(800, 600), anno_photo_x: 80, anno_photo_y: 60, anno_photo_w: 680, anno_photo_h: 430, anno_rotate: 90, markers: [{ id: 'c', x: 50, y: 0, label: 'edge' }, { id: 'd', x: 50, y: 50, label: 'mid' }] } } }) } });
+      await openReport('A');
+      await sleep(200);
+      const k = annoRect('#an-paper').width / 842;
+      const ir = annoRect('#an-img img');
+      const small = [Math.round(ir.width / k), Math.round(ir.height / k)];
+      selectPage(1); await sleep(300);
+      const d1 = state.pages[1].data;
+      const letterbox = { fit: d1.img_fit, box: d1.img_box, pt: d1.markers[0].x + ',' + d1.markers[0].y };
+      selectPage(2); await sleep(300);
+      const d2 = state.pages[2].data;
+      const rot = { box: d2.img_box, pts: d2.markers.map(m => m.x + ',' + m.y), ar: d2.img_box.w / d2.img_box.h };
+      document.querySelector('[data-an-tool="size"]').click();
+      const sized = d2.label_size;
+      performUndo();
+      return { small, letterbox, rot, sized, undone: state.pages[2].data.label_size || 'M' };
+    });
+    assert(r.small.join() === '400,200', 'small photo scaled up to its frame', r.small);
+    assert(r.letterbox.fit && r.letterbox.box.y === 150 && r.letterbox.box.h === 200 && r.letterbox.pt === '50,0', 'letterboxed old frame fitted, point kept', r.letterbox);
+    assert(Math.abs(r.rot.ar - 0.75) < 0.01 && r.rot.pts.join('|') === '50,12.5|50,50', 'rotated old frame keeps the old scale', r.rot);
+    assert(r.sized === 'L' && r.undone === 'M', 'first edit after conversion can be undone', r);
+  });
+
+  await T('標註頁：雙擊標籤改名、吸附輔助線放開後消失、Esc 關閉亮度面板、其他對話框開著時不吃快捷鍵', async (page) => {
+    await page.evaluate(ANNO_SETUP);
+    await page.evaluate(async () => {
+      const markers = [{ id: 'a', x: 20, y: 50, label: 'PA', lx: 40, ly: 100 }, { id: 'b', x: 80, y: 50, label: 'LNA', lx: 40, ly: 200 }];
+      await useDb({ thermal_reports: { A: report('A', { 0: { type: 'annotation', order: 0, data: { anno_v: 2, img_fit: true, tc_category: 'RF', photo_url_or_base64: photo(400, 200), img_box: { x: 220, y: 120, w: 400, h: 200 }, markers } } }) } });
+      await openReport('A');
+    });
+    await page.waitForTimeout(150);
+    const center = sel => page.evaluate(sel => { const r = annoRect(sel); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; }, sel);
+    let c = await center('[data-an-lbl="a"]');
+    await page.mouse.dblclick(c.x, c.y);
+    const renaming = await page.evaluate(() => document.activeElement && document.activeElement.classList.contains('an-rename'));
+    await page.keyboard.press('Escape');
+    // drag LNA's label next to PA's left edge → snaps, guide hidden afterwards
+    c = await center('[data-an-lbl="b"]');
+    const k = await page.evaluate(() => annoRect('#an-paper').width / 842);
+    await page.mouse.move(c.x, c.y); await page.mouse.down();
+    await page.mouse.move(c.x + 3 * k, c.y - 40 * k, { steps: 4 });
+    const guideDuring = await page.evaluate(() => getComputedStyle(document.querySelector('.an-guide')).display);
+    await page.mouse.up();
+    const after = await page.evaluate(() => ({ guide: getComputedStyle(document.querySelector('.an-guide')).display, lx: state.pages[0].data.markers[1].lx }));
+    // brightness panel: Esc closes it and drops the live preview
+    await page.click('[data-an-tool="adjust"]');
+    await page.evaluate(() => { const i = document.querySelector('.an-pop [data-adj="b"]'); i.value = 40; i.dispatchEvent(new Event('input', { bubbles: true })); });
+    const filterOn = await page.evaluate(() => document.querySelector('#an-img img').style.filter);
+    await page.keyboard.press('Escape');
+    const pop = await page.evaluate(() => ({ open: !!document.querySelector('.an-pop'), filter: document.querySelector('#an-img img').style.filter }));
+    // another dialog open: Delete must not touch the page behind it
+    await page.evaluate(() => { annoSelect(state.pages[0], 'a'); const o = document.createElement('div'); o.className = 'hp-modal-overlay'; document.body.appendChild(o); });
+    await page.keyboard.press('Delete');
+    const kept = await page.evaluate(() => { document.querySelector('.hp-modal-overlay').remove(); return state.pages[0].data.markers.length; });
+    assert(renaming, 'double-click opens rename', renaming);
+    assert(guideDuring === 'block' && after.guide === 'none' && after.lx === 40, 'snap + guide cleared', { guideDuring, after });
+    assert(filterOn.includes('brightness(1.4)') && !pop.open && pop.filter === '', 'Esc closes the adjust panel', { filterOn, pop });
+    assert(kept === 2, 'shortcuts ignored under another dialog', kept);
+  });
+
   console.log('New version → save, then reload');
 
   // Serve index.html stamped with `build.served` and version.json with `build.online`

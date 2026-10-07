@@ -6311,8 +6311,11 @@
     }
 
     // ── Shared page HTML (editor + preview + PDF) ──
+    // Fitted frames (img_fit: frame aspect = photo aspect) are filled exactly, small photos
+    // included; old frames not yet fitted keep the old layout (photo fitted into the
+    // unrotated frame, then rotated) so their points stay where they were drawn.
     function annoImgInnerStyle(d) {
-      const B = d.img_box, rot = d.img_rot || 0, swap = rot === 90 || rot === 270;
+      const B = d.img_box, rot = d.img_rot || 0, swap = !!d.img_fit && (rot === 90 || rot === 270);
       const iw = swap ? B.h : B.w, ih = swap ? B.w : B.h;
       const tf = (rot ? `rotate(${rot}deg)` : '') + (d.img_fh ? ' scaleX(-1)' : '');
       return `position:absolute;left:${r1((B.w - iw) / 2)}px;top:${r1((B.h - ih) / 2)}px;width:${r1(iw)}px;height:${r1(ih)}px;display:flex;align-items:center;justify-content:center;${tf ? 'transform:' + tf.trim() + ';' : ''}`;
@@ -6321,7 +6324,7 @@
       const B = d.img_box;
       if (!d.photo_url_or_base64 || !B) return '';
       return `<div ${editor ? 'data-an-img="1" id="an-img"' : ''} style="position:absolute;left:${r1(B.x)}px;top:${r1(B.y)}px;width:${r1(B.w)}px;height:${r1(B.h)}px;overflow:hidden;z-index:1;">
-          <div data-an-imgin style="${annoImgInnerStyle(d)}"><img src="${escapeAttr(d.photo_url_or_base64)}" draggable="false" style="max-width:100%;max-height:100%;display:block;"></div>
+          <div data-an-imgin style="${annoImgInnerStyle(d)}"><img src="${escapeAttr(d.photo_url_or_base64)}" draggable="false" style="${d.img_fit ? 'width:100%;height:100%;' : 'max-width:100%;max-height:100%;'}display:block;"></div>
           <div style="position:absolute;left:0;top:0;right:0;bottom:0;border:1px solid #C2DFF8;"></div>
         </div>`;
     }
@@ -6520,24 +6523,39 @@
     function annoCommitLabels(d, tv) {
       annoLabelRects(d, tv).forEach(r => { r.m.lx = r1(r.x); r.m.ly = r1(r.y); });
     }
-    // Old frames may not match the photo's aspect (letterboxed). Shrink the frame
-    // to the visible photo, keeping every point on the same spot of the photo.
+    // Old frames may not match the photo (letterboxed, or rotated after fitting).
+    // Make the frame exactly the photo as the old editor drew it — fitted into the
+    // unrotated frame, then rotated about its centre — keeping every point on the
+    // same spot of the photo.
     function annoFitBoxToImage(d, nw, nh) {
       const B = d.img_box;
       if (!B || !nw || !nh) return false;
       const swap = (d.img_rot || 0) % 180 !== 0;
-      const ar = swap ? nh / nw : nw / nh;
+      const s = Math.min(B.w / nw, B.h / nh);
+      const cw = swap ? nh * s : nw * s, ch = swap ? nw * s : nh * s;
       d.img_fit = true;
-      if (Math.abs(B.w / B.h - ar) < 0.005) return false;
-      let cw = B.w, ch = B.w / ar;
-      if (ch > B.h) { ch = B.h; cw = ch * ar; }
+      if (Math.abs(cw - B.w) < 0.5 && Math.abs(ch - B.h) < 0.5) return false;
       const cx = B.x + (B.w - cw) / 2, cy = B.y + (B.h - ch) / 2;
       d.markers.forEach(m => {
         const X = B.x + m.x / 100 * B.w, Y = B.y + m.y / 100 * B.h;
         m.x = p2(clampN((X - cx) / cw * 100, 0, 100));
         m.y = p2(clampN((Y - cy) / ch * 100, 0, 100));
       });
-      d.img_box = { x: r1(cx), y: r1(cy), w: r1(cw), h: r1(ch) };
+      d.img_box = annoFitInSafe({ x: cx, y: cy, w: cw, h: ch });
+      return true;
+    }
+    // On open: fit every old frame once (in the background), so preview / export
+    // are right even for annotation pages that are never opened in the editor.
+    function annoFitAllPages() {
+      state.pages.filter(p => p.type === 'annotation' && !p.data.img_fit && p.data.photo_url_or_base64).forEach(p => {
+        annoEnsureFit(p.data).then(done => { if (done) { annoSaveNow(p); annoRerender(p); } });
+      });
+    }
+    async function annoEnsureFit(d) {
+      if (d.img_fit || !d.photo_url_or_base64 || !d.img_box) return false;
+      const im = await annoLoadImage(d.photo_url_or_base64);
+      if (!im || d.img_fit) return false;
+      annoFitBoxToImage(d, im.naturalWidth, im.naturalHeight);
       return true;
     }
     function annoLoadImage(url) {
@@ -6626,15 +6644,19 @@
     }
 
     // ── Editor ──
-    const annoUI = { pageId: null, mode: 'select', sel: null, hover: null, zoom: 1, armed: null, seq: false, tv: undefined, space: false };
+    const annoUI = { pageId: null, mode: 'select', sel: null, hover: null, zoom: 1, armed: null, seq: false, tv: undefined, space: false, lastPress: null };
     let _annoRO = null;
     const annoCropUndo = new WeakMap();      // page.data → state before the last crop (this session)
     const annoAdjOriginal = new WeakMap();   // page.data → bitmap before brightness / contrast (this session)
     const ANNO_ZOOMS = [1, 1.5, 2, 3, 4];    // × fit
     function annoResetUI(pageId) {
-      Object.assign(annoUI, { pageId, mode: 'select', sel: null, hover: null, zoom: 1, armed: null, seq: false, tv: undefined });
+      Object.assign(annoUI, { pageId, mode: 'select', sel: null, hover: null, zoom: 1, armed: null, seq: false, tv: undefined, lastPress: null });
     }
     function annoSave(page, opts) { scheduleSave(state.pages.indexOf(page), opts); }
+    // Data conversions (not user edits): write now, so the next edit still gets its undo step.
+    function annoSaveNow(page) { if (state.pages.includes(page)) { scheduleSave(state.pages.indexOf(page), { undo: false }); runPageSave(page.id); } }
+    // Async results (photo loaded, crop / adjust done) only redraw if the page is still open.
+    function annoRerender(page) { if (state.pages[state.activePage] === page && document.getElementById('an-paper')) renderAnnotationPage(page); }
     function annoTv(d) { if (annoUI.tv === undefined) annoUI.tv = annoTempOverlay(d); return annoUI.tv; }
     const ANNO_ICONS = {
       select: '<path d="M5 3l11 6.5-4.6 1.3L9 15.6z"/>',
@@ -6743,7 +6765,7 @@
       if (!d.tc_category) d.tc_category = 'RF';
       // Title is composed from the category dropdown; kept in d.title so the PDF shows it too.
       d.title = d.tc_category + ' Thermocouple Location';
-      if (annoEnsureLabels(d, annoTv(d))) annoSave(page, { undo: false });
+      if (annoEnsureLabels(d, annoTv(d))) annoSaveNow(page);
       if (annoUI.sel && !d.markers.some(m => m.id === annoUI.sel)) annoUI.sel = null;
       const hasPhoto = !!d.photo_url_or_base64;
       const names = Array.from(new Set(state.pages.filter(p => p.type === 'data').flatMap(p => (p.data.components || []).map(c => String(c.name || '').trim())).filter(Boolean)));
@@ -6811,12 +6833,9 @@
           if (state.pages[state.activePage] === page && document.getElementById('an-ov')) annoRenderOverlay(page);
         });
       }
-      // Old pages: shrink a letterboxed frame to the photo once its size is known.
+      // Old pages: match the frame to the photo once its size is known.
       if (hasPhoto && !d.img_fit) {
-        annoLoadImage(d.photo_url_or_base64).then(im => {
-          if (!im || state.pages[state.activePage] !== page || d.img_fit) return;
-          if (annoFitBoxToImage(d, im.naturalWidth, im.naturalHeight)) { annoSave(page, { undo: false }); renderAnnotationPage(page); }
-        });
+        annoEnsureFit(d).then(done => { if (done) { annoSaveNow(page); annoRerender(page); } });
       }
     }
 
@@ -7024,6 +7043,7 @@
       menu.style.left = Math.min(cx, window.innerWidth - menu.offsetWidth - 8) + 'px';
       menu.style.top = Math.min(cy, window.innerHeight - menu.offsetHeight - 8) + 'px';
       const close = () => { menu.remove(); document.removeEventListener('pointerdown', outside, true); };
+      menu._close = close;
       const outside = (e) => { if (!menu.contains(e.target)) close(); };
       document.addEventListener('pointerdown', outside, true);
       menu.addEventListener('click', (e) => {
@@ -7056,6 +7076,7 @@
         if (img) img.style.filter = `brightness(${1 + adj.b / 100}) contrast(${1 + adj.c / 100}) saturate(${1 + adj.s / 100})`;
       };
       const close = () => { pop.remove(); if (img) img.style.filter = ''; document.removeEventListener('pointerdown', outside, true); };
+      pop._close = close;
       const outside = (e) => { if (!pop.contains(e.target) && e.target !== anchor && !anchor.contains(e.target)) close(); };
       document.addEventListener('pointerdown', outside, true);
       pop.addEventListener('input', (e) => { const k = e.target.dataset.adj; if (k) { adj[k] = parseInt(e.target.value) || 0; preview(); } });
@@ -7066,7 +7087,7 @@
         else if (a === 'orig') {
           d.photo_url_or_base64 = annoAdjOriginal.get(d);
           annoAdjOriginal.delete(d);
-          close(); annoSave(page); renderAnnotationPage(page);
+          close(); annoSave(page); annoRerender(page);
         } else if (a === 'apply') {
           if (!adj.b && !adj.c && !adj.s) { close(); return; }
           const base = annoAdjOriginal.get(d) || d.photo_url_or_base64;
@@ -7077,7 +7098,7 @@
           if (!annoAdjOriginal.has(d)) annoAdjOriginal.set(d, base);
           d.photo_url_or_base64 = url;
           annoSave(page);
-          renderAnnotationPage(page);
+          annoRerender(page);
           showToast('已套用亮度 / 對比（工具列 ◐ →「還原原圖」可復原）', 'ok');
         }
       });
@@ -7106,13 +7127,15 @@
       if (!hadPhoto && d.markers.length) annoAutoArrange(d, tv);   // e.g. a page copied from a template
       annoEnsureLabels(d, tv);
       annoSave(page);
-      if (state.pages[state.activePage] === page) renderAnnotationPage(page);
+      annoRerender(page);
     }
 
     async function annoTool(page, tool, btn) {
       const d = page.data;
       const tv = annoTv(d);
-      const commit = () => { annoUI.tv = undefined; annoSave(page); renderAnnotationPage(page); };
+      const commit = () => { annoUI.tv = undefined; annoSave(page); annoRerender(page); };
+      const photoOps = ['rotl', 'rotr', 'fliph', 'flipv', 'crop', 'center', 'layout', 'arrange'];
+      if (photoOps.includes(tool) && !d.img_fit && await annoEnsureFit(d)) annoSaveNow(page);   // old frame: fit before remapping points
       if (tool === 'select' || tool === 'add') annoSetMode(page, tool);
       else if (tool === 'replace') document.getElementById('anno-file-input')?.click();
       else if (tool === 'rotl' || tool === 'rotr') { annoRotate(d, tool === 'rotr' ? 1 : -1); annoAutoArrange(d, tv); commit(); }
@@ -7210,7 +7233,7 @@
         } else if (t.matches('[data-an-place-src]')) {
           d.place_src = t.value;
           if (annoUI.seq) annoUI.armed = annoUnplaced(d)[0] || null;
-          annoSave(page, { undo: false });
+          annoSave(page);
           renderAnnotationPage(page);
           return;
         } else {
@@ -7256,10 +7279,6 @@
 
       // Page: drop zone button
       paper.addEventListener('click', (e) => { const b = e.target.closest('.an-drop-btn'); if (b) fileInput.click(); });
-      paper.addEventListener('dblclick', (e) => {
-        const t = e.target.closest('[data-an-lbl],[data-an-dot]');
-        if (t) { e.preventDefault(); annoStartRename(page, t.dataset.anLbl || t.dataset.anDot); }
-      });
       paper.addEventListener('contextmenu', (e) => {
         const t = e.target.closest('[data-an-lbl],[data-an-dot]');
         if (!t) return;
@@ -7287,6 +7306,14 @@
         if (!handle && !dot && !lbl && !onImg) { if (annoUI.sel) annoSelect(page, null); return; }
         e.preventDefault();
         document.activeElement?.blur?.();
+        const hitId = (dot && dot.dataset.anDot) || (lbl && lbl.dataset.anLbl) || null;
+        const last = annoUI.lastPress;
+        annoUI.lastPress = hitId ? { id: hitId, t: e.timeStamp, x: e.clientX, y: e.clientY } : null;
+        if (hitId && last && last.id === hitId && e.timeStamp - last.t < 450 && Math.hypot(e.clientX - last.x, e.clientY - last.y) < 6) {
+          annoUI.lastPress = null;
+          annoStartRename(page, hitId);
+          return;
+        }
 
         if (handle) {                                            // resize, aspect locked, opposite corner fixed
           const c = handle.dataset.anHandle, B0 = { ...d.img_box }, ar = B0.w / B0.h;
@@ -7332,7 +7359,6 @@
           const rects = annoLabelRects(d, tv);
           const me = rects.find(r => r.m === m);
           const edges = rects.filter(r => r.m !== m).flatMap(r => [r.x, r.x + r.w]);
-          const guide = paper.querySelector('.an-guide');
           let moved = false;
           annoDrag(paper, e, (ev) => {
             const p = annoPt(paper, ev);
@@ -7354,7 +7380,8 @@
             const g = paper.querySelector('.an-guide');
             if (g) { g.style.display = snap === null ? 'none' : 'block'; g.style.left = snap + 'px'; }
           }, () => {
-            if (guide) guide.style.display = 'none';
+            const g = paper.querySelector('.an-guide');
+            if (g) g.style.display = 'none';
             if (moved) annoSave(page);
           });
           return;
@@ -7368,18 +7395,19 @@
           const tv2 = annoTv(d);
           annoPlaceLabel(d, m, tv2);
           annoRenderOverlay(page);
-          const rub = paper.querySelector('.an-rubber'), line = rub && rub.querySelector('line');
           let moved = false;
           annoDrag(paper, e, (ev) => {
             const p = annoPt(paper, ev);
             if (!moved && Math.hypot(p.x - p0.x, p.y - p0.y) * p.k < 6) return;
             moved = true;
-            if (line) { rub.style.display = 'block'; line.setAttribute('x1', p0.x); line.setAttribute('y1', p0.y); line.setAttribute('x2', p.x); line.setAttribute('y2', p.y); }
             const s = annoLabelSize(d, m, d.markers.indexOf(m), tv2 && tv2.byMarker.get(m.id));
             const q = annoClampLabel(p.x - s.w / 2, p.y - s.h / 2, s.w, s.h);
             m.lx = r1(q.x); m.ly = r1(q.y);
             annoRenderOverlay(page);
+            const rub = paper.querySelector('.an-rubber'), line = rub && rub.querySelector('line');
+            if (line) { rub.style.display = 'block'; line.setAttribute('x1', p0.x); line.setAttribute('y1', p0.y); line.setAttribute('x2', p.x); line.setAttribute('y2', p.y); }
           }, () => {
+            const rub = paper.querySelector('.an-rubber');
             if (rub) rub.style.display = 'none';
             annoSave(page);
             if (annoUI.armed) annoNextArmed(d);
@@ -7419,7 +7447,7 @@
     window.addEventListener('keydown', (e) => {
       const page = state.pages[state.activePage];
       if (!page || page.type !== 'annotation' || !document.getElementById('an-paper')) return;
-      if (document.querySelector('.tool-modal-overlay, .sim-modal-overlay') || document.getElementById('preview-overlay')?.classList.contains('open')) return;
+      if (document.querySelector('.tool-modal-overlay, .sim-modal-overlay, .hp-modal-overlay, .update-backdrop') || document.getElementById('preview-overlay')?.classList.contains('open')) return;
       const t = e.target;
       if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
       const d = page.data;
@@ -7431,8 +7459,9 @@
       } else if (k === 'v' || k === 'V') annoSetMode(page, 'select');
       else if (k === 'a' || k === 'A') annoSetMode(page, 'add');
       else if (k === 'Escape') {
-        document.querySelector('.an-pop, .an-ctx')?.remove();
-        if (annoUI.mode === 'add') annoSetMode(page, 'select');
+        const pop = document.querySelector('.an-pop, .an-ctx');
+        if (pop) { if (pop._close) pop._close(); else pop.remove(); }
+        else if (annoUI.mode === 'add') annoSetMode(page, 'select');
         else if (annoUI.sel) annoSelect(page, null);
         else handled = false;
       } else if ((k === 'Delete' || k === 'Backspace') && annoUI.sel) annoDeleteMarker(page, annoUI.sel);
@@ -7461,6 +7490,7 @@
     window.addEventListener('keyup', (e) => {
       if (e.key === ' ' && annoUI.space) { e.preventDefault(); annoUI.space = false; document.getElementById('an-paper')?.classList.remove('panning'); }
     }, true);
+    window.addEventListener('blur', () => { annoUI.space = false; document.getElementById('an-paper')?.classList.remove('panning'); });   // missed keyup (Alt+Tab)
 
     // ━━━ Thermal data model (single source of truth) ━━━
     // Every place that shows a margin / pass-fail / comparison value — the data
@@ -13459,6 +13489,7 @@
       migrateReportData();
       state.pages.forEach((p, i) => { p.order = i; initPageSnapshot(p); });
       await loadSpecMemory();
+      annoFitAllPages();
       saveStructure();
       showEditor();
       renderPageList();
@@ -13517,6 +13548,7 @@
       state.pages.forEach(p => initPageSnapshot(p));
       if (needsStructureSave) saveStructure();
       await loadSpecMemory();
+      annoFitAllPages();
 
       showEditor();
       renderPageList();

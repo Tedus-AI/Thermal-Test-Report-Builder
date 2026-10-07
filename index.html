@@ -3066,6 +3066,7 @@
     .im-empty { font-size: 12px; }
 
     /* ━━━ Preview Overlay ━━━ */
+    .pv-page, .pv-page * { letter-spacing: 0 !important; word-spacing: 0 !important; text-transform: none !important; }
     .preview-overlay {
       display: none;
       position: fixed;
@@ -6382,7 +6383,18 @@
       if (!Array.isArray(d.texts)) d.texts = [];
       d.images.forEach(im => { if (im && !Array.isArray(im.callouts)) im.callouts = []; });
       if (d.im_v === 2) return false;
-      // old pages: empty placeholder entries, CSS rotate / flips, pan / zoom and cell-relative markers
+      // old pages: empty placeholder entries, CSS rotate / flips, pan / zoom and cell-relative markers.
+      // Old PDF grid: 786 px wide; height 595 − 22 − 28 − title band (42, or 22 with no title);
+      // 10 px gaps; 1 col (≤ 1) · 2 cols (2) · 2 × 2 (≥ 3) by split %; a 29 px caption under
+      // captioned photos; markers were % of the cell's photo box (inside its 1 px border).
+      const n0 = d.images.length, gridH = 595 - 22 - 28 - (String(d.title || '').trim() ? 42 : 22);
+      const oc = (d.col_split != null ? d.col_split : 50) / 100, orr = (d.row_split != null ? d.row_split : 50) / 100;
+      d.images.forEach((im, i) => {
+        if (!im || !im.url_or_base64) return;
+        const w = n0 <= 1 ? 786 : (786 - 10) * (i % 2 ? 1 - oc : oc);
+        const h = n0 <= 2 ? gridH : (gridH - 10) * (Math.floor(i / 2) ? 1 - orr : orr);
+        im._oldCell = { w: w - 2, h: h - (im.caption ? 29 : 0) - 2 };
+      });
       d.images = d.images.filter(im => im && im.url_or_base64);
       d.layout = d.images.length <= 1 ? '1' : d.images.length === 2 ? '2h' : '2x2';
       d.split = { c: d.col_split != null ? d.col_split : 50, r: d.row_split != null ? d.row_split : 50 };
@@ -6393,8 +6405,9 @@
         im.rot = rot; im.fh = fh;
         delete im.rotate; delete im.flip_h; delete im.flip_v;
         const legacy = (im.zoom && im.zoom !== 1) || im.off_x || im.off_y || (im.markers || []).length || (im.circles || []).length;
-        if (legacy) im.legacy = true;              // converted once the photo's size is known (imEnsureAspect)
+        if (legacy) im.legacy = im._oldCell;       // converted once the photo's size is known (imEnsureAspect)
         else { delete im.zoom; delete im.off_x; delete im.off_y; delete im.markers; delete im.circles; }
+        delete im._oldCell;
         im.position = i;
         if (!Array.isArray(im.callouts)) im.callouts = [];
       });
@@ -6555,20 +6568,21 @@
       if (!im.legacy) return;
       const i = d.images.indexOf(im), slot = imSlots(d)[i];
       if (slot) {
-        // old layout: photo fitted (never enlarged) into the cell, then translate(off %) rotate scale(zoom)
-        const F = imFrame(slot, im);
-        const s = Math.min(1, F.w / nw, F.h / nh), we = nw * s, he = nh * s, zm = im.zoom || 1, swap = (im.rot || 0) % 180 !== 0;
+        // Old layout, in the OLD cell (O): photo fitted (never enlarged), then translate(off %) rotate
+        // scale(zoom). Points become photo fractions; the view keeps the same zoom relative to the frame.
+        const F = imFrame(slot, im), O = (im.legacy && im.legacy.w) ? im.legacy : F;
+        const s = Math.min(1, O.w / nw, O.h / nh), we = nw * s, he = nh * s, zm = im.zoom || 1, swap = (im.rot || 0) % 180 !== 0;
         const wd = (swap ? he : we) * zm, hd = (swap ? we : he) * zm;
-        const dx = F.w / 2 + (im.off_x || 0) / 100 * we - wd / 2, dy = F.h / 2 + (im.off_y || 0) / 100 * he - hd / 2;   // photo top-left in the frame
+        const dx = O.w / 2 + (im.off_x || 0) / 100 * we - wd / 2, dy = O.h / 2 + (im.off_y || 0) / 100 * he - hd / 2;   // photo top-left in the old cell
         im.z = 1; im.cx = 0.5; im.cy = 0.5;
         const R0 = imPhotoRect(im, F);
-        im.z = Math.round(wd / R0.w * 1e4) / 1e4;
-        im.cx = Math.round((F.w / 2 - dx) / wd * 1e4) / 1e4;
-        im.cy = Math.round((F.h / 2 - dy) / hd * 1e4) / 1e4;
-        const fx = X => Math.round((X / 100 * F.w - dx) / wd * 1e4) / 1e4, fy = Y => Math.round((Y / 100 * F.h - dy) / hd * 1e4) / 1e4;
+        im.z = Math.round(clampN(wd / O.w * F.w / R0.w, 0.2, 8) * 1e4) / 1e4;
+        im.cx = Math.round((O.w / 2 - dx) / wd * 1e4) / 1e4;
+        im.cy = Math.round((O.h / 2 - dy) / hd * 1e4) / 1e4;
+        const fx = X => Math.round((X / 100 * O.w - dx) / wd * 1e4) / 1e4, fy = Y => Math.round((Y / 100 * O.h - dy) / hd * 1e4) / 1e4;
         const lab = m => ({ lx: r1(F.x + (m.label_x || 0) / 100 * F.w), ly: r1(F.y + (m.label_y || 0) / 100 * F.h) });
         (im.markers || []).forEach(m => im.callouts.push({ id: m.id || imNewId('c_'), type: 'dot', x: fx(m.x), y: fy(m.y), label: m.label || '', ...lab(m) }));
-        (im.circles || []).forEach(c => im.callouts.push({ id: c.id || imNewId('c_'), type: 'circle', x: fx(c.x + c.w / 2), y: fy(c.y + c.h / 2), w: Math.round(c.w / 100 * F.w / wd * 1e4) / 1e4, h: Math.round(c.h / 100 * F.h / hd * 1e4) / 1e4, label: c.label || '', ...lab(c) }));
+        (im.circles || []).forEach(c => im.callouts.push({ id: c.id || imNewId('c_'), type: 'circle', x: fx(c.x + c.w / 2), y: fy(c.y + c.h / 2), w: Math.round(c.w / 100 * O.w / wd * 1e4) / 1e4, h: Math.round(c.h / 100 * O.h / hd * 1e4) / 1e4, label: c.label || '', ...lab(c) }));
       }
       ['legacy', 'zoom', 'off_x', 'off_y', 'markers', 'circles'].forEach(k => delete im[k]);
     }
@@ -6700,6 +6714,7 @@
       if (imUI.pageId !== page.id) imResetUI(page.id);
       imNormalize(d);
       if (imUI.selImg !== null && !d.images[imUI.selImg]) imUI.selImg = null;
+      if (imUI.sel && !imFindCallout(d, imUI.sel)) imUI.sel = null;
       const hasImg = imUI.selImg !== null;
       const dis = hasImg ? '' : 'disabled';
       const anyImg = d.images.length ? '' : 'disabled';
@@ -6814,9 +6829,21 @@
       }
       ui.innerHTML = html;
     }
+    function imBindSortable(page) {
+      const d = page.data, list = document.getElementById('im-list');
+      if (!list || !window.Sortable || d.images.length < 2) return;
+      Sortable.create(list, { handle: '.im-grip', animation: 120, onEnd: (ev) => {
+        if (ev.oldIndex === ev.newIndex) return;
+        const [m] = d.images.splice(ev.oldIndex, 1);
+        d.images.splice(ev.newIndex, 0, m);
+        d.images.forEach((x, n) => { x.position = n; });
+        imUI.selImg = ev.newIndex;
+        imSave(page); renderImagePage(page);
+      } });
+    }
     function imRefreshSide(page) {
       const side = document.getElementById('im-side');
-      if (side && !side.contains(document.activeElement)) side.innerHTML = imSideHTML(page.data);
+      if (side && !side.contains(document.activeElement)) { side.innerHTML = imSideHTML(page.data); imBindSortable(page); }
       else if (side) side.querySelectorAll('[data-im-row]').forEach(li => li.classList.toggle('sel', +li.dataset.imRow === imUI.selImg));
       const st = document.getElementById('an-status');
       if (st) st.innerHTML = imStatusHTML(page.data);
@@ -7020,7 +7047,7 @@
           if (!r) return;
           const el = await annoLoadImage(url);
           if (!el) return;
-          imCropUndo.set(im, { url: im.url_or_base64, nar: im.nar, rot: im.rot, fh: im.fh, z: im.z, cx: im.cx, cy: im.cy, callouts: JSON.parse(JSON.stringify(im.callouts || [])) });
+          imCropUndo.set(im, { url: im.url_or_base64, nar: im.nar, rot: im.rot, fh: im.fh, z: im.z, cx: im.cx, cy: im.cy, r: { ...r }, pos: new Map((im.callouts || []).map(c => [c.id, { x: c.x, y: c.y, w: c.w, h: c.h }])) });
           imAdjOriginal.delete(im);
           imApplyCrop(im, url, r, Math.round(el.naturalWidth / el.naturalHeight * 1e5) / 1e5);
           commit();
@@ -7029,7 +7056,14 @@
         const o = imCropUndo.get(im);
         if (!o) return;
         imCropUndo.delete(im);
-        Object.assign(im, { url_or_base64: o.url, nar: o.nar, rot: o.rot, fh: o.fh, z: o.z, cx: o.cx, cy: o.cy, callouts: o.callouts });
+        Object.assign(im, { url_or_base64: o.url, nar: o.nar, rot: o.rot, fh: o.fh, z: o.z, cx: o.cx, cy: o.cy });
+        // positions from before the crop; callouts added since are mapped back out of the crop
+        (im.callouts || []).forEach(c => {
+          const p0 = o.pos.get(c.id);
+          if (p0) { c.x = p0.x; c.y = p0.y; if (p0.w != null) { c.w = p0.w; c.h = p0.h; } return; }
+          c.x = Math.round((o.r.x + c.x * o.r.w) * 1e4) / 1e4; c.y = Math.round((o.r.y + c.y * o.r.h) * 1e4) / 1e4;
+          if (c.w != null) { c.w = Math.round(c.w * o.r.w * 1e4) / 1e4; c.h = Math.round(c.h * o.r.h * 1e4) / 1e4; }
+        });
         commit();
       } else if (tool === 'adjust') {
         const imgEl = document.querySelector(`[data-im-frame="${i}"] img`);
@@ -7121,17 +7155,7 @@
         imSave(page);
       });
       side.addEventListener('keydown', (e) => { if (e.target.closest('[data-im-capin]') && e.key === 'Enter') e.target.blur(); });
-      const list = document.getElementById('im-list');
-      if (list && window.Sortable && d.images.length > 1) {
-        Sortable.create(list, { handle: '.im-grip', animation: 120, onEnd: (ev) => {
-          if (ev.oldIndex === ev.newIndex) return;
-          const [m] = d.images.splice(ev.oldIndex, 1);
-          d.images.splice(ev.newIndex, 0, m);
-          d.images.forEach((x, n) => { x.position = n; });
-          imUI.selImg = ev.newIndex;
-          imSave(page); renderImagePage(page);
-        } });
-      }
+      imBindSortable(page);
 
       paper.addEventListener('click', (e) => {
         const pick = e.target.closest('[data-im-pick]');
@@ -7393,8 +7417,10 @@
         const f = imFindCallout(d, imUI.sel);
         if (!f) return;
         const st = e.shiftKey ? 10 : 1;
-        f.c.lx = (f.c.lx || 0) + (k === 'ArrowLeft' ? -st : k === 'ArrowRight' ? st : 0);
-        f.c.ly = (f.c.ly || 0) + (k === 'ArrowUp' ? -st : k === 'ArrowDown' ? st : 0);
+        const g = f.im && imCalloutGeo(d).find(x => x.c.id === f.c.id);
+        const sz = g ? g.L : imLabelSize(d, imLabelText({ ...f.c, type: 'text' }, d.texts.indexOf(f.c)));
+        const q = annoClampLabel((f.c.lx || 0) + (k === 'ArrowLeft' ? -st : k === 'ArrowRight' ? st : 0), (f.c.ly || 0) + (k === 'ArrowUp' ? -st : k === 'ArrowDown' ? st : 0), sz.w, sz.h);
+        f.c.lx = r1(q.x); f.c.ly = r1(q.y);
         imRenderOverlay(page);
         imSave(page);
       } else if (k === '+' || k === '=') annoZoom(page, 1, null, imUI);
@@ -9935,6 +9961,7 @@
           state.pages.splice(at, 0, ...created);
           created.forEach(initPageSnapshot);
           saveStructure();
+          imFitAllPages();                        // learn the photo sizes so preview / export lay them out right
           renderPageList();
           showToast(`已建立 ${created.length} 頁圖片頁（插在${at < state.pages.length - created.length ? '結論頁之前' : '最後'}）`, 'ok');
         });
@@ -10562,7 +10589,9 @@
       const scale = Math.min(vw / w, vh / h, 1);
 
       const el = document.createElement('div');
-      el.style.cssText = `width:${w}px;height:${h}px;background:#fff;border-radius:4px;box-shadow:0 8px 40px rgba(0,0,0,0.5);overflow:hidden;transform:scale(${scale});transform-origin:center center;flex-shrink:0;font-family:${getComputedStyle(document.body).fontFamily};`;
+      // same font + letter-spacing reset as the PDF render (and the pagination measurer)
+      el.className = 'pv-page';
+      el.style.cssText = `width:${w}px;height:${h}px;background:#fff;border-radius:4px;box-shadow:0 8px 40px rgba(0,0,0,0.5);overflow:hidden;transform:scale(${scale});transform-origin:center center;flex-shrink:0;font-family:${PDF_FONT};letter-spacing:0;word-spacing:0;`;
       el.innerHTML = vp.html;
 
       el.title = '雙擊回到此頁編輯';
@@ -10881,9 +10910,11 @@
     // Largest e in [lo, hi] with ok(e) true (ok must be monotone: true … true false … false); lo − 1 if none.
     function pgMax(lo, hi, ok) {
       if (lo > hi || !ok(lo)) return lo - 1;
-      let a = lo, b = hi;
-      while (a < b) { const m = Math.ceil((a + b) / 2); if (ok(m)) a = m; else b = m - 1; }
-      return a;
+      let good = lo, step = 1;
+      while (good + step <= hi && ok(good + step)) { good += step; step *= 2; }   // gallop from lo (a page holds few rows)
+      let bad = Math.min(hi + 1, good + step);
+      while (bad - good > 1) { const m = (good + bad) >> 1; if (ok(m)) good = m; else bad = m; }
+      return good;
     }
     // Split n rows into pages: page(start, end, pageNo) → page HTML. Each page takes as
     // many rows as fit above limit (at least one). Returns [[start, end], …].
@@ -12260,9 +12291,10 @@
       for (let i = 0; i < list.length; i += per) {
         const images = [];
         for (const f of list.slice(i, i + per)) {
-          const url = await processImageCompressed(f, PHOTO_JPEG_QUALITY);
+          const im = await imMakeImage(f, opts.captions ? fileStem(f.name) : '');
           if (switched()) break;
-          images.push({ position: images.length, url_or_base64: url, caption: opts.captions ? fileStem(f.name) : '' });
+          if (!im) continue;
+          images.push({ ...im, position: images.length });
           t.firstChild.textContent = `處理圖片中 ${i + images.length} / ${list.length}…`;
         }
         if (switched()) {                        // report closed / switched meanwhile → don't write into another one

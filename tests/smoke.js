@@ -1712,21 +1712,30 @@ const assert = (cond, msg, detail) => { if (!cond) throw new Error(msg + (detail
     await page.waitForFunction(() => state.pages.length === 3 && state.pages[1].data.photo_url_or_base64);
     const r2 = await page.evaluate(async () => {
       const d = state.pages[1].data;
-      return { type: state.pages[1].type, active: state.activePage, same: d.photo_url_or_base64 === __url, rot: d.img_rot, cap: d.caption, ar: d.img_box.w / d.img_box.h, png: !!(photoClip.sig && photoClip.sig.w === 200) };
+      const F = annoFoot(d);
+      return { type: state.pages[1].type, active: state.activePage, same: d.photo_url_or_base64 === __url, rot: d.img_rot, cap: d.caption, ar: d.img_box.w / d.img_box.h, png: /^200x400:/.test(photoClip.sig), capFits: F.y + F.h <= ANNO_SAFE.b + 0.5 };
     });
     assert(/Ctrl/.test(note), 'copied to the system clipboard', note);
     assert(r2.type === 'annotation' && r2.active === 1 && r2.same && r2.rot === 90 && r2.cap === 'IR 熱像' && Math.abs(r2.ar - 0.5) < 0.02 && r2.png, 'new annotation page with the same photo, rotation, caption', r2);
+    assert(r2.capFits, 'photo + caption band stay on the page (clear of the page number)', r2);
     // Ctrl+V of that clipboard image on the (empty) annotation page → the stored photo, not a recompressed copy
     const r3 = await page.evaluate(async () => {
       const items = await navigator.clipboard.read();
       const blob = await items[0].getType('image/png');
       const file = new File([blob], 'image.png', { type: 'image/png' });
+      // the same picture with one small change (a reading on a logger screen …) is NOT the copy
+      const bmp = await createImageBitmap(blob);
+      const c = document.createElement('canvas'); c.width = bmp.width; c.height = bmp.height;
+      const g = c.getContext('2d'); g.drawImage(bmp, 0, 0); g.fillStyle = '#ff0000'; g.fillRect(150, 300, 4, 3);
+      const near = new File([await new Promise(r => c.toBlob(r, 'image/png'))], 'near.png', { type: 'image/png' });
+      window.__near = !!(await photoClipFor(near));
       selectPage(2);
       await routePastedImage(state.pages[2], file);
       const d = state.pages[2].data;
-      return { pngW: (await createImageBitmap(blob)).width, same: d.photo_url_or_base64 === __url, rot: d.img_rot };
+      return { pngW: (await createImageBitmap(blob)).width, same: d.photo_url_or_base64 === __url, rot: d.img_rot, near: __near };
     });
     assert(r3.pngW === 200 && r3.same && r3.rot === 90, 'clipboard PNG is the rotated view; paste uses the stored photo', r3);
+    assert(!r3.near, 'a near-identical picture is not taken for the copy', r3);
     // Ctrl+C on the annotation page, 📋 button on an image page → 貼到新的圖片頁 from the annotation copy
     await page.evaluate(() => { annoSelectPhoto(state.pages[2], 0); document.activeElement && document.activeElement.blur(); });
     await page.keyboard.press('Control+c');
@@ -1740,6 +1749,24 @@ const assert = (cond, msg, detail) => { if (!cond) throw new Error(msg + (detail
       return { n: ims.length, same: ims[1] && ims[1].url_or_base64 === __url, rot: ims[1] && ims[1].rot, cap: ims[1] && ims[1].caption };
     });
     assert(r4.n === 2 && r4.same && r4.rot === 90 && r4.cap === 'IR 熱像', 'pasted into the image page', r4);
+    // two quick copies: the later one owns the clipboard even when the earlier is slower to draw
+    const r5 = await page.evaluate(async () => {
+      const big = photo(3000, 2000), small = photo(300, 200);
+      const a = copyPhoto({ url: big });
+      await sleep(30);
+      const b = await copyPhoto({ url: small });
+      await a;
+      const items = await navigator.clipboard.read();
+      const bmp = await createImageBitmap(await items[0].getType('image/png'));
+      return { w: bmp.width, h: bmp.height, clip: photoClip === b.clip, url: photoClip.url === small };
+    });
+    assert(r5.w === 300 && r5.h === 200 && r5.clip && r5.url, 'latest copy wins', r5);
+    // preview re-layout keeps the sub-page
+    const r6 = await page.evaluate(() => {
+      const L = a => a.map(pageIdx => ({ pageIdx }));
+      return [previewKeepIndex(L([0, 1, 1, 1, 2]), 3, L([0, 1, 1, 2])), previewKeepIndex(L([0, 1, 1, 1, 2]), 3, L([0, 1, 1, 1, 1, 2])), previewKeepIndex(L([0, 1, 2]), 2, L([0, 1, 1, 2]))].join();
+    });
+    assert(r6 === '2,3,3', 'preview position kept within the source page', r6);
   }, { permissions: ['clipboard-read', 'clipboard-write'] });
 
   await T('圖片頁：舊資料轉換（版面、旋轉翻轉、平移縮放與標註），編輯器與 PDF 相同', async (page) => {

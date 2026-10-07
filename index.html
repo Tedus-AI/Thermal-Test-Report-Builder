@@ -6320,6 +6320,8 @@
       P.photo_url_or_base64 = url;
       P.img_rot = rot; P.img_fh = !!(clip && clip.fh); P.img_fit = true;
       if (clip && clip.caption && !replacing && !annoCap(P)) P.caption = clip.caption;
+      const capH = annoCapH(P);                       // photo + caption band stay on the page
+      if (capH && P.img_box.y + P.img_box.h + capH > ANNO_SAFE.b + 0.5) P.img_box = annoFitInSafe(P.img_box, capH);
       annoUI.tv = undefined; annoUI.photo = pi;
       const tv = annoTempOverlay(d);
       if (!replacing && pi === 1) annoAutoLayout(d, tv);                           // second photo: apply the layout
@@ -6754,15 +6756,25 @@
     // 「複製」 keeps the stored bitmap plus its rotation / mirror and caption in photoClip,
     // and puts what is shown on the system clipboard as PNG (so Ctrl+V works on any
     // image / annotation page, or in PowerPoint …). Pasting that same picture back into
-    // the tool uses photoClip, so the photo is not compressed a second time. (The browser
-    // re-encodes clipboard images, so the match is by size + a 16 × 16 pixel signature.)
-    let photoClip = null;                    // { url, rot, fh, caption, sig: { w, h, px } }
-    function photoSig(src, w, h) {
-      const c = document.createElement('canvas');
-      c.width = 16; c.height = 16;
-      const g = c.getContext('2d');
-      g.drawImage(src, 0, 0, 16, 16);
-      return { w, h, px: g.getImageData(0, 0, 16, 16).data };
+    // the tool uses photoClip, so the photo is not compressed a second time.
+    let photoClip = null;                    // { url, rot, fh, caption, sig }
+    // Exact fingerprint: size + a hash of every pixel. The browser re-encodes clipboard
+    // images, but losslessly, so our copy comes back pixel for pixel; any other picture —
+    // even the same logger screen with one reading changed — does not match.
+    function photoPixelHash(src, w, h) {
+      let c = src;
+      if (!(src instanceof HTMLCanvasElement)) {
+        c = document.createElement('canvas');
+        c.width = w; c.height = h;
+        c.getContext('2d').drawImage(src, 0, 0);
+      }
+      const px = new Uint32Array(c.getContext('2d').getImageData(0, 0, w, h).data.buffer);
+      let a = 0x811c9dc5, b = 0x9747b28c;     // two FNV-1a style lanes
+      for (let i = 0; i < px.length; i++) {
+        a = Math.imul(a ^ px[i], 16777619);
+        b = Math.imul(b ^ px[i] ^ i, 2246822519);
+      }
+      return `${w}x${h}:${(a >>> 0).toString(16)}:${(b >>> 0).toString(16)}`;
     }
     async function photoBakePNG(url, rot, fh, clip) {
       const im = await annoLoadImage(url);
@@ -6775,28 +6787,33 @@
       g.rotate((rot || 0) * Math.PI / 180);   // same order as the CSS: mirror first, then rotate
       if (fh) g.scale(-1, 1);
       g.drawImage(im, -w / 2, -h / 2);
-      if (clip) clip.sig = photoSig(c, c.width, c.height);
+      if (clip) clip.sig = photoPixelHash(c, c.width, c.height);
       return new Promise(r => c.toBlob(r, 'image/png'));
     }
+    // → { clip, sys }: sys = it is on the system clipboard too. A copy made while an earlier
+    // one is still being drawn wins: the earlier write is dropped, not written over it.
     async function copyPhoto(src) {
-      const clip = photoClip = { url: src.url, rot: src.rot || 0, fh: !!src.fh, caption: src.caption || '', sig: null };
+      const clip = photoClip = { url: src.url, rot: src.rot || 0, fh: !!src.fh, caption: src.caption || '', sig: '' };
+      const blob = photoBakePNG(clip.url, clip.rot, clip.fh, clip).then(b => {
+        if (!b) throw new Error('image');
+        if (photoClip !== clip) throw new Error('superseded');
+        return b;
+      });
+      blob.catch(() => {});
       try {
-        const blob = photoBakePNG(clip.url, clip.rot, clip.fh, clip).then(b => { if (!b) throw new Error('image'); return b; });
         await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
-        return true;
-      } catch (e) { return false; }   // no clipboard access: still pastable inside the tool (menu / 📋 button)
+        return { clip, sys: true };
+      } catch (e) { return { clip, sys: false }; }   // no clipboard access: still pastable inside the tool (menu / 📋 button)
     }
-    // The pasted picture is the one copyPhoto put on the clipboard → the stored photo instead.
+    // The pasted picture is exactly the one copyPhoto put on the clipboard → the stored photo instead.
     async function photoClipFor(file) {
       const clip = photoClip;
       if (!clip || !clip.sig || !file || !(file.type || '').startsWith('image/')) return null;
       try {
         const bmp = await createImageBitmap(file);
-        if (bmp.width !== clip.sig.w || bmp.height !== clip.sig.h) return null;
-        const px = photoSig(bmp, bmp.width, bmp.height).px;
-        let diff = 0;
-        for (let k = 0; k < px.length; k++) diff += Math.abs(px[k] - clip.sig.px[k]);
-        return diff / px.length < 3 ? clip : null;
+        const same = clip.sig.startsWith(`${bmp.width}x${bmp.height}:`) && photoPixelHash(bmp, bmp.width, bmp.height) === clip.sig;
+        if (bmp.close) bmp.close();
+        return same && photoClip === clip ? clip : null;
       } catch (e) { return null; }
     }
     async function pastePhotoClipToNewPage(type, clip = photoClip) {
@@ -6815,7 +6832,9 @@
     // 「複製」: copy now, then offer to start a new page with it.
     async function showPhotoCopyMenu(anchor, src) {
       document.querySelector('.an-ctx')?.remove();
-      const sys = await copyPhoto(src);
+      const { clip, sys } = await copyPhoto(src);
+      if (photoClip !== clip) return sys;              // copied again meanwhile: that copy shows its own menu
+      document.querySelector('.an-ctx')?.remove();
       const menu = document.createElement('div');
       menu.className = 'an-ctx an-copy-menu';
       menu.innerHTML = `<div class="an-ctx-note">✓ 已複製${sys ? '：到任何圖片頁 / 標註頁按 <kbd>Ctrl</kbd>+<kbd>V</kbd> 貼上' : '：到任何圖片頁 / 標註頁按「📋 貼上複製的圖片」'}</div>
@@ -6833,12 +6852,13 @@
         const act = e.target.closest('[data-act]')?.dataset.act;
         if (!act) return;
         close();
-        pastePhotoClipToNewPage(act);
+        pastePhotoClipToNewPage(act, clip);
       });
       return sys;
     }
     async function copyPhotoKey(src) {
-      const sys = await copyPhoto(src);
+      const { clip, sys } = await copyPhoto(src);
+      if (photoClip !== clip) return;
       showToast(sys ? '已複製圖片：到任何圖片頁 / 標註頁按 Ctrl+V 貼上' : '已複製圖片：到任何圖片頁 / 標註頁按「📋 貼上複製的圖片」', 'ok');
     }
 
@@ -11066,6 +11086,16 @@
     let _virtualPages = [];
 
     let _previewSeq = 0;
+    // Same source page and the same sub-page within it (clamped) after a re-layout.
+    function previewKeepIndex(oldList, idx, newList) {
+      const at = oldList[idx];
+      if (!at) return Math.max(0, Math.min(newList.length - 1, idx));
+      const k = idx - oldList.findIndex(vp => vp.pageIdx === at.pageIdx);
+      const first = newList.findIndex(vp => vp.pageIdx === at.pageIdx);
+      if (first < 0) return Math.max(0, Math.min(newList.length - 1, idx));
+      const n = newList.filter(vp => vp.pageIdx === at.pageIdx).length;
+      return first + Math.min(k, n - 1);
+    }
     function openPreview() {
       if (state.pages.length === 0) return;
       const raw = buildVirtualPages();
@@ -11085,10 +11115,8 @@
         if (seq !== _previewSeq || !document.getElementById('preview-overlay').classList.contains('open')) return;
         const next = numberVirtualPages(vps);
         if (next.length === _virtualPages.length && next.every((vp, i) => vp.html === _virtualPages[i].html)) return;
-        const at = _virtualPages[previewIdx];
+        previewIdx = previewKeepIndex(_virtualPages, previewIdx, next);
         _virtualPages = next;
-        const same = at ? _virtualPages.findIndex(vp => vp.pageIdx === at.pageIdx) : -1;
-        previewIdx = Math.min(_virtualPages.length - 1, same >= 0 ? same : previewIdx);
         renderPreviewPage();
       }).catch(() => {});
     }
@@ -12767,7 +12795,9 @@
       const yMin = Math.floor(Math.min(base, ...vals) / 5) * 5;   // the Ta baseline sits on a grid line
       const yMax = Math.ceil((Math.max(...vals) + 4) / 10) * 10;
       const n = Math.ceil(pts.length / SIM_CHART_MAX), size = Math.ceil(pts.length / n);
-      return Array.from({ length: n }, (_, k) => simChartPNG(pts.slice(k * size, (k + 1) * size), { ta, base, yMin, yMax, part: n > 1 ? `${k + 1} / ${n}` : '' }));
+      // the charts of one set look alike: same Tc scale, bottom margin and name rotation
+      const rotate = (SIM_CHART_W - 56) / size < 60, B = size > 10 ? 50 : 34;
+      return Array.from({ length: n }, (_, k) => simChartPNG(pts.slice(k * size, (k + 1) * size), { ta, base, yMin, yMax, rotate, B, part: n > 1 ? `${k + 1} / ${n}` : '' }));
     }
     const simChartDataURL = d => simChartDataURLs(d)[0] || '';
     function simChartPNG(pts, o) {
@@ -12780,7 +12810,7 @@
       g.fillStyle = '#ffffff'; g.fillRect(0, 0, W, H);
       const C = { meas: '#2357A7', sim: '#EB6834', spec: '#334155', grid: '#E5E9F0', ink: '#334155', muted: '#64748B' };
       const font = (px, w) => `${w || 400} ${px}px 'DM Sans','Noto Sans TC','Microsoft JhengHei',sans-serif`;
-      const L = 44, R = 12, T = 42, B = pts.length > 10 ? 50 : 34, DEV_Y = 31;
+      const L = 44, R = 12, T = 42, B = o.B != null ? o.B : (pts.length > 10 ? 50 : 34), DEV_Y = 31;
       const pw = W - L - R, ph = H - T - B;
       const y = v => T + ph - (v - yMin) / (yMax - yMin) * ph;
       // grid + axis labels
@@ -12819,10 +12849,11 @@
         // x label (rotated when the groups are narrow)
         g.fillStyle = C.ink; g.font = font(9);
         let name = String(v.name || '');
-        const maxW = gw < 60 ? 70 : gw - 6;
+        const rotated = o.rotate != null ? o.rotate : gw < 60;
+        const maxW = rotated ? 70 : gw - 6;
         while (name.length > 1 && g.measureText(name).width > maxW) name = name.slice(0, -1);
         if (name !== String(v.name || '')) name = name.slice(0, -1) + '…';
-        if (gw < 60) { g.save(); g.translate(cx, yBase + 8); g.rotate(-Math.PI / 5); g.textAlign = 'right'; g.textBaseline = 'middle'; g.fillText(name, 0, 0); g.restore(); }
+        if (rotated) { g.save(); g.translate(cx, yBase + 8); g.rotate(-Math.PI / 5); g.textAlign = 'right'; g.textBaseline = 'middle'; g.fillText(name, 0, 0); g.restore(); }
         else { g.textAlign = 'center'; g.textBaseline = 'top'; g.fillText(name, cx, yBase + 6); }
       });
       g.strokeStyle = C.grid; g.lineWidth = 1; g.beginPath(); g.moveTo(L, DEV_Y + 7); g.lineTo(W - R, DEV_Y + 7); g.stroke();

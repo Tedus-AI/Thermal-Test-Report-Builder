@@ -847,7 +847,7 @@ const assert = (cond, msg, detail) => { if (!cond) throw new Error(msg + (detail
       document.getElementById('ab-text').value = 'PA-1\n\nFPGA\nextra';
       document.getElementById('ab-ok').click();
       await flushAllSaves();
-      return { labels: disk().thermal_reports.A.pages['0'].data.markers.map(m => m.label), list: tds('.anno-comp-name') };
+      return { labels: disk().thermal_reports.A.pages['0'].data.markers.map(m => m.label), list: Array.from(document.querySelectorAll('.an-name')).map(i => i.value) };
     });
     assert(r.labels.join() === 'PA-1,TC2,FPGA' && r.list.join() === 'PA-1,TC2,FPGA', 'renamed in order, blank keeps', r);
   });
@@ -1115,19 +1115,19 @@ const assert = (cond, msg, detail) => { if (!cond) throw new Error(msg + (detail
         1: { id: 'dp', ...dataPage(1, [comp('PA-1', { ta_55: '60' }), comp('Very long inductor name L101', { ta_55: '108' }), comp('Hot', { ta_55: '120' })], [25, 55], { list_note: 'Full' }) } }) } });
       await openReport('A');
       const sel = document.querySelector('[data-anno-temp-page]');
-      sel.value = 'dp'; sel.dispatchEvent(new Event('change'));
-      const badges = Array.from(document.querySelectorAll('.marker-label-wrap')).map(w => (w.querySelector('.marker-temp') || {}).className || '-');
-      const widths = Array.from(document.querySelectorAll('.marker-label')).map(l => parseFloat(l.style.width));
+      sel.value = 'dp'; sel.dispatchEvent(new Event('change', { bubbles: true }));
+      const badges = Array.from(document.querySelectorAll('[data-an-row]')).map(li => (li.querySelector('.an-temp') || {}).className || '-');
+      const widths = Array.from(document.querySelectorAll('[data-an-lbl]')).map(l => parseFloat(l.style.width));
       const pdf = buildAnnotationHTML(state.pages[0].data);
       document.getElementById('anno-batch-name').click();
       document.getElementById('ab-fill').click();
       const filled = document.getElementById('ab-text').value;
       document.querySelector('.tool-modal-overlay').remove();
-      return { src: state.pages[0].data.temp_src, badges, widths, pdf120: /Hot<b[^>]*#b91c1c[^>]*>120\.0°C/.test(pdf), pdfSub: pdf.includes('實測 Tc（Ta = 55°C · 數據頁 1 · Full）'), filled };
+      return { src: state.pages[0].data.temp_src, badges, widths, pdf120: />Hot<\/span><span[^>]*#b91c1c[^>]*>120\.0°C/.test(pdf), pdfSub: pdf.includes('實測 Tc（Ta = 55°C · 數據頁 1 · Full）'), filled };
     }, PNG1);
     assert(r.src.page_id === 'dp' && r.src.ta === 55, 'source saved', r.src);
-    assert(r.badges.join('|') === 'marker-temp marker-temp-pass|marker-temp marker-temp-warn|marker-temp marker-temp-fail|-', 'coloured badges', r.badges);
-    assert(r.widths[1] > 150 && r.widths[0] < 80, 'auto label width', r.widths);
+    assert(r.badges.join('|') === 'an-temp pass|an-temp warn|an-temp fail|-', 'coloured badges', r.badges);
+    assert(r.widths[1] > r.widths[0] + 80, 'auto label width', r.widths);
     assert(r.pdf120 && r.pdfSub, 'PDF overlay', r);
     assert(r.filled === 'PA-1\nVery long inductor name L101\nHot', 'batch-name fill from data page', r.filled);
   });
@@ -1318,6 +1318,153 @@ const assert = (cond, msg, detail) => { if (!cond) throw new Error(msg + (detail
     assert(r.check2.includes('1 個比較對象找不到來源'), 'missing source flagged', r.check2);
   });
 
+
+  console.log('Annotation page (shared editor / PDF layout)');
+
+  // In-page helpers for the annotation tests: a wide "board" photo and a page.
+  const ANNO_SETUP = () => {
+    window.photo = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; const x = c.getContext('2d'); x.fillStyle = '#234'; x.fillRect(0, 0, w, h); x.fillStyle = '#eee'; x.fillRect(w / 4, h / 4, w / 2, h / 2); return c.toDataURL('image/png'); };
+    window.annoRect = (sel) => document.querySelector(sel).getBoundingClientRect();
+  };
+
+  await T('標註頁：舊資料轉換（框位置、標籤 % → px、翻轉轉旋轉），編輯器與 PDF 版面相同', async (page) => {
+    await page.evaluate(ANNO_SETUP);
+    const r = await page.evaluate(async () => {
+      const png = photo(400, 200);
+      const markers = [{ id: 'a', x: 25, y: 50, label: 'PA', label_x: 2, label_y: 10 }, { id: 'b', x: 75, y: 50, label: 'LNA', label_x: 85, label_y: 50 }];
+      await useDb({ thermal_reports: { A: report('A', { 0: { type: 'annotation', order: 0, data: { tc_category: 'RF', photo_url_or_base64: png, anno_photo_x: 200, anno_photo_y: 100, anno_photo_w: 400, anno_photo_h: 200, anno_flip_v: true, markers } } }) } });
+      await openReport('A');
+      await sleep(300);
+      await flushAllSaves();
+      const d = disk().thermal_reports.A.pages['0'].data;
+      const pdf = new DOMParser().parseFromString(buildAnnotationHTML(state.pages[0].data), 'text/html');
+      const geo = el => [el.style.left, el.style.top, el.style.width, el.style.height].join(',');
+      const pdfLabels = Array.from(pdf.querySelectorAll('div[style*="border:1px solid #2357A7"]')).map(geo);
+      const edLabels = Array.from(document.querySelectorAll('#an-ov [data-an-lbl]')).map(geo);
+      const pdfDots = Array.from(pdf.querySelectorAll('div[style*="border-radius:50%"]')).map(geo);
+      const edDots = Array.from(document.querySelectorAll('#an-ov [data-an-dot]')).map(geo);
+      return { v: d.anno_v, box: d.img_box, rot: d.img_rot, fh: d.img_fh, old: 'anno_photo_x' in d || 'label_x' in d.markers[0], lx: d.markers.map(m => m.lx + ',' + m.ly), pdfLabels, edLabels, pdfDots, edDots, again: annoNormalize(state.pages[0].data) };
+    });
+    assert(r.v === 2 && !r.old && r.rot === 180 && r.fh === true, 'migrated', r);
+    assert(r.box.x === 200 && r.box.y === 100 && r.box.w === 400 && r.box.h === 200, 'frame kept (already the photo aspect)', r.box);
+    assert(r.lx[0] === '16.8,55.9' && r.lx[1] === '715.7,279.5', 'labels % → stage px', r.lx);
+    assert(r.pdfLabels.length === 2 && r.pdfLabels.join('|') === r.edLabels.join('|') && r.pdfDots.join('|') === r.edDots.join('|'), 'editor = PDF geometry', r);
+    assert(r.again === false, 'normalize is idempotent', r);
+  });
+
+  await T('標註頁：拖曳照片整組移動（Alt 只移照片）、拖角縮放，標註點留在照片同一位置', async (page) => {
+    await page.evaluate(ANNO_SETUP);
+    await page.evaluate(async () => {
+      const markers = [{ id: 'a', x: 25, y: 50, label: 'PA', lx: 60, ly: 150 }, { id: 'b', x: 75, y: 25, label: 'LNA', lx: 680, ly: 100 }];
+      await useDb({ thermal_reports: { A: report('A', { 0: { type: 'annotation', order: 0, data: { anno_v: 2, img_fit: true, tc_category: 'RF', photo_url_or_base64: photo(400, 200), img_box: { x: 200, y: 100, w: 400, h: 200 }, markers } } }) } });
+      await openReport('A');
+    });
+    await page.waitForTimeout(200);
+    const k = await page.evaluate(() => annoRect('#an-paper').width / 842);
+    const img = await page.evaluate(() => { const r = annoRect('#an-img'); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; });
+    await page.mouse.move(img.x, img.y); await page.mouse.down();
+    await page.mouse.move(img.x + 40 * k, img.y + 20 * k, { steps: 5 }); await page.mouse.up();
+    const a = await page.evaluate(() => { const d = state.pages[0].data; return { box: d.img_box, m: d.markers.map(m => [m.x, m.y, m.lx, m.ly].join(',')) }; });
+    await page.keyboard.down('Alt');
+    await page.mouse.move(img.x + 40 * k, img.y + 20 * k); await page.mouse.down();
+    await page.mouse.move(img.x, img.y + 20 * k, { steps: 5 }); await page.mouse.up();
+    await page.keyboard.up('Alt');
+    const b = await page.evaluate(() => { const d = state.pages[0].data; return { box: d.img_box, m: d.markers.map(m => [m.x, m.y, m.lx, m.ly].join(',')) }; });
+    const h = await page.evaluate(() => { const r = annoRect('[data-an-handle="se"]'); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; });
+    await page.mouse.move(h.x, h.y); await page.mouse.down();
+    await page.mouse.move(h.x + 100 * k, h.y, { steps: 5 }); await page.mouse.up();
+    const c = await page.evaluate(async () => { await flushAllSaves(); const d = disk().thermal_reports.A.pages['0'].data; return { box: d.img_box, m: d.markers.map(m => [m.x, m.y].join(',')) }; });
+    assert(Math.abs(a.box.x - 240) < 1.5 && Math.abs(a.box.y - 120) < 1.5, 'photo moved', a.box);
+    assert(a.m[0].startsWith('25,50,') && Math.abs(parseFloat(a.m[0].split(',')[2]) - 100) < 1.5 && Math.abs(parseFloat(a.m[0].split(',')[3]) - 170) < 1.5, 'points + labels moved with it', a.m);
+    assert(Math.abs(b.box.x - 200) < 1.5 && b.m[0] === a.m[0], 'Alt: labels stay', b);
+    assert(Math.abs(c.box.w - 500) < 2 && Math.abs(c.box.h - 250) < 2 && c.m.join('|') === '25,50|75,25', 'resize keeps aspect and points', c);
+  });
+
+  await T('標註頁：旋轉 / 翻轉 / 裁切時標註點跟著照片', async (page) => {
+    await page.evaluate(ANNO_SETUP);
+    const r = await page.evaluate(async () => {
+      await useDb({ thermal_reports: { A: report('A', { 0: { type: 'annotation', order: 0, data: { anno_v: 2, img_fit: true, tc_category: 'RF', photo_url_or_base64: photo(400, 200), img_box: { x: 200, y: 100, w: 400, h: 200 }, markers: [{ id: 'a', x: 10, y: 20, label: 'PA', lx: 30, ly: 30 }] } } }) } });
+      await openReport('A');
+      const d = state.pages[0].data;
+      const pt = () => d.markers[0].x + ',' + d.markers[0].y;
+      document.querySelector('[data-an-tool="rotr"]').click();
+      const rot = { pt: pt(), r: d.img_rot, box: d.img_box.w + 'x' + d.img_box.h, css: buildAnnotationHTML(d).includes('rotate(90deg)') };
+      document.querySelector('[data-an-tool="rotl"]').click();
+      const back = pt() + '/' + d.img_rot;
+      document.querySelector('[data-an-tool="fliph"]').click();
+      const fh = pt() + '/' + d.img_rot + '/' + d.img_fh;
+      document.querySelector('[data-an-tool="flipv"]').click();
+      const fv = pt() + '/' + d.img_rot + '/' + d.img_fh;
+      // crop: keep the middle half → the point stays on the same spot of the page
+      annoApplyCrop(d, d.photo_url_or_base64, { x: 0.5, y: 0.5, w: 0.5, h: 0.5 });
+      return { rot, back, fh, fv, crop: pt(), box: d.img_box };
+    });
+    assert(r.rot.pt === '80,10' && r.rot.r === 90 && r.rot.box === '200x400' && r.rot.css, 'rotate right', r.rot);
+    assert(r.back === '10,20/0', 'rotate back', r.back);
+    assert(r.fh === '90,20/0/true' && r.fv === '90,80/180/false', 'flips', r);
+    assert(r.crop === '80,60' && r.box.x === 400 && r.box.w === 200, 'crop keeps the point in place', r);
+  });
+
+  await T('標註頁：標註模式點照片新增（就地命名）、依序放置數據頁元件、Delete / 方向鍵', async (page) => {
+    await page.evaluate(ANNO_SETUP);
+    await page.evaluate(async () => {
+      await useDb({ thermal_reports: { A: report('A', {
+        0: { type: 'annotation', order: 0, data: { anno_v: 2, img_fit: true, tc_category: 'RF', photo_url_or_base64: photo(400, 200), img_box: { x: 220, y: 120, w: 400, h: 200 }, markers: [] } },
+        1: { id: 'dp', ...dataPage(1, [comp('PA-1', {}), comp('PA-2', {}), comp('LNA', {})]) } }) } });
+      await openReport('A');
+    });
+    await page.waitForTimeout(150);
+    const at = (fx, fy) => page.evaluate(([fx, fy]) => { const r = annoRect('#an-img'); return { x: r.left + r.width * fx, y: r.top + r.height * fy }; }, [fx, fy]);
+    await page.keyboard.press('a');
+    let p = await at(0.2, 0.3);
+    await page.mouse.click(p.x, p.y);
+    await page.waitForTimeout(100);
+    const renaming = await page.evaluate(() => document.activeElement && document.activeElement.classList.contains('an-rename'));
+    await page.keyboard.type('Heatsink');
+    await page.keyboard.press('Enter');
+    await page.click('#an-seq');
+    for (const [fx, fy] of [[0.5, 0.3], [0.8, 0.3]]) { p = await at(fx, fy); await page.mouse.click(p.x, p.y); await page.waitForTimeout(80); }
+    const placed = await page.evaluate(() => ({ names: state.pages[0].data.markers.map(m => m.label), x: state.pages[0].data.markers[0].x, armed: annoUI.armed, left: annoUnplaced(state.pages[0].data) }));
+    await page.keyboard.press('Escape');
+    // select the 2nd label, nudge it, delete the 1st via the side list
+    const l = await page.evaluate(() => { const r = document.querySelectorAll('[data-an-lbl]')[1].getBoundingClientRect(); return { x: r.left + 4, y: r.top + r.height / 2 }; });
+    await page.mouse.click(l.x, l.y);
+    const before = await page.evaluate(() => state.pages[0].data.markers[1].lx);
+    await page.keyboard.press('ArrowRight');
+    await page.keyboard.press('Shift+ArrowRight');
+    const nudged = await page.evaluate(() => state.pages[0].data.markers[1].lx);
+    await page.keyboard.press('Delete');
+    const after = await page.evaluate(async () => { await flushAllSaves(); return { names: disk().thermal_reports.A.pages['0'].data.markers.map(m => m.label), page: state.activePage }; });
+    assert(renaming, 'new point opens the inline rename', renaming);
+    assert(placed.names.join() === 'Heatsink,PA-1,PA-2' && Math.abs(placed.x - 20) < 1 && placed.armed === 'LNA' && placed.left.join() === 'LNA', 'sequence placement', placed);
+    assert(Math.abs(nudged - before - 11) < 0.01, 'arrow nudge (1 + 10 px)', { before, nudged });
+    assert(after.names.join() === 'Heatsink,PA-2' && after.page === 0, 'Delete removes the selected point (and does not flip pages)', after);
+  });
+
+  await T('標註頁：自動排列不重疊、不蓋到照片；一鍵排版不蓋到標註點；報告檢查列出未命名', async (page) => {
+    await page.evaluate(ANNO_SETUP);
+    const r = await page.evaluate(async () => {
+      const markers = Array.from({ length: 14 }, (_, i) => ({ id: 'm' + i, x: 8 + (i % 7) * 14, y: i < 7 ? 30 : 70, label: i === 13 ? '' : 'COMP-' + i, lx: 400, ly: 250 }));
+      await useDb({ thermal_reports: { A: report('A', { 0: { type: 'annotation', order: 0, data: { anno_v: 2, img_fit: true, tc_category: 'RF', photo_url_or_base64: photo(600, 400), img_box: { x: 250, y: 120, w: 342, h: 228 }, markers } } }) } });
+      await openReport('A');
+      const d = state.pages[0].data;
+      const rects = () => annoLabelRects(d, null);
+      const overlap = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+      document.querySelector('[data-an-tool="arrange"]').click();
+      const R = rects(), B = d.img_box;
+      const arr = { pairs: R.some((a, i) => R.some((b, j) => j > i && overlap(a, b))), onPhoto: R.some(a => overlap(a, { x: B.x, y: B.y, w: B.w, h: B.h })) };
+      const before = d.img_box.w;
+      document.querySelector('[data-an-tool="layout"]').click();
+      const L = rects();
+      const dots = d.markers.map(m => annoDot(d, m));
+      const lay = { bigger: d.img_box.w > before, pairs: L.some((a, i) => L.some((b, j) => j > i && overlap(a, b))), covers: L.some(a => dots.some(p => p.x > a.x && p.x < a.x + a.w && p.y > a.y && p.y < a.y + a.h)) };
+      return { arr, lay, check: runReportCheck().filter(x => x.idx === 0).map(x => x.text) };
+    });
+    assert(!r.arr.pairs && !r.arr.onPhoto, 'auto arrange', r.arr);
+    assert(r.lay.bigger && !r.lay.pairs && !r.lay.covers, 'one-click layout', r.lay);
+    assert(r.check.some(t => t.startsWith('1 個標註點未命名')), 'report check', r.check);
+  });
+
   console.log('New version → save, then reload');
 
   // Serve index.html stamped with `build.served` and version.json with `build.online`
@@ -1422,7 +1569,7 @@ const assert = (cond, msg, detail) => { if (!cond) throw new Error(msg + (detail
     await page.evaluate(() => {
       window.__cnt = 0;
       const orig = document.addEventListener.bind(document);
-      document.addEventListener = (t, fn, o) => { if (t === 'mousemove') window.__cnt++; return orig(t, fn, o); };
+      document.addEventListener = (t, fn, o) => { if (t === 'mousemove' || t === 'pointermove') window.__cnt++; return orig(t, fn, o); };
     });
     const r = await page.evaluate(async () => {
       const px = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
@@ -1431,7 +1578,7 @@ const assert = (cond, msg, detail) => { if (!cond) throw new Error(msg + (detail
       await openReport('A');
       await sleep(200);
       const before = __cnt;
-      for (let i = 0; i < 20; i++) renderAnnotationMarkers(state.pages[0]);
+      for (let i = 0; i < 10; i++) { renderAnnotationPage(state.pages[0]); annoRenderOverlay(state.pages[0]); }
       return __cnt - before;
     });
     assert(r === 0, 'listener leak', r);

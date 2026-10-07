@@ -1558,7 +1558,7 @@ const assert = (cond, msg, detail) => { if (!cond) throw new Error(msg + (detail
     });
     assert(r.v === 2 && r.layout === '2h' && r.split.c === 60 && r.n === 2, 'layout / empty placeholder dropped', r);
     assert(r.rot === 270 && r.fh === true && r.nar.join() === '1.33333,0.75', 'rotation + flip converted, sizes learnt', r);
-    assert(!r.legacy && r.z > 1 && r.cx < 0.5 && r.co.join() === 'dot:hot,circle:zone', 'pan / zoom / markers converted', r);
+    assert(!r.legacy && r.z > 0.9 && r.z < 0.96 && r.cx < 0.5 && r.co.join() === 'dot:hot,circle:zone', 'pan / zoom / markers converted (same zoom relative to the old cell)', r);
     assert(r.pdfLbl.length === 2 && r.pdfLbl.join('|') === r.edLbl.join('|') && r.pdfShape.join('|') === r.edShape.join('|'), 'editor = PDF geometry', r);
   });
 
@@ -1646,6 +1646,77 @@ const assert = (cond, msg, detail) => { if (!cond) throw new Error(msg + (detail
     });
     assert(r.res.every(x => x.max <= 548), 'no row below the footer limit', r.res);
     assert(r.dataRows === 14 + 45 && r.simRows === 14, 'every row printed exactly once', r);
+  });
+
+
+  await T('圖片頁：舊標註依舊版格子換算位置；側欄排序在點選後仍可用；還原裁切保留之後的標註；方向鍵不超出', async (page) => {
+    await page.evaluate(ANNO_SETUP);
+    const r = await page.evaluate(async () => {
+      await useDb({ thermal_reports: { A: report('A', {
+        0: { type: 'image', order: 0, data: { title: 'One', images: [{ position: 0, url_or_base64: photo(400, 300), caption: '', markers: [{ id: 'a', x: 30, y: 40, label: 'p', label_x: 10, label_y: 10 }] }] } },
+        1: { type: 'image', order: 1, data: { title: 'Grid', images: [{ position: 0, url_or_base64: photo(300, 200), caption: '' }, { position: 1, url_or_base64: '', caption: '' }, { position: 2, url_or_base64: photo(300, 200), caption: '', markers: [{ id: 'b', x: 50, y: 25, label: 'q', label_x: 10, label_y: 10 }] }] } } }) } });
+      await openReport('A');
+      await sleep(400);
+      const one = state.pages[0].data.images[0].callouts[0], grid = state.pages[1].data.images[1].callouts[0];
+      // sortable survives a photo click (side panel refresh)
+      selectPage(1);
+      await sleep(100);
+      const fr = document.querySelector('[data-im-frame="0"]').getBoundingClientRect();
+      const down = new PointerEvent('pointerdown', { bubbles: true, button: 0, clientX: fr.left + 10, clientY: fr.top + 10, pointerId: 1 });
+      document.querySelector('[data-im-frame="0"]').dispatchEvent(down);
+      document.getElementById('an-paper').dispatchEvent(new PointerEvent('pointerup', { bubbles: true, button: 0, clientX: fr.left + 10, clientY: fr.top + 10, pointerId: 1 }));
+      const sortable = !!(window.Sortable && Sortable.get(document.getElementById('im-list')));
+      return { one: [one.x, one.y], grid: [grid.x, grid.y], sortable, sel: imUI.selImg };
+    });
+    assert(Math.abs(r.one[0] - 0.108) < 0.006 && Math.abs(r.one[1] - 0.333) < 0.006, 'single photo: old cell math', r.one);
+    assert(Math.abs(r.grid[0] - 0.5) < 0.006 && Math.abs(r.grid[1] - 0.194) < 0.006, 'old 2×2 with a placeholder: old cell math', r.grid);
+    assert(r.sortable && r.sel === 0, 'sortable after a photo click', r);
+    // crop (whole photo) → add / rename callouts → uncrop keeps them
+    await page.evaluate(() => imSelect(state.pages[1], null, 1));
+    await page.click('[data-im-tool="crop"]');
+    await page.waitForSelector('.crop-modal .confirm');
+    await page.click('.crop-modal .confirm');
+    await page.waitForTimeout(300);
+    const r2 = await page.evaluate(async () => {
+      const im = state.pages[1].data.images[1];
+      im.callouts[0].label = 'renamed';
+      im.callouts.push({ id: 'n1', type: 'dot', x: 0.2, y: 0.2, label: 'new', lx: 600, ly: 100 });
+      await imTool(state.pages[1], 'uncrop');
+      // arrow nudge stays inside the page
+      imSelect(state.pages[1], 'n1', 1);
+      return { co: im.callouts.map(c => c.id + ':' + c.label).join() };
+    });
+    for (let i = 0; i < 40; i++) await page.keyboard.press('Shift+ArrowRight');
+    const maxX = await page.evaluate(() => state.pages[1].data.images[1].callouts.find(c => c.id === 'n1').lx);
+    await page.keyboard.press('ArrowLeft');
+    const back = await page.evaluate(() => state.pages[1].data.images[1].callouts.find(c => c.id === 'n1').lx);
+    assert(r2.co === 'b:renamed,n1:new', 'uncrop keeps later callouts', r2);
+    assert(maxX < 824 && Math.abs(maxX - back - 1) < 0.01, 'arrow nudge clamped', { maxX, back });
+  });
+
+  await T('批次 / 備註轉成的圖片頁一建立就知道照片大小；預覽與 PDF 同字型；換頁搜尋次數少', async (page) => {
+    await page.evaluate(ANNO_SETUP);
+    const r = await page.evaluate(async () => {
+      await useDb({ thermal_reports: { A: report('A', { 0: cover('A'), 1: { type: 'note', order: 1, data: { title: 'n', blocks: [{ id: 'b', time: 't', text: 'IR', images: [{ name: 'ir.png', url: photo(200, 150) }] }] } } }) } });
+      await openReport('A');
+      const f = async n => new File([await (await fetch(photo(200, 150))).blob()], n, { type: 'image/png' });
+      await insertImagePagesFromFiles([await f('a.png'), await f('b.png')], { perPage: 1, captions: false, afterIdx: 0 });
+      const batch = state.pages.filter(p => p.type === 'image').map(p => p.data.images[0].nar);
+      selectPage(state.pages.findIndex(p => p.type === 'note'));
+      document.querySelector('[data-note-to-image="0"]').click();
+      await sleep(300);
+      const note = state.pages.filter(p => p.type === 'image').map(p => p.data.images[0].nar);
+      openPreview();
+      const pvFont = document.querySelector('.pv-page').style.fontFamily;
+      closePreview();
+      let calls = 0;
+      const got = pgMax(1, 1000, e => { calls++; return e <= 37; });
+      return { batch, note, pvFont, got, calls };
+    });
+    assert(r.batch.length === 2 && r.batch.every(x => Math.abs(x - 4 / 3) < 0.001), 'batch pages know the photo size', r.batch);
+    assert(r.note.length === 3 && r.note.every(x => Math.abs(x - 4 / 3) < 0.001), 'note → image page learns the size', r.note);
+    assert(r.pvFont.includes('Space Grotesk'), 'preview uses the PDF font', r.pvFont);
+    assert(r.got === 37 && r.calls <= 14, 'galloping pagination search', r);
   });
 
   console.log('New version → save, then reload');

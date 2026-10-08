@@ -33,6 +33,7 @@ const dbAdapter = {
   getPage(reportId, order) { return fileDb.getPage(reportId, order); },
   getAllPages(reportId) { return fileDb.getAllPages(reportId); },
   deletePage(reportId, order) { return fileDb.deletePage(reportId, order); },
+  replaceImages(reportId, map) { return fileDb.replaceImages(reportId, map); },
 
   getTimLibrary() { return fileDb.getTimLibrary(); },
   setTimLibrary(data) { return fileDb.setTimLibrary(data); },

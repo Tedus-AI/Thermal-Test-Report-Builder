@@ -59,6 +59,15 @@ const SETUP = () => {
   window.comp = (name, readings, spec = 125, derating = '0.90', extra = {}) => ({ category: 'RF', name, spec_type: 'Abs.', tc_spec: String(spec), derating, tim_type: '', readings, note: '', ...extra });
   window.dataPage = (order, comps, tas = [25, 55], extra = {}) => ({ type: 'data', order, data: { header: { stage: 'DVT' }, ta_conditions: tas, components: comps, sensors: [], ...extra } });
   window.tds = (sel) => Array.from(document.querySelectorAll(sel)).map(td => td.textContent.trim());
+  // PNG of seeded noise (does not compress, so it is well above the inline-picture size)
+  window.noisy = (w, h, seed) => {
+    const c = document.createElement('canvas'); c.width = w; c.height = h;
+    const x = c.getContext('2d'), d = x.createImageData(w, h);
+    let v = seed || 1;
+    for (let i = 0; i < d.data.length; i += 4) { v = (v * 1103515245 + 12345) & 0x7fffffff; d.data[i] = v & 255; d.data[i + 1] = (v >> 8) & 255; d.data[i + 2] = (v >> 16) & 255; d.data[i + 3] = 255; }
+    x.putImageData(d, 0, 0);
+    return c.toDataURL('image/png');
+  };
   window.__alerts = [];
   window.alert = (m) => { window.__alerts.push(String(m)); };
 };
@@ -643,6 +652,274 @@ const assert = (cond, msg, detail) => { if (!cond) throw new Error(msg + (detail
       return Object.keys(disk().thermal_reports);
     });
     assert(r.join() === 'X', 'downloaded', r);
+  });
+
+  console.log('SharePoint storage');
+  const imgName = url => require('crypto').createHash('sha256').update(url.split(',')[1]).digest('hex').slice(0, 40) + '.png';
+  const RP = id => `Thermal_Report_Builder/Database/reports/${id}.json`;
+
+  await SP('storage: report pictures go up once as files, the report file holds only text, and come back identical', async (page, g) => {
+    const r = await page.evaluate(async () => {
+      const pic = noisy(64, 64, 7);
+      const rep = report('A', { 0: { ...cover('A'), data: { ...cover('A').data, cover_image: pic } }, 1: { id: 'pn', type: 'note', order: 1, data: { blocks: [{ images: [{ name: 'x.png', url: pic }] }] } } });
+      await useDb({ thermal_reports: { A: rep } });
+      await spSync.enable();
+      return { pic };
+    });
+    const file = g.reportFile('A'), name = imgName(r.pic);
+    assert(file.format === 'thermal-report-v2' && file.images.join() === name, 'v2 with its picture list', { format: file.format, images: file.images });
+    assert(!JSON.stringify(file).includes('base64') && file.report.pages['0'].data.cover_image.$img === name, 'text only', file.report.pages['0'].data);
+    assert(g.images().join() === name && g.files.get('Thermal_Report_Builder/Database/images/' + name).content.toString('base64') === r.pic.split(',')[1], 'one picture file, exact bytes', g.images());
+    // Another client (empty database) gets the same report back; its next push uploads no picture.
+    const r2 = await page.evaluate(async (pic) => {
+      await useDb({ thermal_reports: {} });
+      await spSync.syncNow(); await spSync.__idle();
+      const a = disk().thermal_reports.A;
+      await dbAdapter.updateReportMeta('A', { project_name: 'A2' });
+      await spSync.syncNow();
+      return { same: a.pages['0'].data.cover_image === pic && a.pages['1'].data.blocks[0].images[0].url === pic, ids: Object.keys(disk().thermal_reports) };
+    }, r.pic);
+    assert(r2.same && r2.ids.join() === 'A', 'pulled back identical, no conflict copy', r2);
+    assert(g.puts('/Database/images/' + name) === 1 && g.report('A').project_name === 'A2' && g.reportFull('A').pages['0'].data.cover_image === r.pic, 'picture uploaded only once', { puts: g.puts('/Database/images/' + name) });
+  });
+
+  await SP('storage: cleanup keeps the newest 2 versions, and a trimmed file never looks like someone else\'s edit', async (page, g) => {
+    await page.evaluate(async () => {
+      await useDb({ thermal_reports: { A: report('A', { 0: cover('A') }), B: report('B', { 0: cover('B') }), C: report('C', { 0: cover('C') }) } });
+      await spSync.enable();
+      for (let i = 1; i <= 4; i++) {
+        for (const id of ['A', 'B', 'C']) await dbAdapter.updateReportMeta(id, { project_name: id + i });
+        await spSync.syncNow();
+      }
+    });
+    const before = ['A', 'B', 'C'].map(id => g.versions(RP(id)));
+    const etagA = g.files.get(RP('A')).etag;
+    const stats = await page.evaluate(() => spSync.cleanupStorage({ manual: true }));
+    const after = ['A', 'B', 'C'].map(id => g.versions(RP(id)));
+    assert(before.join() === '5,5,5' && after.join() === '2,2,2' && stats.versions === 9 && stats.versionBytes > 0 && !stats.partial, 'trimmed to 2', { before, after, stats });
+    assert(g.files.get(RP('A')).etag !== etagA, 'fake: trimming changed the eTag (worst case)');
+    const downloads = () => g.log.filter(l => l.method === 'GET' && /reports\/.*:\/content$/.test(l.p)).length;
+    const d0 = downloads();
+    const r = await page.evaluate(async () => {
+      await dbAdapter.updateReportMeta('A', { project_name: 'A-after-trim' });   // push with an outdated eTag
+      await dbAdapter.deleteReport('B');                                           // delete with an outdated eTag
+      await spSync.syncNow();                                                      // C: outdated eTag, same content
+      await spSync.syncNow();
+      return { ids: Object.keys(disk().thermal_reports).sort(), toast: Array.from(document.querySelectorAll('.toast')).map(t => t.textContent).join('|'), dirty: Object.keys(disk().sp_sync.dirty) };
+    });
+    assert(downloads() === d0, 'nothing downloaded', { downloads: downloads() - d0 });
+    assert(r.ids.join() === 'A,C' && r.dirty.length === 0 && g.report('A').project_name === 'A-after-trim' && !g.report('B') && !/衝突副本|還原/.test(r.toast), 'no conflict copy, no restore', r);
+  });
+
+  await SP('storage: daily backup keeps the newest 2 and is skipped when nothing changed', async (page, g) => {
+    ['2026-01-01', '2026-01-02', '2026-01-03'].forEach(d => g.put(`Thermal_Report_Builder/Backup/thermal_reports_backup_${d}.json`, Buffer.from('{}')));
+    g.put('Thermal_Report_Builder/Backup/my-notes.txt', Buffer.from('keep me'));
+    const today = await page.evaluate(async () => {
+      await useDb({ thermal_reports: { A: report('A', { 0: cover('A') }) } });
+      await spSync.enable();
+      return localDateStr();
+    });
+    const list1 = g.inFolder('Backup');
+    assert(list1.join() === ['my-notes.txt', 'thermal_reports_backup_2026-01-03.json', `thermal_reports_backup_${today}.json`].sort().join(), 'newest 2 + other files kept', list1);
+    const backupPuts = () => g.log.filter(l => l.method === 'PUT' && l.p.includes('/Backup/')).length;
+    g.remove(`Thermal_Report_Builder/Backup/thermal_reports_backup_${today}.json`);
+    const p0 = backupPuts();
+    await page.evaluate(async () => { localStorage.setItem('thermal_sp_last_backup', '2000-01-01'); await spSync.syncNow(); });
+    const p1 = backupPuts();
+    await page.evaluate(async () => { localStorage.setItem('thermal_sp_last_backup', '2000-01-01'); await dbAdapter.updateReportMeta('A', { project_name: 'A2' }); await spSync.syncNow(); });
+    assert(p1 === p0 && backupPuts() === p0 + 1, 'no backup without changes, one after a change', { p0, p1, p2: backupPuts() });
+  });
+
+  await SP('storage: an exported PDF replaces the older exports in its folder', async (page, g) => {
+    g.put('Thermal_Report_Builder/Reports/A_DVT/A_DVT_2026-01-01_v1.0_ThermalReport.pdf', Buffer.alloc(3000, 1));
+    g.put('Thermal_Report_Builder/Reports/A_DVT/test-photos.pdf', Buffer.alloc(100, 2));
+    g.put('Thermal_Report_Builder/Reports/B_EVT/B_EVT_2026-01-01_v1.0_ThermalReport.pdf', Buffer.alloc(100, 3));
+    await page.evaluate(async () => {
+      await useDb({ thermal_reports: {} });
+      await spSync.enable();
+      const pdf = n => new Blob([new Uint8Array(2000).fill(n)], { type: 'application/pdf' });
+      await spSync.uploadExport('A_DVT', 'A_DVT_2026-02-01_v1.1_ThermalReport.pdf', pdf(4));
+      await spSync.uploadExport('A_DVT', 'A_DVT_2026-02-01_v1.1_ThermalReport.pdf', pdf(5));   // exported again
+    });
+    assert(g.inFolder('Reports/A_DVT').join() === 'A_DVT_2026-02-01_v1.1_ThermalReport.pdf,test-photos.pdf', 'older export replaced, other files kept', g.inFolder('Reports/A_DVT'));
+    assert(g.versions('Thermal_Report_Builder/Reports/A_DVT/A_DVT_2026-02-01_v1.1_ThermalReport.pdf') === 1, 're-export keeps one version');
+    assert(g.inFolder('Reports/B_EVT').length === 1, 'other folders untouched');
+  });
+
+  await SP('storage: cleanup removes old backups / PDFs and pictures no report uses; quota includes the recycle bin', async (page, g) => {
+    const r = await page.evaluate(async () => {
+      const used = noisy(48, 48, 3), unused = noisy(48, 48, 4);
+      await useDb({ thermal_reports: {
+        A: report('A', { 0: { ...cover('A'), data: { ...cover('A').data, cover_image: used } } }),
+        Z: report('Z', { 0: { ...cover('Z'), data: { ...cover('Z').data, cover_image: unused } } }) } });
+      await spSync.enable();
+      await dbAdapter.deleteReport('Z');
+      await spSync.syncNow();
+      return { used, unused };
+    });
+    ['2026-01-01', '2026-01-02', '2026-01-03', '2026-01-04'].forEach(d => g.put(`Thermal_Report_Builder/Backup/thermal_reports_backup_${d}.json`, Buffer.from('{"x":1}')));
+    const oldPdf = 'Thermal_Report_Builder/Reports/A_DVT/A_DVT_2026-01-01_v1_ThermalReport.pdf';
+    g.put(oldPdf, Buffer.alloc(500)); g.age(oldPdf, 10);
+    g.put('Thermal_Report_Builder/Reports/A_DVT/A_DVT_2026-01-05_v2_ThermalReport.pdf', Buffer.alloc(600));
+    const I = n => 'Thermal_Report_Builder/Database/images/' + n;
+    let stats = await page.evaluate(() => spSync.cleanupStorage({ manual: true }));
+    assert(g.images().length === 2 && stats.images === 0, 'recent pictures kept (an upload may be in progress)', { imgs: g.images(), stats });
+    assert(g.inFolder('Backup').length === 2 && stats.backups === 3 && g.inFolder('Reports/A_DVT').join() === 'A_DVT_2026-01-05_v2_ThermalReport.pdf' && stats.exports === 1,
+      'old backups and PDFs removed', { b: g.inFolder('Backup'), p: g.inFolder('Reports/A_DVT'), stats });
+    g.age(I(imgName(r.used)), 30); g.age(I(imgName(r.unused)), 30);
+    stats = await page.evaluate(() => spSync.cleanupStorage({ manual: true }));
+    assert(g.images().join() === imgName(r.used) && stats.images === 1 && stats.imagesBytes > 0, 'old unused picture removed, used one kept', { imgs: g.images(), stats });
+    const q = await page.evaluate(() => spSync.quota());
+    assert(q.total === 1024 ** 3 && q.deleted > 0 && q.used >= q.deleted, 'quota', q);
+  });
+
+  await SP('storage: the report being edited goes up at most every few minutes; leaving it uploads it at once', async (page, g) => {
+    const r = await page.evaluate(async () => {
+      await useDb({ thermal_reports: { A: report('A', { 0: cover('A') }) } });
+      await spSync.enable();
+      await openReport('A');
+      await flushAllSaves(); await spSync.syncNow();
+      const inp = document.querySelector('[data-field="dept"]');
+      inp.value = 'EDIT-1'; inp.dispatchEvent(new Event('input'));
+      await flushAllSaves();
+      await spSync.syncNow({ auto: true });                     // what the poll / debounce runs
+      const held = { dirty: Object.keys(disk().sp_sync.dirty), msg: spSync.status().message };
+      await leaveEditor();
+      await sleep(900); await spSync.__idle();
+      return { held, dirtyAfter: Object.keys(disk().sp_sync.dirty) };
+    });
+    assert(r.held.dirty.includes('A') && /每 3 分鐘/.test(r.held.msg), 'held back while editing', r);
+    assert(r.dirtyAfter.length === 0 && g.report('A').pages['0'].data.dept === 'EDIT-1', 'uploaded on leaving', r);
+  });
+
+  await SP('storage: a picture missing on SharePoint is marked, the sync goes on', async (page, g) => {
+    const lost = '0'.repeat(40) + '.png';
+    g.put(RP('M'), Buffer.from(JSON.stringify({ format: 'thermal-report-v2', id: 'M', images: [lost],
+      report: { project_name: 'M', created_at: '2026-01-01T00:00:00Z', pages: { 0: { id: 'pm', type: 'cover', order: 0, data: { project_name: 'M', cover_image: { $img: lost } } } } } })), 'Colleague B');
+    const r = await page.evaluate(async () => {
+      await useDb({ thermal_reports: {} });
+      await spSync.enable();
+      return { img: disk().thermal_reports.M.pages['0'].data.cover_image, state: spSync.status().state,
+               toast: Array.from(document.querySelectorAll('.toast')).map(t => t.textContent).join('|') };
+    });
+    assert(/^data:image\/svg\+xml/.test(r.img) && /圖片遺失/.test(decodeURIComponent(r.img)) && r.state === 'synced' && /1 張圖片在 SharePoint 上找不到/.test(r.toast), 'placeholder + notice', r);
+  });
+
+  await SP('storage: without a cTag or with version deletes refused, the cleanup leaves versions and says why', async (page, g) => {
+    g.noCtag = true;
+    const s1 = await page.evaluate(async () => {
+      await useDb({ thermal_reports: { A: report('A', { 0: cover('A') }) } });
+      await spSync.enable();
+      for (let i = 0; i < 3; i++) { await dbAdapter.updateReportMeta('A', { project_name: 'A' + i }); await spSync.syncNow(); }
+      return spSync.cleanupStorage({ manual: true });
+    });
+    assert(s1.skipped === 1 && s1.versions === 0 && g.versions(RP('A')) === 4, 'no cTag → report versions left alone', s1);
+    g.noCtag = false; g.noVersionDelete = true;
+    const s2 = await page.evaluate(() => spSync.cleanupStorage({ manual: true }));
+    assert(s2.versions === 0 && /不允許/.test(s2.blocked) && g.versions(RP('A')) === 4, 'refused → reported', s2);
+  });
+
+  await SP('storage: the cleanup also runs by itself once a day after a sync', async (page, g) => {
+    const r = await page.evaluate(async () => {
+      localStorage.removeItem('thermal_sp_last_cleanup');
+      await useDb({ thermal_reports: { A: report('A', { 0: cover('A') }) } });
+      await spSync.enable();
+      for (let i = 0; i < 3; i++) { await dbAdapter.updateReportMeta('A', { project_name: 'A' + i }); await spSync.syncNow(); }
+      await sleep(5600); await spSync.__idle();
+      return localStorage.getItem('thermal_sp_last_cleanup') === localDateStr();
+    });
+    assert(r && g.versions(RP('A')) === 2, 'ran in the background', { r, versions: g.versions(RP('A')) });
+  });
+
+  await SP('storage: a full site is reported once, changes stay local, and the cleanup still runs', async (page, g) => {
+    await page.evaluate(async () => {
+      await useDb({ thermal_reports: { A: report('A', { 0: cover('A') }) } });
+      await spSync.enable();
+    });
+    for (let i = 0; i < 3; i++) g.put(RP('A'), Buffer.from(JSON.stringify({ format: 'thermal-report-v1', id: 'A', report: g.report('A') })), 'Tester A');
+    g.full = true;
+    const r = await page.evaluate(async () => {
+      localStorage.removeItem('thermal_sp_last_cleanup');
+      await dbAdapter.updateReportMeta('A', { project_name: 'A2' });
+      await spSync.syncNow();
+      await spSync.syncNow();
+      const st = spSync.status();
+      await sleep(5600); await spSync.__idle();
+      return { state: st.state, msg: st.message, dirty: Object.keys(disk().sp_sync.dirty),
+               notices: Array.from(document.querySelectorAll('.toast')).map(t => t.textContent).filter(t => /空間已滿/.test(t)).length,
+               cleaned: localStorage.getItem('thermal_sp_last_cleanup') === localDateStr() };
+    });
+    assert(r.state === 'pending' && /空間不足/.test(r.msg) && r.dirty.includes('A') && r.notices === 1, 'reported once, kept locally', r);
+    assert(r.cleaned && g.versions(RP('A')) === 2, 'cleanup ran although the sync failed', { r, versions: g.versions(RP('A')) });
+  });
+
+  await SP('☁ 選單在首頁上方可見，「SharePoint 空間」顯示用量', async (page) => {
+    const r = await page.evaluate(async () => {
+      await useDb({ thermal_reports: {} });
+      await spSync.enable();
+      const chip = Array.from(document.querySelectorAll('[data-sp-chip]')).find(b => b.offsetParent);
+      await handleSpChip(chip);
+      const m = document.querySelector('.sp-menu'), rc = m.getBoundingClientRect();
+      const onTop = m.contains(document.elementFromPoint(rc.left + rc.width / 2, rc.top + rc.height / 2));
+      m.querySelector('[data-sp-act="space"]').click();
+      for (let i = 0; i < 30 && !/已使用|無法/.test((document.querySelector('[data-spq="usage"]') || {}).textContent || ''); i++) await sleep(100);
+      return { onTop, usage: document.querySelector('[data-spq="usage"]').textContent };
+    });
+    assert(r.onTop && /網站已使用/.test(r.usage) && /剩餘/.test(r.usage), 'menu visible over the homepage; dialog shows usage', r);
+  });
+
+  await SP('pictures: inserted photos are scaled to 2000 px; BMP and colour-plot screenshots are converted, text ones kept', async (page) => {
+    const r = await page.evaluate(async () => {
+      const big = document.createElement('canvas'); big.width = 3000; big.height = 1500;
+      const x = big.getContext('2d'); x.fillStyle = '#345'; x.fillRect(0, 0, 3000, 1500); x.fillStyle = '#fc0'; x.fillRect(100, 100, 800, 600);
+      const blob = await new Promise(res => big.toBlob(res, 'image/png'));
+      const url = await processImageCompressed(new File([blob], 'big.png', { type: 'image/png' }), PHOTO_JPEG_QUALITY);
+      const im = await loadImageData(url);
+      const bmp = (w, h) => {
+        const row = Math.ceil(w * 3 / 4) * 4, size = 54 + row * h, b = new Uint8Array(size), dv = new DataView(b.buffer);
+        b[0] = 0x42; b[1] = 0x4d; dv.setUint32(2, size, true); dv.setUint32(10, 54, true); dv.setUint32(14, 40, true);
+        dv.setInt32(18, w, true); dv.setInt32(22, h, true); dv.setUint16(26, 1, true); dv.setUint16(28, 24, true); dv.setUint32(34, row * h, true);
+        for (let yy = 0; yy < h; yy++) for (let xx = 0; xx < w; xx++) { const o = 54 + yy * row + xx * 3; b[o] = xx & 255; b[o + 1] = yy & 255; b[o + 2] = 128; }
+        let s = ''; for (let i = 0; i < b.length; i++) s += String.fromCharCode(b[i]);
+        return 'data:image/bmp;base64,' + btoa(s);
+      };
+      const bmpUrl = bmp(300, 200);
+      const shot = await compactImage(bmpUrl, { kind: 'screen', maxPx: SCREEN_MAX_PX });
+      const shotIm = await loadImageData(shot);
+      const ui = document.createElement('canvas'); ui.width = 400; ui.height = 300;      // a flat UI-like screenshot
+      const u = ui.getContext('2d'); u.fillStyle = '#f0f0f0'; u.fillRect(0, 0, 400, 300); u.fillStyle = '#123'; u.font = '14px sans-serif';
+      for (let i = 0; i < 12; i++) u.fillText('Setting ' + i + ' = ' + (i * 7), 12, 20 + i * 22);
+      const flat = ui.toDataURL('image/png');
+      const kept = await compactImage(flat, { kind: 'screen', maxPx: SCREEN_MAX_PX });
+      const pc = document.createElement('canvas'); pc.width = 400; pc.height = 300;      // a colour result plot
+      const px = pc.getContext('2d');
+      for (let yy = 0; yy < 300; yy++) for (let xx = 0; xx < 400; xx += 2) { px.fillStyle = 'hsl(' + Math.round(240 - Math.hypot(xx - 200, yy - 150)) + ',90%,50%)'; px.fillRect(xx, yy, 2, 1); }
+      const plot = await compactImage(pc.toDataURL('image/png'), { kind: 'screen', maxPx: SCREEN_MAX_PX });
+      return { type: url.slice(0, 15), w: im.naturalWidth, h: im.naturalHeight, shot: shot.slice(0, 15), shotSize: [shotIm.naturalWidth, shotIm.naturalHeight], smaller: shot.length < bmpUrl.length,
+               kept: kept === flat, plot: plot.slice(0, 15) };
+    });
+    assert(r.type === 'data:image/jpeg' && r.w === 2000 && r.h === 1000, 'photo capped', r);
+    assert(/^data:image\/(png|jpeg)/.test(r.shot) && r.shotSize.join() === '300,200' && r.smaller, 'BMP converted', r);
+    assert(r.kept && r.plot === 'data:image/jpeg', 'text screenshot kept as is, colour plot stored as JPEG', r);
+  });
+
+  await SP('SharePoint 空間：壓縮過大的圖片（長邊縮到 2000 px，報告標記待同步）', async (page) => {
+    const r = await page.evaluate(async () => {
+      const big = document.createElement('canvas'); big.width = 2600; big.height = 1300;
+      const x = big.getContext('2d'); x.fillStyle = '#456'; x.fillRect(0, 0, 2600, 1300); x.fillStyle = '#9c3'; x.fillRect(300, 200, 900, 500);
+      const bigUrl = big.toDataURL('image/jpeg', 0.95);
+      const small = noisy(64, 64, 9);
+      await useDb({ thermal_reports: { A: report('A', { 0: cover('A'), 1: { id: 'pi', type: 'image', order: 1, data: { images: [
+        { url_or_base64: bigUrl, caption: 'big', nar: 2, rot: 0, fh: false, callouts: [] }, { url_or_base64: small, caption: 's', nar: 1, rot: 0, fh: false, callouts: [] }] } } }) } });
+      showSpSpaceDialog();
+      document.querySelector('[data-spq="slim"]').click();
+      const box = document.querySelector('[data-spq="result"]');
+      for (let i = 0; i < 150 && !/已壓縮|不需要|失敗|取消/.test(box.textContent); i++) await sleep(100);
+      const imgs = disk().thermal_reports.A.pages['1'].data.images;
+      const im = await loadImageData(imgs[0].url_or_base64);
+      return { text: box.textContent, w: im.naturalWidth, h: im.naturalHeight, smaller: imgs[0].url_or_base64.length < bigUrl.length, smallKept: imgs[1].url_or_base64 === small, dirty: Object.keys(disk().sp_sync.dirty) };
+    });
+    assert(/已壓縮 1 張圖片/.test(r.text) && r.w === 2000 && r.h === 1000 && r.smaller && r.smallKept && r.dirty.includes('A'), 'slimmed', r);
   });
 
   console.log('Efficiency tools');

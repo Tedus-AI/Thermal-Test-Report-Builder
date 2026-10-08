@@ -8,23 +8,37 @@
 | 位置 | 說明 |
 |---|---|
 | **本機資料庫檔**（必要） | 首頁「📂 開啟既有資料庫 / 🆕 建立新資料庫」選一個 `.json`（可放共用磁碟）。修改後自動存檔；「🗂 自動備份」指定資料夾後每日備份（保留 30 份） |
-| **SharePoint**（建議） | 首頁或編輯器工具列的「☁ SharePoint」按鈕 → 以公司 Microsoft 帳號登入。之後**本機與 SharePoint 同時存檔**：本機存檔後約 4 秒只上傳有變更的報告，每 60 秒拉回同事改過的報告 |
+| **SharePoint**（建議） | 首頁或編輯器工具列的「☁ SharePoint」按鈕 → 以公司 Microsoft 帳號登入。之後**本機與 SharePoint 同時存檔**：本機存檔後約 4 秒只上傳有變更的報告（正在編輯的報告每 3 分鐘上傳一次，離開報告、Ctrl+S 或「立即同步」時馬上上傳），每 60 秒拉回同事改過的報告 |
 
 SharePoint 上的位置（`Thermal-Spec-DB` 網站 → 文件，資料夾不存在時工具會自動建立）：
 
 ```
 Thermal_Report_Builder/
 ├── Database/
-│   ├── reports/<reportId>.json   每份報告一個檔
+│   ├── reports/<reportId>.json   每份報告一個檔（只有文字）
+│   ├── images/<雜湊>.jpg|png     報告裡的圖片，每張只存一份（請勿手動刪除）
 │   └── tim_library.json          共用 TIM 材料庫
-├── Backup/                       每日備份（保留 30 份）
-└── Reports/<案名>_<Stage>/       匯出 PDF 時可勾選同時上傳
+├── Backup/                       每日備份（保留最新 2 份）
+└── Reports/<案名>_<Stage>/       匯出 PDF 時可勾選同時上傳（只保留最新一份）
 ```
 
 - 兩人同時改同一份報告：你的版本寫入，對方的版本另存為「（衝突副本 · 對方 · 時間）」報告並提示，不會互相覆蓋。
 - 正在編輯的報告不會被背景同步替換；離開編輯器後才套用別人的修改。
 - 斷線或登入過期：工具列顯示「未同步」/「請重新登入」，修改留在本機檔案裡，恢復後自動補傳（重新整理也不會遺失）。
 - 換電腦：建立一個新的空白本機資料庫並啟用 SharePoint，所有報告會自動下載。
+
+### SharePoint 空間（網站配額 1 GB）
+
+SharePoint 每覆寫一次檔案就多存一個「版本」（預設最多 500 個），舊版本全部算在網站配額裡。工具因此：
+
+- 報告檔只存文字，圖片另存在 `Database/images`（以內容雜湊命名，同一張只上傳一次），每次同步只上傳幾十 KB；
+- 正在編輯的報告每 3 分鐘才上傳一次；
+- 每天自動整理一次：每個報告檔的版本歷程只留最新 2 份、備份留最新 2 份（資料沒變就不再備份）、
+  `Reports/<案名>_<Stage>/` 只留最新的 `…ThermalReport.pdf`（匯出新的會直接取代舊的）、移除沒有報告使用且超過 7 天的圖片；
+- 插入的照片長邊縮到 2000 px（截圖 2560 px，BMP 轉 PNG / JPEG）。
+
+「☁ SharePoint」選單 →「🧹 SharePoint 空間…」可看網站用量、**立即整理**，或把既有報告裡過大的圖片壓縮到 2000 px。
+被刪除的舊版本與檔案會先進到網站的**回收站**，回收站仍算配額 —— 整理後請按「開啟回收站」→「清空回收站」，空間才會真正釋放。
 
 ### SharePoint 設定（一次性）
 
@@ -85,7 +99,7 @@ Source 選 **GitHub Actions**）。每次 push 到 main，部署會把建置版�
 index.html     UI 與報告邏輯
 fileDb.js      本機資料庫檔（File System Access API、寫入佇列、衝突偵測、每日備份、SharePoint 同步標記）
 dbAdapter.js   報告 / 頁面 CRUD
-spSync.js      SharePoint 雙存檔（MSAL.js + Microsoft Graph，eTag）
+spSync.js      SharePoint 雙存檔（MSAL.js + Microsoft Graph，eTag / cTag、圖片分檔、空間整理）
 loggerCsv.js   記錄器 CSV / TXT 解析（分隔符號、標題列、時間欄、穩態統計）
 auth.html      Microsoft 登入重新導向頁
 version.json   建置版本號（佔位字串，部署時蓋上；不要手動改）

@@ -62,7 +62,9 @@ function isPlainObject(v) {
 //   dirty:   { [reportId]: seq }   reports changed locally and not yet on SharePoint
 //   deleted: [reportId]            reports deleted locally that still exist on SharePoint
 //   etags:   { [reportId]: eTag }  SharePoint version each report was last synced with
-//   tim_dirty: seq, tim_etag: eTag the shared TIM library, same idea
+//   ctags:   { [reportId]: cTag }  its content tag: a new eTag with the same cTag is the
+//                                  same content (e.g. old versions removed), not an edit
+//   tim_dirty: seq, tim_etag / tim_ctag: the shared TIM library, same idea
 // }
 // Every local mutation marks what changed, so the sync engine (spSync.js) can push
 // exactly those reports — even after a reload or a period offline.
@@ -74,8 +76,10 @@ function syncMeta() {
   if (!isPlainObject(m.dirty)) m.dirty = {};
   if (!Array.isArray(m.deleted)) m.deleted = [];
   if (!isPlainObject(m.etags)) m.etags = {};
+  if (!isPlainObject(m.ctags)) m.ctags = {};
   if (typeof m.tim_dirty !== 'number') m.tim_dirty = 0;
   if (m.tim_etag === undefined) m.tim_etag = null;
+  if (m.tim_ctag === undefined) m.tim_ctag = null;
   return m;
 }
 function markDirty(id) {
@@ -324,6 +328,24 @@ const fileDb = {
     await this._writeFile();
   },
 
+  // Swap stored pictures (old data URL → new data URL) anywhere in one report, in one write.
+  async replaceImages(reportId, map) {
+    this._assertReady();
+    const report = this._requireReport(reportId);
+    let n = 0;
+    const walk = o => {
+      if (!o || typeof o !== 'object') return;
+      for (const k of Object.keys(o)) {
+        const v = o[k];
+        if (typeof v === 'string') { if (map.has(v)) { o[k] = map.get(v); n++; } }
+        else walk(v);
+      }
+    };
+    walk(report.pages);
+    if (n) { markDirty(reportId); await this._writeFile(); }
+    return n;
+  },
+
   async getPage(reportId, order) {
     this._assertReady();
     return clone(dbCache['thermal_reports']?.[reportId]?.pages?.[String(order)] ?? null);
@@ -506,13 +528,16 @@ const fileDb = {
     },
     reportIds() { return Object.keys(dbCache.thermal_reports || {}); },
     getReport(id) { return clone(dbCache.thermal_reports?.[id] ?? null); },
+    // Read-only walk over the stored reports without copying them (callers must not modify).
+    forEachReport(fn) { Object.entries(dbCache.thermal_reports || {}).forEach(([id, rep]) => fn(rep, id)); },
     getTim() { return clone(dbCache.tim_library) || { grease: [], pad: [], putty: [] }; },
     // Take SharePoint's version of a report (it was not changed locally).
-    applyRemote(id, report, etag) {
+    applyRemote(id, report, etag, ctag) {
       if (!dbCache.thermal_reports) dbCache.thermal_reports = {};
       dbCache.thermal_reports[id] = clone(report);
       const m = syncMeta();
       m.etags[id] = etag;
+      if (ctag) m.ctags[id] = ctag; else delete m.ctags[id];
       delete m.dirty[id];
       m.deleted = m.deleted.filter(x => x !== id);
     },
@@ -521,6 +546,7 @@ const fileDb = {
       if (dbCache.thermal_reports) delete dbCache.thermal_reports[id];
       const m = syncMeta();
       delete m.etags[id];
+      delete m.ctags[id];
       delete m.dirty[id];
       m.deleted = m.deleted.filter(x => x !== id);
     },
@@ -534,26 +560,39 @@ const fileDb = {
     markTimDirty() { markTimDirty(); },
     // Replace the TIM library with a merged version (keeps its dirty state).
     setTim(lib) { dbCache.tim_library = clone(lib); },
-    setEtag(id, etag) { syncMeta().etags[id] = etag; },
-    markPushed(id, etag, seq) {
+    setEtag(id, etag, ctag) {
       const m = syncMeta();
       m.etags[id] = etag;
+      if (ctag) m.ctags[id] = ctag; else delete m.ctags[id];
+    },
+    markPushed(id, etag, seq, ctag) {
+      const m = syncMeta();
+      m.etags[id] = etag;
+      if (ctag) m.ctags[id] = ctag; else delete m.ctags[id];
       if (m.dirty[id] === seq) delete m.dirty[id];   // edited again meanwhile → stays dirty
     },
     markDeletePushed(id) {
       const m = syncMeta();
       m.deleted = m.deleted.filter(x => x !== id);
       delete m.etags[id];
+      delete m.ctags[id];
     },
-    applyRemoteTim(lib, etag) {
+    applyRemoteTim(lib, etag, ctag) {
       dbCache.tim_library = clone(lib);
       const m = syncMeta();
       m.tim_etag = etag;
+      m.tim_ctag = ctag || null;
       m.tim_dirty = 0;
     },
-    markTimPushed(etag, seq) {
+    setTimEtag(etag, ctag) {
       const m = syncMeta();
       m.tim_etag = etag;
+      m.tim_ctag = ctag || null;
+    },
+    markTimPushed(etag, seq, ctag) {
+      const m = syncMeta();
+      m.tim_etag = etag;
+      m.tim_ctag = ctag || null;
       if (m.tim_dirty === seq) m.tim_dirty = 0;
     },
     // Full database without the sync bookkeeping (SharePoint daily backup).

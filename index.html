@@ -3583,7 +3583,22 @@
     .sp-chip.sp-syncing { border-color: rgba(96,165,250,0.6); color: #93c5fd; }
     .sp-chip.sp-pending, .sp-chip.sp-needs-login { border-color: rgba(251,191,36,0.7); color: #fcd34d; }
     .sp-chip.sp-error { border-color: rgba(248,113,113,0.7); color: #fca5a5; }
-    .sp-menu { position: fixed; z-index: 3000; min-width: 220px; background: #0f1f36; border: 1px solid rgba(91,163,230,0.35); border-radius: 6px; box-shadow: 0 10px 30px rgba(0,0,0,0.45); padding: 4px; }
+    .sp-menu { position: fixed; z-index: 8500; min-width: 220px; background: #0f1f36; border: 1px solid rgba(91,163,230,0.35); border-radius: 6px; box-shadow: 0 10px 30px rgba(0,0,0,0.45); padding: 4px; }
+    .spq-modal { width: 560px; max-width: calc(100vw - 32px); }
+    .spq-usage { font-size: 13px; line-height: 1.6; }
+    .spq-line { display: flex; justify-content: space-between; gap: 12px; }
+    .spq-bar { height: 8px; border-radius: 4px; background: rgba(255,255,255,0.10); overflow: hidden; margin: 6px 0 4px; }
+    .spq-bar > div { height: 100%; background: #5ba3e6; }
+    .spq-bar > div.warm { background: #e6a23c; }
+    .spq-bar > div.hot { background: #e74c3c; }
+    .spq-sub { font-size: 12px; color: rgba(226,232,240,0.7); }
+    .spq-title { font-size: 12px; font-weight: 700; color: rgba(226,232,240,0.85); margin-bottom: 4px; }
+    .spq-rules ul { margin: 0; padding-left: 18px; font-size: 12px; line-height: 1.7; color: rgba(226,232,240,0.85); }
+    .spq-rules code { font-size: 11px; background: rgba(255,255,255,0.08); padding: 0 4px; border-radius: 3px; }
+    .spq-note { font-size: 12px; line-height: 1.6; margin-top: 8px; padding: 8px 10px; border-left: 3px solid #e6a23c; background: rgba(230,162,60,0.10); }
+    .spq-result { font-size: 12.5px; line-height: 1.7; padding: 8px 10px; background: rgba(91,163,230,0.10); border: 1px solid rgba(91,163,230,0.25); border-radius: 4px; }
+    .spq-warn { color: #f5b971; }
+    .spq-modal .hp-modal-footer { flex-wrap: wrap; }
     .sp-menu-head { font-size: 11px; color: rgba(255,255,255,0.55); padding: 6px 10px 4px; border-bottom: 1px solid rgba(255,255,255,0.08); margin-bottom: 4px; line-height: 1.5; }
     .sp-menu button { display: block; width: 100%; text-align: left; font-size: 12px; color: #e2e8f0; background: transparent; border: none; padding: 7px 10px; border-radius: 4px; cursor: pointer; }
     .sp-menu button:hover { background: rgba(91,163,230,0.18); }
@@ -4287,45 +4302,84 @@
       });
     }
 
-    // 本機模式已移除圖片大小限制，直接使用原始 base64
+    // Inserted pictures are scaled down to fit IMG_MAX_PX on their longest edge: a
+    // report page is at most A4 landscape, so 2000 px is ~170 dpi across the whole page —
+    // sharp in print at a fraction of a phone photo's size (every stored picture also
+    // goes to the database file, the backups and SharePoint). Screenshots keep a little
+    // more so small UI text stays legible.
+    const IMG_MAX_PX = 2000;
+    const SCREEN_MAX_PX = 2560;
+
+    // Cover picture: a photo becomes a good-quality JPEG; a drawing / cut-out keeps PNG.
     async function processImage(file) {
-      return await fileToDataURL(file);
+      return compactImage(await fileToDataURL(file), { kind: 'screen', maxPx: IMG_MAX_PX });
     }
 
     // Quality used when re-encoding inserted photos (annotation & image pages).
     const PHOTO_JPEG_QUALITY = 0.5;
 
-    // Re-encode an inserted photo as JPEG at the given quality to shrink the
-    // stored base64. Keeps the original pixel dimensions — only quality drops.
-    // Falls back to the untouched original if decoding/encoding fails.
-    function processImageCompressed(file, quality) {
-      return new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onerror = () => resolve('');
-        reader.onload = () => {
-          const original = reader.result;
-          const img = new Image();
-          img.onerror = () => resolve(original);
-          img.onload = () => {
-            try {
-              const canvas = document.createElement('canvas');
-              canvas.width = img.naturalWidth || img.width;
-              canvas.height = img.naturalHeight || img.height;
-              const ctx = canvas.getContext('2d');
-              ctx.fillStyle = '#ffffff';                    // JPEG has no alpha → white behind any transparency
-              ctx.fillRect(0, 0, canvas.width, canvas.height);
-              ctx.drawImage(img, 0, 0);
-              const out = canvas.toDataURL('image/jpeg', quality);
-              // Guard: if somehow larger than the original, keep the original.
-              resolve(out && out.length < original.length ? out : original);
-            } catch (err) {
-              resolve(original);
-            }
-          };
-          img.src = original;
-        };
-        reader.readAsDataURL(file);
+    function loadImageData(url) {
+      return new Promise(resolve => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = () => resolve(null);
+        img.src = url;
       });
+    }
+
+    // Re-encode a picture for storage, scaled to fit o.maxPx on its longest edge:
+    //   kind 'photo'  → JPEG at o.quality (white behind any transparency);
+    //   kind 'screen' → PNG, or JPEG q0.9 when that is under half the size (photos, colour
+    //                   plots — text-heavy screenshots stay crisp PNG); with transparency PNG.
+    // The original is kept when it already fits, isn't a BMP and is not larger.
+    // Falls back to the untouched original if decoding/encoding fails.
+    async function compactImage(original, o) {
+      if (typeof original !== 'string' || !original.startsWith('data:image/')) return original;
+      const img = await loadImageData(original);
+      const w0 = img && (img.naturalWidth || img.width), h0 = img && (img.naturalHeight || img.height);
+      if (!w0 || !h0) return original;
+      try {
+        const k = Math.min(1, o.maxPx / Math.max(w0, h0));
+        const w = Math.max(1, Math.round(w0 * k)), h = Math.max(1, Math.round(h0 * k));
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.imageSmoothingQuality = 'high';
+        const asJpeg = q => {
+          const c = document.createElement('canvas');
+          c.width = w; c.height = h;
+          const x = c.getContext('2d');
+          x.fillStyle = '#ffffff';                    // JPEG has no alpha → white behind any transparency
+          x.fillRect(0, 0, w, h);
+          x.imageSmoothingQuality = 'high';
+          x.drawImage(img, 0, 0, w, h);
+          return c.toDataURL('image/jpeg', q);
+        };
+        let out;
+        if (o.kind === 'photo') out = asJpeg(o.quality);
+        else {
+          ctx.drawImage(img, 0, 0, w, h);
+          const png = canvas.toDataURL('image/png');
+          let alpha = false;
+          if (/^data:image\/(png|gif|webp)/i.test(original)) {
+            const px = ctx.getImageData(0, 0, w, h).data;
+            for (let i = 3; i < px.length; i += 4) if (px[i] < 255) { alpha = true; break; }
+          }
+          const jpg = alpha ? null : asJpeg(0.9);
+          out = jpg && jpg.length < png.length * 0.5 ? jpg : png;
+        }
+        const fits = k === 1 && !/^data:image\/(x-ms-)?bmp/i.test(original);
+        return !out || (fits && original.length <= out.length) ? original : out;
+      } catch (err) {
+        return original;
+      }
+    }
+
+    // Inserted photo (image & annotation pages): scaled down + JPEG at `quality`.
+    async function processImageCompressed(file, quality) {
+      let original;
+      try { original = await fileToDataURL(file); } catch (e) { return ''; }
+      return compactImage(original, { kind: 'photo', quality, maxPx: IMG_MAX_PX });
     }
 
     // ━━━ Dropdown logic ━━━
@@ -5154,13 +5208,15 @@
         overlay.addEventListener('mousedown', (e) => { if (e.target === overlay) cleanup(); });
         overlay.querySelector('.confirm').addEventListener('click', () => {
           const out = document.createElement('canvas');
-          out.width = Math.max(1, Math.round(r.w * ow));
-          out.height = Math.max(1, Math.round(r.h * oh));
+          const k = Math.min(1, IMG_MAX_PX / Math.max(r.w * ow, r.h * oh));   // never larger than an inserted picture
+          out.width = Math.max(1, Math.round(r.w * ow * k));
+          out.height = Math.max(1, Math.round(r.h * oh * k));
           const ctx = out.getContext('2d');
           ctx.fillStyle = '#ffffff';           // avoid black where a source alpha existed
           ctx.fillRect(0, 0, out.width, out.height);
+          ctx.imageSmoothingQuality = 'high';
           ctx.drawImage(oc, r.x * ow, r.y * oh, r.w * ow, r.h * oh, 0, 0, out.width, out.height);
-          const url = out.toDataURL('image/jpeg', 0.9);
+          const url = out.toDataURL('image/jpeg', 0.85);
           cleanup();
           onConfirm(url, { ...r });          // r = kept part, in fractions of the oriented image
         });
@@ -5727,9 +5783,11 @@
       const im = await annoLoadImage(url);
       if (!im) return null;
       const c = document.createElement('canvas');
-      c.width = im.naturalWidth; c.height = im.naturalHeight;
+      const k = Math.min(1, IMG_MAX_PX / Math.max(im.naturalWidth, im.naturalHeight));
+      c.width = Math.max(1, Math.round(im.naturalWidth * k)); c.height = Math.max(1, Math.round(im.naturalHeight * k));
       const ctx = c.getContext('2d');
-      ctx.drawImage(im, 0, 0);
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(im, 0, 0, c.width, c.height);
       const px = ctx.getImageData(0, 0, c.width, c.height);
       const a = px.data, br = 1 + adj.b / 100, ct = 1 + adj.c / 100, s = 1 + adj.s / 100;
       const m = [0.213 + 0.787 * s, 0.715 - 0.715 * s, 0.072 - 0.072 * s, 0.213 - 0.213 * s, 0.715 + 0.285 * s, 0.072 - 0.072 * s, 0.213 - 0.213 * s, 0.715 - 0.715 * s, 0.072 + 0.928 * s];
@@ -9134,7 +9192,7 @@
           const picked = slots > 0 ? files.slice(0, slots) : [];
           for (const f of picked) {
             try {
-              const url = await fileToDataURL(f);
+              const url = await compactImage(await fileToDataURL(f), { kind: 'screen', maxPx: SCREEN_MAX_PX });
               d.header.sw_images.push({ name: f.name, url });
             } catch (e) {}
           }
@@ -10543,7 +10601,7 @@
         let added = 0;
         for (const f of files) {
           try {
-            const url = await fileToDataURL(f);
+            const url = await compactImage(await fileToDataURL(f), { kind: 'screen', maxPx: SCREEN_MAX_PX });
             let name = (f.name || '').trim();
             if (!name || name.toLowerCase() === 'image.png') {
               const ext = ((f.type && f.type.split('/')[1]) || 'png').replace('jpeg', 'jpg');
@@ -11980,7 +12038,7 @@
           <div class="exp-toolbar"><button type="button" class="exp-toggle-all" id="exp-toggle-all">全不選</button></div>
           <div class="sim-modal-body">${rowsHTML}</div>
           <div class="sim-modal-footer">
-            ${spOn ? `<label class="exp-sp" title="上傳到 SharePoint：Thermal_Report_Builder/Reports/${escapeAttr(spFolder)}/"><input type="checkbox" id="exp-sp-upload"${spChecked ? ' checked' : ''}> 同時上傳到 SharePoint</label>` : ''}
+            ${spOn ? `<label class="exp-sp" title="上傳到 SharePoint：Thermal_Report_Builder/Reports/${escapeAttr(spFolder)}/（同一資料夾只保留最新的 PDF，舊的移到網站回收站）"><input type="checkbox" id="exp-sp-upload"${spChecked ? ' checked' : ''}> 同時上傳到 SharePoint（取代舊 PDF）</label>` : ''}
             <button class="sim-modal-btn" id="exp-cancel">取消</button>
             <button class="sim-modal-btn primary" id="exp-confirm">匯出所選</button>
           </div>
@@ -14472,6 +14530,7 @@ async function handleSpChip(btn) {
   menu.innerHTML = `<div class="sp-menu-head">${escHtml(spSync.location())}<br>${acc ? '帳號：' + escHtml(acc.name) : ''}${st.message ? '<br>' + escHtml(st.message) : ''}</div>
     <button data-sp-act="sync">⟳ 立即同步</button>
     <button data-sp-act="open">↗ 開啟 SharePoint 資料夾</button>
+    <button data-sp-act="space">🧹 SharePoint 空間…</button>
     <button data-sp-act="account">👤 切換帳號</button>
     <button data-sp-act="off" class="danger">停用 SharePoint 同步</button>`;
   document.body.appendChild(menu);
@@ -14490,6 +14549,7 @@ async function handleSpChip(btn) {
         const url = await spSync.folderUrl();
         if (url) window.open(url, '_blank', 'noopener'); else showToast('SharePoint 上還沒有 Thermal_Report_Builder 資料夾（第一次同步後會自動建立）', 'warn', 6000);
       }
+      else if (act === 'space') showSpSpaceDialog();
       else if (act === 'account') {
         const rr = await spSync.signIn({ select: true });
         if (rr.ok) await spSync.syncNow();
@@ -14500,6 +14560,163 @@ async function handleSpChip(btn) {
     } catch (err) { showToast(err.message || String(err), 'err', 8000); }
     updateSpChips();
   }));
+}
+
+const fmtBytes = b => {
+  const mb = (Number(b) || 0) / 1048576;
+  return mb >= 1024 ? (mb / 1024).toFixed(2) + ' GB' : mb >= 10 ? Math.round(mb) + ' MB' : mb.toFixed(1) + ' MB';
+};
+
+function spCleanupSummary(s) {
+  const parts = [];
+  if (s.versions) parts.push(`舊版本 ${s.versions} 份（${fmtBytes(s.versionBytes)}）`);
+  if (s.backups) parts.push(`舊備份 ${s.backups} 份（${fmtBytes(s.backupsBytes)}）`);
+  if (s.exports) parts.push(`舊 PDF ${s.exports} 份（${fmtBytes(s.exportsBytes)}）`);
+  if (s.images) parts.push(`沒有使用的圖片 ${s.images} 張（${fmtBytes(s.imagesBytes)}）`);
+  const total = s.versionBytes + s.backupsBytes + s.exportsBytes + s.imagesBytes;
+  let html = parts.length
+    ? `已移到網站回收站：${parts.join('、')}，共約 <strong>${fmtBytes(total)}</strong>。<br>請按「開啟回收站」→「清空回收站」，空間才會真正釋放。`
+    : '沒有需要整理的舊版本或舊檔案。';
+  if (s.partial && !s.error) html += '<br>還沒整理完，請再按一次「立即整理」（明天也會自動繼續）。';
+  if (s.error) html += `<br><span class="spq-warn">中途停止：${escHtml(s.error)}</span>`;
+  if (s.blocked) html += `<br><span class="spq-warn">${escHtml(s.blocked)}</span>`;
+  if (s.skipped) html += `<br><span class="spq-warn">${s.skipped} 份報告檔 SharePoint 沒有提供內容標記（cTag），它們的舊版本這次沒有刪除。</span>`;
+  return html;
+}
+
+// Pictures stored in the reports that are larger than an inserted picture would be today.
+function collectPageImages(page, seen) {
+  const kind = page.type === 'image' || page.type === 'annotation' ? 'photo' : page.type === 'cover' ? 'cover' : 'screen';
+  const walk = v => {
+    if (typeof v === 'string') { if (v.length > 2048 && /^data:image\/[\w.+-]+;base64,/.test(v) && !seen.has(v)) seen.set(v, kind); }
+    else if (v && typeof v === 'object') Object.keys(v).forEach(k => walk(v[k]));
+  };
+  walk(page && page.data);
+}
+async function scanOversizedImages(onProgress) {
+  const reports = await dbAdapter.getAllReports();
+  const out = { items: [], count: 0, bytes: 0, reports: 0 };
+  let i = 0;
+  for (const r of reports) {
+    if (onProgress) onProgress(`檢查圖片中…（${++i}/${reports.length} 份報告）`);
+    const seen = new Map();
+    (await dbAdapter.getAllPages(r.id)).forEach(p => collectPageImages(p, seen));
+    const list = [];
+    for (const [url, kind] of seen) {
+      const max = kind === 'screen' ? SCREEN_MAX_PX : IMG_MAX_PX;
+      if (/^data:image\/(x-ms-)?bmp/i.test(url)) { list.push({ url, kind }); continue; }
+      const img = await loadImageData(url);
+      if (img && Math.max(img.naturalWidth, img.naturalHeight) > max) list.push({ url, kind });
+    }
+    if (list.length) {
+      out.items.push({ id: r.id, list });
+      out.reports++;
+      out.count += list.length;
+      out.bytes += list.reduce((n, x) => n + x.url.length * 0.75, 0);
+    }
+  }
+  return out;
+}
+// Shrink them the same way a newly inserted picture is (size + format), report by report.
+async function slimOversizedImages(scan, onProgress) {
+  const res = { count: 0, before: 0, after: 0, reports: 0 };
+  let k = 0;
+  for (const it of scan.items) {
+    const map = new Map();
+    for (const { url, kind } of it.list) {
+      if (onProgress) onProgress(`壓縮圖片中…（${++k}/${scan.count}）`);
+      const out = kind === 'photo'
+        ? await compactImage(url, { kind: 'photo', quality: PHOTO_JPEG_QUALITY, maxPx: IMG_MAX_PX })
+        : await compactImage(url, { kind: 'screen', maxPx: kind === 'cover' ? IMG_MAX_PX : SCREEN_MAX_PX });
+      if (out && out !== url && out.length < url.length) { map.set(url, out); res.before += url.length * 0.75; res.after += out.length * 0.75; }
+    }
+    if (map.size && await dbAdapter.replaceImages(it.id, map)) { res.count += map.size; res.reports++; }
+  }
+  return res;
+}
+
+function showSpSpaceDialog() {
+  const R = spSync.retention;
+  const last = spSync.lastCleanup();
+  const overlay = document.createElement('div');
+  overlay.className = 'hp-modal-overlay';
+  overlay.innerHTML = `
+    <div class="hp-modal spq-modal" data-spq-dialog>
+      <div class="hp-modal-header">🧹 SharePoint 空間</div>
+      <div class="hp-modal-body">
+        <div class="spq-usage" data-spq="usage">讀取網站空間中…</div>
+        <div class="spq-rules">
+          <div class="spq-title">自動整理（每天一次${last ? '，上次 ' + escHtml(last) : ''}）</div>
+          <ul>
+            <li>報告檔只存文字，圖片另存在 <code>Database/images</code>（同一張只存一份）</li>
+            <li>編輯中的報告每 ${R.openPushGapMin} 分鐘上傳一次；離開報告、存檔或按「立即同步」會馬上上傳</li>
+            <li>每個報告檔的版本歷程只保留最新 ${R.keepVersions} 份</li>
+            <li>每日備份只保留最新 ${R.keepBackups} 份，資料沒有變就不再備份</li>
+            <li>匯出的 PDF：每個資料夾（案名_Stage）只保留最新一份</li>
+            <li>沒有任何報告使用、超過 ${R.imageGcDays} 天的圖片會移除</li>
+          </ul>
+          <div class="spq-note">刪除的檔案和舊版本會先進入 SharePoint 網站的<strong>回收站</strong>，仍然佔用空間；到回收站按「清空回收站」後才會真正釋放。</div>
+        </div>
+        <div class="spq-result" data-spq="result" hidden></div>
+      </div>
+      <div class="hp-modal-footer">
+        <button class="hp-modal-btn" data-spq="bin">開啟回收站 ↗</button>
+        <button class="hp-modal-btn" data-spq="slim" title="把本機報告裡長邊超過 ${IMG_MAX_PX} px 的圖片縮小（資料庫、備份和 SharePoint 都會變小）">壓縮過大的圖片…</button>
+        <button class="hp-modal-btn primary" data-spq="clean">立即整理</button>
+        <button class="hp-modal-btn" data-spq="close">關閉</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  const $ = k => overlay.querySelector(`[data-spq="${k}"]`);
+  const box = $('result');
+  const show = html => { box.hidden = false; box.innerHTML = html; };
+  const close = () => overlay.remove();
+  overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+  $('close').addEventListener('click', close);
+  $('bin').addEventListener('click', () => window.open(spSync.recycleBinUrl(), '_blank', 'noopener'));
+
+  const loadUsage = async () => {
+    const el = $('usage');
+    try {
+      const q = await spSync.quota();
+      if (!q || !q.total) { el.textContent = '無法取得網站空間資訊'; return; }
+      const pct = Math.min(100, Math.round((q.used / q.total) * 100));
+      el.innerHTML = `<div class="spq-line"><span>網站已使用 <strong>${fmtBytes(q.used)}</strong> / ${fmtBytes(q.total)}</span><span>剩餘 ${fmtBytes(q.remaining)}</span></div>
+        <div class="spq-bar"><div class="${pct >= 90 ? 'hot' : pct >= 75 ? 'warm' : ''}" style="width:${pct}%"></div></div>
+        <div class="spq-sub">${q.deleted ? `回收站佔 ${fmtBytes(q.deleted)}（清空回收站後釋放）` : '回收站是空的'}</div>`;
+    } catch (e) { el.textContent = '無法取得網站空間資訊：' + ((e && e.message) || e); }
+  };
+  loadUsage();
+
+  $('clean').addEventListener('click', async () => {
+    const btn = $('clean');
+    btn.disabled = true;
+    show('整理中…');
+    try {
+      const stats = await spSync.cleanupStorage({ manual: true, onProgress: msg => { box.textContent = msg; } });
+      show(spCleanupSummary(stats));
+      loadUsage();
+    } catch (e) { show('<span class="spq-warn">整理失敗：' + escHtml((e && e.message) || String(e)) + '</span>'); }
+    finally { btn.disabled = false; }
+  });
+
+  $('slim').addEventListener('click', async () => {
+    if (state.reportId) { show('<span class="spq-warn">請先回到首頁（關閉目前的報告）再壓縮圖片。</span>'); return; }
+    const btn = $('slim');
+    btn.disabled = true;
+    show('檢查圖片中…');
+    try {
+      const scan = await scanOversizedImages(msg => { box.textContent = msg; });
+      if (!scan.count) { show(`沒有長邊超過 ${IMG_MAX_PX} px 的圖片，不需要壓縮。`); return; }
+      if (!confirm(`找到 ${scan.count} 張過大的圖片（${scan.reports} 份報告，約 ${fmtBytes(scan.bytes)}）。\n\n` +
+        `壓縮後長邊縮到 ${IMG_MAX_PX} px（照片存成 JPEG），報告的內容與版面不變，但無法恢復原始解析度。\n\n確定壓縮？`)) { show('已取消。'); return; }
+      const r = await slimOversizedImages(scan, msg => { box.textContent = msg; });
+      show(`已壓縮 ${r.count} 張圖片（${r.reports} 份報告）：${fmtBytes(r.before)} → <strong>${fmtBytes(r.after)}</strong>。` +
+        (spSync.isEnabled() ? '<br>變更會自動同步到 SharePoint；舊圖片沒有報告使用後，會在幾天後的自動整理中移除。' : ''));
+      if (typeof renderHomepage === 'function' && !state.reportId) renderHomepage();
+    } catch (e) { show('<span class="spq-warn">壓縮失敗：' + escHtml((e && e.message) || String(e)) + '</span>'); }
+    finally { btn.disabled = false; }
+  });
 }
 
 function showSpEnableDialog() {

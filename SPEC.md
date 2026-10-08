@@ -35,7 +35,7 @@
 | **使用頻率** | 每個專案 Prototype / EVT / DVT / PVT 各一份，中高頻使用 |
 | **部署方式** | GitHub Pages（GitHub Actions `pages.yml` 部署並蓋上建置版本號；單一 `index.html`，無後端）|
 | **技術限制** | 無 Python、無後端、純瀏覽器執行，公司防火牆限制 |
-| **資料持久化** | 本機 JSON 資料庫檔案（File System Access API，可放共用磁碟）＋ 每日自動備份資料夾（保留 30 份）；可選 **SharePoint 雙存檔**（`spSync.js`，見 §4.1）。原規劃的 Firebase 已停用，見 §4 |
+| **資料持久化** | 本機 JSON 資料庫檔案（File System Access API，可放共用磁碟）＋ 每日自動備份資料夾（保留 30 份）；可選 **SharePoint 雙存檔**（`spSync.js`，見 §4.1；SharePoint 上的備份保留 2 份）。原規劃的 Firebase 已停用，見 §4 |
 | **輸出格式** | PDF（Phase 1）/ PPTX（Phase 2）|
 
 ---
@@ -455,25 +455,45 @@ Step 6  Sim Tc 欄留空，等待手動填入
 
 與 Project-TIM-management-tool 共用同一個 Azure 應用程式與 `Thermal-Spec-DB` 網站。本機資料庫檔案仍是工作檔；
 每次本機存檔後約 4 秒，**只上傳有變更的報告**到 SharePoint，並每 60 秒拉回同事改過的報告。
+正在編輯的報告每 3 分鐘最多上傳一次（每次上傳都是 SharePoint 的一個新版本）；離開報告、Ctrl+S、「立即同步」、自動更新前會馬上上傳。
 
 ```
 Thermal-Spec-DB → 文件（Shared Documents）
 └── Thermal_Report_Builder/
     ├── Database/
-    │   ├── reports/<reportId>.json   每份報告一個檔（{ format: 'thermal-report-v1', id, report }）
+    │   ├── reports/<reportId>.json   每份報告一個檔：{ format: 'thermal-report-v2', id, images: [檔名], report }
+    │   │                             （圖片以 { "$img": "<檔名>" } 代替；舊的 v1 檔內含 base64 圖片，仍可讀取）
+    │   ├── images/<sha256 前 40 碼>.<jpg|png|gif|webp|bmp|svg>   報告圖片，每張只存一份、不覆寫
     │   └── tim_library.json          共用 TIM 材料庫（{ format: 'thermal-tim-library-v1', tim_library }）
-    ├── Backup/                       thermal_reports_backup_YYYY-MM-DD.json（每日一份，保留 30 份）
-    └── Reports/<案名>_<Stage>/       匯出 PDF 時可勾選「同時上傳到 SharePoint」
+    ├── Backup/                       thermal_reports_backup_YYYY-MM-DD.json（完整資料庫，含圖片；保留最新 2 份）
+    └── Reports/<案名>_<Stage>/       匯出 PDF（新的 …ThermalReport.pdf 取代同資料夾較舊的）
 ```
 
 | 情境 | 行為 |
 |---|---|
-| 同步狀態 | 寫在本機資料庫檔 `sp_sync`（dirty / deleted / eTag），重新整理或離線後仍會補傳 |
+| 同步狀態 | 寫在本機資料庫檔 `sp_sync`（dirty / deleted / eTag / cTag），重新整理或離線後仍會補傳 |
+| eTag 變了但 cTag（內容標記）沒變 | 只是中繼資料變更（例如舊版本被清掉）→ 視為同一份內容，不下載、不產生衝突副本、不還原 |
+| 圖片 | 上傳前把 ≥ 2 KB 的 `data:image/…;base64` 字串換成 `{ "$img": 檔名 }`，圖片先上傳到 `Database/images`（已存在就略過）；拉回時優先用本機同一份報告裡的圖片，其餘下載並核對雜湊，找不到的以「圖片遺失」圖示代替並提示 |
 | 兩人改了同一份報告 | 以 If-Match（eTag）寫入；SharePoint 上已被別人改過 → 你的版本寫入，對方版本另存「（衝突副本 · 對方 · 時間）」報告，並跳出提示 |
 | 正在編輯的報告被別人改 | 編輯中不替換畫面；離開編輯器後才套用 |
 | 本機刪除、SharePoint 上已被改過 | 不刪，改為還原到本機 |
 | TIM 材料庫 | 兩邊新增的材料合併（同名以本機為準） |
 | 斷線 / 登入過期 | 工具列顯示「未同步」/「請重新登入」，修改保留在本機，恢復後自動補傳 |
+
+**空間整理**（`cleanupStorage`：每天第一次同步後在背景執行一次，或從「☁ SharePoint → 🧹 SharePoint 空間…」立即執行）：
+
+| 對象 | 保留 |
+|---|---|
+| 報告檔、TIM 材料庫的版本歷程 | 最新 2 個版本（Graph `DELETE …/items/{id}/versions/{versionId}`；沒有 cTag 的檔案不刪，避免同步誤判為別人修改） |
+| 每日備份 | 最新 2 份（內容與上次備份相同就不再上傳），每份 1 個版本 |
+| `Reports/<案名>_<Stage>/` | 最新的 `…ThermalReport.pdf`（上傳新的 PDF 時立即取代），1 個版本；其他檔名不動 |
+| `Database/images` | 沒有任何報告（本機或 SharePoint 上的版本）使用、且超過 7 天的圖片移除 |
+
+每次自動整理最多刪 500 項、手動 5000 項，沒做完下次繼續；SharePoint 拒絕刪除版本時在視窗中說明。
+刪除的版本與檔案進入網站第一階段回收站，仍計入配額，需在回收站「清空回收站」才釋放。
+「🧹 SharePoint 空間」視窗顯示網站用量（`drive.quota`，含回收站）、上述規則、立即整理的結果，
+並可把本機報告中長邊超過 2000 px 的圖片壓縮（照片 → JPEG、其他 → PNG / JPEG 取小者，報告標記待同步）。
+新插入的圖片同樣處理：照片長邊 2000 px、JPEG 品質 0.5；封面 2000 px、截圖 / 筆記圖片 2560 px（PNG，JPEG 不到一半大小時改用 JPEG；BMP 一律轉檔）；裁切與調色的輸出也不超過 2000 px。
 
 登入回傳頁：Azure 只接受已登記的重新導向 URI。在 `https://tedus-ai.github.io/` 上沿用 TIM 工具已登記的
 `https://tedus-ai.github.io/Project-TIM-management-tool/auth.html`（同網域，MSAL 可讀取彈出視窗 / 靜默更新 iframe 的結果），不需改 Azure；
@@ -609,7 +629,7 @@ firestore/
 匯出視窗頂端列出可能漏填的項目（⚠ 待確認 / ℹ 提醒），點項目即關閉視窗並跳到該頁：封面缺案名 / 型號 / Tested by / 圖片；
 圖片頁無圖、標註頁無照片 / 無標註點 / 有未命名的標註點；數據頁未命名、未填 Tc Spec、各 Ta 未填實測值、機台功耗、Test Date、匯入時未達穩態；
 比對頁未選元件、缺 Sim Tc、來源已變更、無此 Ta、未填結論敘述；比較頁少於 2 個對象、找不到來源、使用快照；結論頁未填結論、Fail / Warning 未列入 Compliance、有 Fail 但 Issues 空白。
-SharePoint 已啟用時可勾選「同時上傳到 SharePoint」（`Thermal_Report_Builder/Reports/<案名>_<Stage>/`）。
+SharePoint 已啟用時可勾選「同時上傳到 SharePoint」（`Thermal_Report_Builder/Reports/<案名>_<Stage>/`，新的 PDF 取代該資料夾較舊的匯出 PDF）。
 
 ### 報告書首頁（報告列表）
 

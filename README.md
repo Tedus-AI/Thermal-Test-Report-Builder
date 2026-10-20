@@ -17,7 +17,7 @@ Thermal_Report_Builder/
 ├── Database/
 │   ├── reports/<reportId>.json   每份報告一個檔（只有文字）
 │   ├── images/<雜湊>.jpg|png     報告裡的圖片，每張只存一份（請勿手動刪除）
-│   └── tim_library.json          共用 TIM 材料庫
+│   └── tim_library.json          共用 TIM 材料庫（可參照 TIM 管理工具的材料）
 ├── Backup/                       每日備份（保留最新 2 份）
 └── Reports/<案名>_<Stage>/       匯出 PDF 時可勾選同時上傳（只保留最新一份）
 ```
@@ -26,6 +26,8 @@ Thermal_Report_Builder/
 - 正在編輯的報告不會被背景同步替換；離開編輯器後才套用別人的修改。
 - 斷線或登入過期：工具列顯示「未同步」/「請重新登入」，修改留在本機檔案裡，恢復後自動補傳（重新整理也不會遺失）。
 - 換電腦：建立一個新的空白本機資料庫並啟用 SharePoint，所有報告會自動下載。
+- **TIM 資料列表參照 TIM 管理工具**：數據頁 TIM 資料列表按「🔗 從 TIM 管理工具帶入」，從 TIM 管理工具的材料庫勾選材料加入；
+  標 🔗 的項目 K值、廠商跟著 TIM 管理工具更新（改名時提示並可「套用」，✂ 解除連結改回自行填寫）。需要開啟 SharePoint 同步。
 
 ### SharePoint 空間（網站配額 1 GB）
 

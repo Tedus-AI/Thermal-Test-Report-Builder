@@ -8,6 +8,7 @@
  *   Thermal_Report_Builder/Database/tim_library.json          shared TIM library
  *   Thermal_Report_Builder/Backup/thermal_reports_backup_YYYY-MM-DD.json  (newest 2)
  *   Thermal_Report_Builder/Reports/<案名>_<Stage>/<PDF>       newest exported PDF per folder
+ *   TIM_Manager/Database/tim_catalog.json                     read only: the TIM manager's materials (TIM 型號目錄)
  *
  * Dual save: the local database file stays the working copy (fileDb.js). Every
  * local save marks the changed reports dirty; this engine pushes exactly those
@@ -48,6 +49,7 @@
   const TIM_PATH = CONFIG.root + '/Database/tim_library.json';
   const BACKUP_FOLDER = CONFIG.root + '/Backup';
   const EXPORTS_FOLDER = CONFIG.root + '/Reports';
+  const TIM_CATALOG_PATH = 'TIM_Manager/Database/tim_catalog.json';   // written by the TIM Management Tool
   const MSAL = {
     integrity: 'sha384-hhkHFODse2T75wPL7oJ0RZ+0CgRa74LNPhgx6wO6DMNEhU3/fSbTZdVzxsgyUelp',
     urls: [
@@ -477,11 +479,16 @@
   /** TIM library union: local entries win for the same (category, name); remote-only entries are added. */
   function mergeTim(local, remote) {
     const out = {};
-    ['grease', 'pad', 'putty'].forEach(cat => {
+    const cats = ['grease', 'pad', 'putty'];
+    // Names and TIM-manager links (src_id) already here, in any tab: an entry that moved to another tab
+    // (its family changed in the TIM manager) or was renamed there is not added back from the other copy.
+    const key = t => String((t && t.name) || '').trim().toLowerCase();
+    const names = new Set(), links = new Set();
+    cats.forEach(cat => ((local && local[cat]) || []).forEach(t => { if (key(t)) names.add(key(t)); if (t && t.src_id) links.add(t.src_id); }));
+    cats.forEach(cat => {
       const l = (local && local[cat]) || [];
       const r = (remote && remote[cat]) || [];
-      const names = new Set(l.map(t => String(t.name || '').trim().toLowerCase()).filter(Boolean));
-      out[cat] = [...l, ...r.filter(t => { const n = String(t.name || '').trim().toLowerCase(); return n && !names.has(n); })];
+      out[cat] = [...l, ...r.filter(t => { const n = key(t); return n && !names.has(n) && !(t.src_id && links.has(t.src_id)); })];
     });
     return out;
   }
@@ -1010,6 +1017,17 @@
       } catch (e) { /* the upload itself succeeded; the daily cleanup retries */ }
       return j.webUrl || null;
     },
+
+    /** The TIM manager's TIM 型號目錄 (read only) → its object, or null when the file does not exist.
+     *  Background use: never a sign-in popup (not signed in → error with .auth). */
+    async readTimCatalog() {
+      await resolveSite(false);
+      const res = await graph(byPath(TIM_CATALOG_PATH) + ':/content', { ok: s => s === 404 });
+      if (res.status === 404) return null;
+      const text = await res.text();
+      try { return JSON.parse(text); } catch (e) { throw mkErr('TIM 型號目錄不是有效的 JSON'); }
+    },
+    timCatalogLocation() { return CONFIG.siteName + ' / 文件 / ' + TIM_CATALOG_PATH.split('/').join(' / '); },
 
     /** Link to the Thermal_Report_Builder folder in SharePoint (null until it exists). */
     async folderUrl() {

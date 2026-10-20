@@ -644,6 +644,124 @@ const assert = (cond, msg, detail) => { if (!cond) throw new Error(msg + (detail
     assert(remote.grease[0].name === 'GreaseLocal' && remote.pad.length === 2, 'remote merged', remote);
   });
 
+  const TIM_CATALOG = 'TIM_Manager/Database/tim_catalog.json';
+  const putCatalog = (g, mats) => g.put(TIM_CATALOG, Buffer.from(JSON.stringify({ format: 'tim-catalog', version: 1, db_rev: 3, updated_at: '2026-10-20T00:00:00Z', materials: mats })), 'TIM Manager');
+  const CAT_MATS = () => [
+    { id: 'mat_gf', vendor: 'Vendor-B', model: 'GF-750', tim_type: 'pad', type_label: 'Thermal Pad', family: 'Pad', family_exact: true, k: 7.8, k_method: 'ASTM D5470' },
+    { id: 'mat_tp', vendor: 'Vendor-A', model: 'TP-910', tim_type: 'putty', type_label: 'Thermal Putty', family: 'Putty', family_exact: true, k: 9.1 },
+    { id: 'mat_gr', vendor: 'Vendor-C', model: 'TG-38', tim_type: 'grease', type_label: 'Thermal Grease', family: 'Grease', family_exact: true, k: 3.8 },
+    { id: 'mat_x', vendor: 'Vendor-E', model: '<img src=x onerror="window.__xss=1">', tim_type: 'pad', type_label: 'Thermal Pad', family: 'Pad', family_exact: true, k: 3 },
+  ];
+
+  await SP('TIM 管理工具: pick from its catalog (same name linked, not duplicated); linked entries are plain text and saved with src / src_id', async (page, g) => {
+    putCatalog(g, CAT_MATS());
+    const r = await page.evaluate(async () => {
+      await useDb({ thermal_reports: {}, tim_library: { grease: [], pad: [{ name: 'GF-750', k_value: '7.5', vendor: 'Vendor-B' }], putty: [{ name: 'Own-1', k_value: '2', vendor: 'X' }] } });
+      await spSync.enable();
+      await createNewReport('X', 'M', 'DVT', '2026-10-06');
+      addDataPage();
+      await sleep(300);
+      document.getElementById('tim-cat-btn').click();
+      await sleep(400);
+      const modal = document.querySelector('.tim-cat-modal');
+      const groups = Array.from(modal.querySelectorAll('.tim-cat-group')).map(x => x.textContent.trim());
+      const items = Array.from(modal.querySelectorAll('.tim-cat-item')).map(x => x.textContent.replace(/\s+/g, ' ').trim());
+      const xss = !!modal.querySelector('img') || !!window.__xss;
+      const pick = id => { const cb = modal.querySelector(`.tim-cat-item[data-cat-id="${id}"] input`); cb.checked = true; cb.dispatchEvent(new Event('change')); };
+      pick('mat_gf'); pick('mat_tp');
+      const okText = modal.querySelector('[data-act="ok"]').textContent;
+      modal.querySelector('[data-act="ok"]').click();
+      await sleep(100);
+      await flushAllSaves();
+      await spSync.syncNow();
+      const lib = disk().tim_library;
+      const panel = document.getElementById('tim-panel').innerText;
+      const linkedInputs = document.querySelectorAll('.tim-entry.tim-linked input').length;
+      return { groups, items, xss, okText, lib, panel, linkedInputs, open: !!document.querySelector('.tim-cat-modal'), tab: state._timActiveTab };
+    });
+    assert(r.groups.join() === 'Thermal Grease,Thermal Pad,Thermal Putty', 'grouped by family', r.groups);
+    assert(r.items.some(t => /GF-750.*列表有同名，將改為連結/.test(t)) && r.items.some(t => /TP-910 Vendor-A k 9\.1/.test(t)), 'items', r.items);
+    assert(!r.xss, 'names escaped');
+    assert(r.okText === '帶入 2 筆' && !r.open, 'picked 2, closed', r);
+    assert(r.lib.pad.length === 1 && r.lib.pad[0].src === 'tim-manager' && r.lib.pad[0].src_id === 'mat_gf' && r.lib.pad[0].k_value === '7.8', 'GF-750 linked, k follows', r.lib.pad);
+    const tp = r.lib.putty.find(t => t.name === 'TP-910');
+    assert(tp && tp.src_id === 'mat_tp' && tp.k_value === '9.1' && tp.vendor === 'Vendor-A', 'TP-910 added to Putty', r.lib.putty);
+    const own = r.lib.putty.find(t => t.name === 'Own-1');
+    assert(own && !('src' in own) && !('src_id' in own), 'own entries keep no link keys', own);
+    assert(r.linkedInputs === 0 && /🔗 = 參照 TIM 管理工具/.test(r.panel), 'linked entries are plain text + legend', r.panel);
+    const remote = g.json('Thermal_Report_Builder/Database/tim_library.json').tim_library;
+    assert(remote.putty.some(t => t.src_id === 'mat_tp'), 'the shared TIM library on SharePoint carries the link', remote);
+  });
+
+  await SP('TIM 管理工具: k / vendor / family follow on the next session; a rename is only shown with 套用; unlink keeps the values', async (page, g) => {
+    const mats = CAT_MATS();
+    mats[1].k = 9.5; mats[1].vendor = 'Vendor-A2';
+    mats[0].model = 'GF-750S';
+    mats[2].family = 'Pad';                      // TG-38 moved to Pad in the TIM manager
+    putCatalog(g, mats);
+    const r = await page.evaluate(async () => {
+      await useDb({ thermal_reports: {}, tim_library: {
+        grease: [{ name: 'TG-38', k_value: '3.8', vendor: 'Vendor-C', src: 'tim-manager', src_id: 'mat_gr' }],
+        pad: [{ name: 'GF-750', k_value: '7.8', vendor: 'Vendor-B', src: 'tim-manager', src_id: 'mat_gf' }],
+        putty: [{ name: 'TP-910', k_value: '9.1', vendor: 'Vendor-A', src: 'tim-manager', src_id: 'mat_tp' }, { name: 'Gone-1', k_value: '1', vendor: 'Y', src: 'tim-manager', src_id: 'mat_gone' }] } });
+      await spSync.enable();
+      await createNewReport('X', 'M', 'DVT', '2026-10-06');
+      addDataPage();
+      state._timPanelOpen = true;
+      await sleep(600);                              // background catalog read → follow
+      await flushAllSaves();
+      const lib1 = JSON.parse(JSON.stringify(disk().tim_library));
+      state._timActiveTab = 'putty'; renderDataPage(state.pages[state.activePage] || Object.values(state.pages).find(p => p.type === 'data'));
+      const puttyText = document.getElementById('tim-list').innerText;
+      state._timActiveTab = 'pad'; renderDataPage(state.pages[state.activePage] || Object.values(state.pages).find(p => p.type === 'data'));
+      const padText = document.getElementById('tim-list').innerText;
+      document.querySelector('[data-tim-apply-name]').click();
+      await sleep(100);
+      const afterApply = (state.timLibrary.pad || []).map(t => t.name);
+      document.querySelector('[data-tim-unlink]').click();
+      await sleep(100);
+      await flushAllSaves();
+      return { lib1, puttyText, padText, afterApply, lib2: disk().tim_library, inputs: document.querySelectorAll('#tim-list input').length };
+    });
+    const tp = r.lib1.putty.find(t => t.src_id === 'mat_tp');
+    assert(tp.k_value === '9.5' && tp.vendor === 'Vendor-A2', 'k / vendor followed and saved', r.lib1.putty);
+    assert(r.lib1.grease.length === 0 && r.lib1.pad.some(t => t.src_id === 'mat_gr'), 'family follows (TG-38 moved to Pad)', r.lib1);
+    assert(r.lib1.pad.find(t => t.src_id === 'mat_gf').name === 'GF-750', 'a rename is not applied by itself', r.lib1.pad);
+    assert(/TIM 管理工具已刪除這種材料/.test(r.puttyText) && r.lib1.putty.find(t => t.src_id === 'mat_gone').k_value === '1', 'deleted material keeps its values', r.puttyText);
+    assert(/已改名為「GF-750S」/.test(r.padText), 'rename hint', r.padText);
+    assert(r.afterApply.includes('GF-750S'), 'applied', r.afterApply);
+    const unlinked = r.lib2.pad.find(t => t.name === 'GF-750S' || t.name === 'TG-38');
+    assert(r.lib2.pad.some(t => !t.src && (t.name === 'GF-750S' || t.name === 'TG-38')) && r.inputs >= 3, 'unlinked: inputs again, no src keys', { pad: r.lib2.pad, inputs: r.inputs, unlinked });
+  });
+
+  await T('TIM library merge: an entry moved to another tab or relinked is not added back from the other copy', async (page) => {
+    const r = await page.evaluate(() => spSync.mergeTim(
+      { grease: [], pad: [{ name: 'TG-38', src: 'tim-manager', src_id: 'mat_gr' }, { name: 'GF-750S', src: 'tim-manager', src_id: 'mat_gf' }], putty: [] },
+      { grease: [{ name: 'TG-38', src: 'tim-manager', src_id: 'mat_gr' }, { name: 'G-new' }], pad: [{ name: 'GF-750', src: 'tim-manager', src_id: 'mat_gf' }], putty: [{ name: 'P-new' }] }));
+    assert(r.grease.map(t => t.name).join() === 'G-new' && r.pad.map(t => t.name).join() === 'TG-38,GF-750S' && r.putty.map(t => t.name).join() === 'P-new', 'merged', r);
+  });
+
+  await SP('TIM 管理工具: no catalog request while SharePoint sync is off; the picker says how to get it', async (page, g) => {
+    putCatalog(g, CAT_MATS());
+    const r = await page.evaluate(async () => {
+      await useDb({ thermal_reports: {}, tim_library: { grease: [], pad: [], putty: [] } });
+      await createNewReport('X', 'M', 'DVT', '2026-10-06');
+      addDataPage();
+      await sleep(300);
+      return { reads: 0 };
+    });
+    assert(!g.log.some(l => l.p.includes('tim_catalog.json')), 'no background read with sync off', g.log.map(l => l.p));
+    const t = await page.evaluate(async () => {
+      document.getElementById('tim-cat-btn').click();
+      await sleep(600);
+      const text = document.querySelector('.tim-cat-modal .tim-cat-list').textContent;
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      await sleep(50);
+      return { text, open: !!document.querySelector('.tim-cat-modal') };
+    });
+    assert(/登入 Microsoft|SharePoint 同步/.test(t.text) && !t.open, 'not signed in → how to get it; Esc closes', t);
+  });
+
   await SP('new empty local DB downloads everything from SharePoint', async (page, g) => {
     g.putReport('X', { project_name: 'X shared', created_at: '2026-10-01T00:00:00Z', pages: { 0: { id: 'pgX', type: 'cover', order: 0, data: { project_name: 'X shared' } } } });
     const r = await page.evaluate(async () => {

@@ -2266,6 +2266,34 @@
       margin: 0 8px;
     }
 
+    /* TIM 資料列表：參照 TIM 管理工具的項目（🔗）是純文字，不是輸入框 */
+    .tim-entry.tim-linked .tim-ro { font-size: 10px; color: var(--text-on-white); padding: 2px 4px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: help; }
+    .tim-entry.tim-linked .tim-ro-name { display: flex; align-items: center; gap: 3px; font-weight: 600; }
+    .tim-entry.tim-linked .tim-ro-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+    .tim-src { font-size: 9px; flex: none; }
+    .tim-unlink { margin-left: auto; flex: none; border: none; background: transparent; color: rgba(15,23,42,0.35); font-size: 10px; cursor: pointer; padding: 0 2px; line-height: 1; }
+    .tim-unlink:hover { color: #0B3D7A; }
+    .tim-entry-hint { font-size: 9px; color: #9a5b00; padding: 0 0 3px 2px; line-height: 1.5; }
+    .tim-hint-btn { margin-left: 4px; font-size: 9px; padding: 0 6px; border: 1px solid #e3b450; background: #fff8e6; color: #9a5b00; border-radius: 3px; cursor: pointer; }
+    .tim-add-row { display: flex; gap: 6px; margin: 4px 8px 6px; }
+    .tim-add-row .tim-add-btn { margin: 0; width: auto; flex: 1; }
+    .tim-legend { font-size: 9px; color: rgba(15,23,42,0.45); padding: 0 8px 6px; }
+    /* 從 TIM 管理工具帶入（深色 sim-modal） */
+    .tim-cat-modal { width: 520px; }
+    .tim-cat-intro { padding: 10px 16px 4px; font-size: 11.5px; line-height: 1.6; color: rgba(226,232,240,0.75); }
+    .tim-cat-search-row { padding: 6px 16px 8px; border-bottom: 1px solid rgba(255,255,255,0.06); }
+    .tim-cat-search { width: 100%; box-sizing: border-box; font-size: 12px; padding: 5px 8px; border-radius: 5px; border: 1px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.06); color: #e2e8f0; outline: none; }
+    .tim-cat-search:focus { border-color: #38bdf8; }
+    .tim-cat-group { padding: 8px 16px 2px; font-size: 10px; font-weight: 700; letter-spacing: 0.04em; color: rgba(56,189,248,0.85); }
+    .tim-cat-item { gap: 8px; }
+    .tim-cat-item.is-in { opacity: 0.55; cursor: default; }
+    .tim-cat-vendor { color: rgba(226,232,240,0.6); font-size: 11px; }
+    .tim-cat-k { margin-left: auto; font-size: 11px; color: #e2e8f0; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .tim-cat-note { font-size: 10px; color: rgba(226,232,240,0.55); width: 130px; text-align: right; }
+    .tim-cat-empty { padding: 18px 16px; font-size: 12px; color: rgba(226,232,240,0.7); line-height: 1.6; }
+    .tim-cat-status { margin-right: auto; font-size: 11px; color: rgba(226,232,240,0.55); }
+    .tim-cat-modal [data-act="ok"]:disabled { opacity: 0.45; cursor: not-allowed; }
+
     /* Sensor section */
     .sensor-section {
       margin-top: 10px;
@@ -8790,6 +8818,320 @@
       return `${fmtPct(c.marginPct)}<span class="dt-margin-c">${fmtDeltaC(c.marginC)}</span>`;
     }
 
+    // ── TIM 資料列表 ←「TIM 管理工具」的 TIM 型號目錄（唯讀參照）─────────────────
+    // TIM 材料在 TIM 管理工具建立；它在 SharePoint 自動產生 TIM_Manager/Database/tim_catalog.json
+    // （只有材料屬性：{ format:'tim-catalog', materials:[{ id, vendor, model, family:'Pad'|'Putty'|'Grease',
+    // family_exact, k, k_method, type_label, … }] }）。列表的一筆可以連結其中一種材料（src:'tim-manager',
+    // src_id）：K值、廠商、分類（Grease / Pad / Putty）跟著 TIM 管理工具；名稱是元件「TIM Type」引用的字串，
+    // TIM 管理工具改名時只提示＋「套用」，不自動改。讀不到目錄（未開 SharePoint 同步、離線）時照用存下來的值。
+    const TIM_CAT_SRC = 'tim-manager';
+    const TIM_FAMILY_CAT = { Grease: 'grease', Pad: 'pad', Putty: 'putty' };
+    const TIM_CAT_LABEL = { grease: 'Thermal Grease', pad: 'Thermal Pad', putty: 'Thermal Putty' };
+    let _timCat = null;            // 讀到的目錄
+    let _timCatState = 'idle';     // idle | loading | ok | missing | login | error
+    let _timCatErr = '';
+    let _timCatHints = {};         // src_id → { info, name (TIM 管理工具的新名稱), gone }：只在畫面上，不存檔
+    const timLinked = t => !!t && t.src === TIM_CAT_SRC && !!t.src_id;
+    const timNameKey = n => String(n || '').trim().toLowerCase();
+
+    async function loadTimCatalog() {
+      if (!window.spSync || typeof spSync.readTimCatalog !== 'function') { _timCat = null; _timCatState = 'error'; _timCatErr = '沒有 SharePoint 元件'; return; }
+      _timCatState = 'loading';
+      try {
+        const c = await spSync.readTimCatalog();
+        if (c && c.format === 'tim-catalog' && Array.isArray(c.materials)) { _timCat = c; _timCatState = 'ok'; _timCatErr = ''; }
+        else { _timCat = null; _timCatState = c ? 'error' : 'missing'; _timCatErr = c ? '檔案格式不符' : ''; }
+      } catch (e) {
+        _timCat = null; _timCatState = e && e.auth ? 'login' : 'error'; _timCatErr = (e && e.message) || String(e);
+      }
+    }
+    function timCatStateText() {
+      if (_timCatState === 'login') return '需要登入 Microsoft 才讀得到 TIM 管理工具的型號目錄：請先從右上角 ☁ 開啟 SharePoint 同步。';
+      if (_timCatState === 'missing') return 'SharePoint 上還沒有 TIM 型號目錄：請先用 TIM 管理工具以 SharePoint 開啟一次（會自動產生）。';
+      if (_timCatState === 'error') return '讀不到 TIM 管理工具的型號目錄（' + _timCatErr + '）。';
+      if (_timCatState === 'loading') return '讀取中…';
+      return '';
+    }
+
+    /** 連結的項目套用目錄：K值、廠商、分類跟著更新（回傳有變動的筆數，有變動就存檔）；改名只記提示。 */
+    function followTimCatalog() {
+      _timCatHints = {};
+      if (!_timCat || !state.timLibrary) return 0;
+      let changed = 0;
+      const moves = [];
+      ['grease', 'pad', 'putty'].forEach(cat => (state.timLibrary[cat] || []).forEach(t => {
+        if (!timLinked(t)) return;
+        const m = _timCat.materials.find(x => x && x.id === t.src_id);
+        if (!m) { _timCatHints[t.src_id] = { gone: true }; return; }
+        const h = { info: m };
+        let ch = false;
+        const k = m.k == null ? '' : String(m.k);
+        const vendor = String(m.vendor || '').trim();
+        if (String(t.k_value || '') !== k) { t.k_value = k; ch = true; }
+        if (String(t.vendor || '') !== vendor) { t.vendor = vendor; ch = true; }
+        if (String(m.model || '').trim() && timNameKey(m.model) !== timNameKey(t.name)) h.name = String(m.model).trim();
+        const want = m.family_exact !== false && TIM_FAMILY_CAT[m.family];
+        if (want && want !== cat) { moves.push({ t, from: cat, to: want }); ch = true; }
+        _timCatHints[t.src_id] = h;
+        if (ch) changed++;
+      }));
+      moves.forEach(({ t, from, to }) => {
+        state.timLibrary[from] = state.timLibrary[from].filter(x => x !== t);
+        (state.timLibrary[to] = state.timLibrary[to] || []).push(t);
+      });
+      if (changed) scheduleTimSave();
+      return changed;
+    }
+
+    function buildTimPanelHTML() {
+      const timLib = state.timLibrary || { grease: [], pad: [], putty: [] };
+      const timActiveTab = state._timActiveTab || 'grease';
+      const list = timLib[timActiveTab] || [];
+      const anyLinked = ['grease', 'pad', 'putty'].some(c => (timLib[c] || []).some(timLinked));
+      const entry = (item, idx) => {
+        if (!timLinked(item)) {
+          return `<div class="tim-entry" data-tim-idx="${idx}">
+                <input type="text" value="${escapeAttr(item.name || '')}" data-tim-field="name" placeholder="名稱">
+                <input type="text" value="${escapeAttr(item.k_value || '')}" data-tim-field="k_value" placeholder="K值">
+                <input type="text" value="${escapeAttr(item.vendor || '')}" data-tim-field="vendor" placeholder="廠商">
+                <button class="tim-entry-del" data-tim-del="${idx}" title="刪除">✕</button>
+              </div>`;
+        }
+        const h = _timCatHints[item.src_id] || {};
+        const m = h.info;
+        const tip = m
+          ? 'TIM 管理工具：' + [m.vendor, m.model].filter(Boolean).join(' ') + (m.type_label ? ' · ' + m.type_label : '') +
+            (m.k != null ? ' · k ' + m.k + (m.k_method ? '（' + m.k_method + '）' : '') : '') + '\n名稱、K值、廠商參照 TIM 管理工具'
+          : '參照 TIM 管理工具' + (_timCat ? '' : '（' + (timCatStateText() || '尚未讀取目錄，照用存下來的值') + '）');
+        let hint = '';
+        if (h.gone) hint += '<div class="tim-entry-hint">TIM 管理工具已刪除這種材料（保留目前的值）</div>';
+        if (h.name) hint += `<div class="tim-entry-hint">TIM 管理工具已改名為「${escHtml(h.name)}」<button class="tim-hint-btn" data-tim-apply-name="${idx}">套用</button></div>`;
+        return `<div class="tim-entry tim-linked" data-tim-idx="${idx}">
+                <span class="tim-ro tim-ro-name" title="${escapeAttr(tip)}"><span class="tim-src" aria-label="參照 TIM 管理工具">🔗</span><span class="tim-ro-text">${escHtml(item.name || '')}</span><button class="tim-unlink" data-tim-unlink="${idx}" title="解除連結：改回自行填寫（保留目前的名稱、K值、廠商）">✂</button></span>
+                <span class="tim-ro" title="${escapeAttr(tip)}">${escHtml(item.k_value || '—')}</span>
+                <span class="tim-ro">${escHtml(item.vendor || '—')}</span>
+                <button class="tim-entry-del" data-tim-del="${idx}" title="刪除">✕</button>
+              </div>${hint}`;
+      };
+      return `<div class="tim-panel" id="tim-panel">
+        <div class="tim-panel-header" id="tim-panel-toggle">
+          <span>TIM 資料列表</span>
+          <span class="tim-panel-arrow${state._timPanelOpen ? ' open' : ''}" id="tim-panel-arrow">▶</span>
+        </div>
+        <div class="tim-panel-body${state._timPanelOpen ? ' open' : ''}" id="tim-panel-body">
+          <div class="tim-tabs">
+            ${['grease', 'pad', 'putty'].map(c =>
+              `<button class="tim-tab${timActiveTab === c ? ' active' : ''}" data-tim-cat="${c}">${TIM_CAT_LABEL[c]}</button>`
+            ).join('')}
+          </div>
+          <div class="tim-list-header"><span>名稱</span><span>K值</span><span>廠商</span><span></span></div>
+          <div class="tim-list" id="tim-list">
+            ${list.map(entry).join('')}
+          </div>
+          <div class="tim-add-row">
+            <button class="tim-add-btn" id="tim-add-btn">+ 新增 TIM</button>
+            <button class="tim-add-btn tim-cat-btn" id="tim-cat-btn" title="從 TIM 管理工具的材料庫（TIM 型號目錄）選材料加入；K值、廠商之後跟著 TIM 管理工具">🔗 從 TIM 管理工具帶入</button>
+          </div>
+          ${anyLinked ? '<div class="tim-legend">🔗 = 參照 TIM 管理工具（K值、廠商跟著更新；✂ 解除連結）</div>' : ''}
+        </div>
+      </div>`;
+    }
+
+    /** 只重繪 TIM 面板（背景讀到目錄時用；面板裡有欄位正在輸入就不動，下次重繪再顯示）。 */
+    function refreshTimPanel(page) {
+      const box = document.getElementById('tim-panel-container');
+      if (!box || !box.querySelector('#tim-panel')) return;
+      const ae = document.activeElement;
+      if (ae && ae.closest && ae.closest('#tim-panel') && ae.tagName === 'INPUT') return;
+      box.innerHTML = buildTimPanelHTML();
+      bindTimPanel(page);
+    }
+
+    function bindTimPanel(page) {
+      const timPanelToggle = document.getElementById('tim-panel-toggle');
+      const timPanelBody = document.getElementById('tim-panel-body');
+      const timPanelArrowEl = document.getElementById('tim-panel-arrow');
+      if (timPanelToggle) {
+        timPanelToggle.addEventListener('click', () => {
+          state._timPanelOpen = !state._timPanelOpen;
+          timPanelBody.classList.toggle('open');
+          timPanelArrowEl.classList.toggle('open');
+        });
+      }
+
+      const timPanel = document.getElementById('tim-panel');
+      if (!timPanel) return;
+      timPanel.querySelectorAll('.tim-tab').forEach(btn => {
+        btn.addEventListener('click', () => {
+          state._timActiveTab = btn.dataset.timCat;
+          renderDataPage(page);
+        });
+      });
+
+      const timAddBtn = document.getElementById('tim-add-btn');
+      if (timAddBtn) {
+        timAddBtn.addEventListener('click', async () => {
+          const cat = state._timActiveTab || 'grease';
+          if (!state.timLibrary[cat]) state.timLibrary[cat] = [];
+          state.timLibrary[cat].push({ name: '', k_value: '', vendor: '' });
+          scheduleTimSave();
+          renderDataPage(page);
+        });
+      }
+      const timCatBtn = document.getElementById('tim-cat-btn');
+      if (timCatBtn) timCatBtn.addEventListener('click', () => openTimCatalogPicker(page));
+
+      timPanel.querySelectorAll('.tim-entry input[data-tim-field]').forEach(el => {
+        el.addEventListener('input', async () => {
+          const cat = state._timActiveTab || 'grease';
+          const idx = parseInt(el.closest('.tim-entry').dataset.timIdx);
+          const field = el.dataset.timField;
+          if (state.timLibrary[cat] && state.timLibrary[cat][idx]) {
+            state.timLibrary[cat][idx][field] = el.value;
+            scheduleTimSave();
+            // Reflect the new/edited TIM name in the component TIM Type dropdowns
+            // right away (in place, so the field keeps focus while typing).
+            if (field === 'name') refreshTimTypeOptions(page);
+          }
+        });
+      });
+
+      timPanel.querySelectorAll('.tim-entry-del').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const cat = state._timActiveTab || 'grease';
+          const idx = parseInt(btn.dataset.timDel);
+          if (state.timLibrary[cat]) {
+            state.timLibrary[cat].splice(idx, 1);
+            scheduleTimSave();
+            renderDataPage(page);
+          }
+        });
+      });
+
+      // ✂ 解除連結：保留目前的值，改回自行填寫
+      timPanel.querySelectorAll('[data-tim-unlink]').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const cat = state._timActiveTab || 'grease';
+          const t = (state.timLibrary[cat] || [])[parseInt(btn.dataset.timUnlink)];
+          if (!t || !confirm('解除「' + (t.name || '') + '」與 TIM 管理工具的連結？\n目前的名稱、K值、廠商會保留，之後不再跟著 TIM 管理工具更新。')) return;
+          delete t.src; delete t.src_id;
+          scheduleTimSave();
+          renderDataPage(page);
+        });
+      });
+      // 套用 TIM 管理工具的新名稱（click-to-apply）
+      timPanel.querySelectorAll('[data-tim-apply-name]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const cat = state._timActiveTab || 'grease';
+          const t = (state.timLibrary[cat] || [])[parseInt(btn.dataset.timApplyName)];
+          const h = t && _timCatHints[t.src_id];
+          if (!t || !h || !h.name) return;
+          if (!confirm('「' + t.name + '」改名為「' + h.name + '」？\n已選用「' + t.name + '」的元件（各報告數據頁的 TIM Type）不會自動改，下拉會另外列出舊名稱，需要時請重新選。')) return;
+          t.name = h.name;
+          delete h.name;
+          scheduleTimSave();
+          renderDataPage(page);
+        });
+      });
+    }
+
+    /** 「🔗 從 TIM 管理工具帶入」：勾選目錄的材料加進 TIM 資料列表（同名的既有項目改為連結，不重複新增）。 */
+    async function openTimCatalogPicker(page) {
+      const overlay = document.createElement('div');
+      overlay.className = 'sim-modal-overlay tool-modal-overlay';
+      overlay.innerHTML = `
+        <div class="sim-modal tim-cat-modal">
+          <div class="sim-modal-header">🔗 從 TIM 管理工具帶入</div>
+          <div class="tim-cat-intro">TIM 材料在 TIM 管理工具建立。勾選要加入 TIM 資料列表的材料：名稱用型號，K值、廠商之後跟著 TIM 管理工具更新；
+            列表已有同名的項目會改為連結它（不重複新增）。</div>
+          <div class="tim-cat-search-row"><input type="search" class="tim-cat-search" placeholder="搜尋廠商、型號…" aria-label="搜尋材料"></div>
+          <div class="sim-modal-body tim-cat-list"><div class="tim-cat-empty">讀取中…</div></div>
+          <div class="sim-modal-footer">
+            <span class="tim-cat-status"></span>
+            <button class="sim-modal-btn" data-act="cancel">取消</button>
+            <button class="sim-modal-btn primary" data-act="ok" disabled>帶入</button>
+          </div>
+        </div>`;
+      document.body.appendChild(overlay);
+      const picked = new Set();
+      const onKey = (e) => { if (e.key === 'Escape') { e.preventDefault(); close(); } };
+      const close = () => { document.removeEventListener('keydown', onKey, true); if (overlay.parentNode) overlay.parentNode.removeChild(overlay); };
+      document.addEventListener('keydown', onKey, true);
+      overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+      overlay.querySelector('[data-act="cancel"]').addEventListener('click', close);
+      const listEl = overlay.querySelector('.tim-cat-list');
+      const okBtn = overlay.querySelector('[data-act="ok"]');
+      const statusEl = overlay.querySelector('.tim-cat-status');
+      const search = overlay.querySelector('.tim-cat-search');
+
+      const allEntries = () => ['grease', 'pad', 'putty'].flatMap(c => (state.timLibrary[c] || []).map((t, i) => ({ t, c, i })));
+      const stateOf = (m) => {
+        const all = allEntries();
+        if (all.some(e => timLinked(e.t) && e.t.src_id === m.id)) return 'in';
+        if (all.some(e => !timLinked(e.t) && timNameKey(e.t.name) === timNameKey(m.model))) return 'same';
+        return 'new';
+      };
+      const render = () => {
+        if (!_timCat) {
+          listEl.innerHTML = `<div class="tim-cat-empty">${escHtml(timCatStateText() || '讀取中…')}</div>`;
+          okBtn.disabled = true; statusEl.textContent = '';
+          return;
+        }
+        const q = timNameKey(search.value);
+        const mats = _timCat.materials.filter(m => m && String(m.model || '').trim() &&
+          (!q || timNameKey([m.vendor, m.model, m.type_label, m.family].join(' ')).includes(q)));
+        const groups = ['grease', 'pad', 'putty'].map(c => ({ c, items: mats.filter(m => (TIM_FAMILY_CAT[m.family] || 'pad') === c) })).filter(g => g.items.length);
+        listEl.innerHTML = groups.map(g => `<div class="tim-cat-group">${TIM_CAT_LABEL[g.c]}</div>` + g.items.map(m => {
+          const st = stateOf(m);
+          const note = st === 'in' ? '已在列表' : st === 'same' ? '列表有同名，將改為連結' : (m.family_exact === false ? (m.type_label || '') + '（類型請確認）' : (m.type_label || ''));
+          return `<label class="sim-modal-item tim-cat-item${st === 'in' ? ' is-in' : ''}" data-cat-id="${escapeAttr(m.id)}">
+              <input type="checkbox" ${picked.has(m.id) ? 'checked' : ''} ${st === 'in' ? 'disabled' : ''}>
+              <span class="sim-modal-item-label"><b>${escHtml(m.model || '')}</b> <span class="tim-cat-vendor">${escHtml(m.vendor || '')}</span></span>
+              <span class="tim-cat-k">${m.k == null ? '—' : 'k ' + escHtml(String(m.k))}</span>
+              <span class="tim-cat-note">${escHtml(note)}</span>
+            </label>`;
+        }).join('')).join('') || `<div class="tim-cat-empty">${q ? '沒有符合的材料' : 'TIM 管理工具的材料庫還沒有材料'}</div>`;
+        listEl.querySelectorAll('.tim-cat-item input').forEach(cb => {
+          cb.addEventListener('change', () => {
+            const id = cb.closest('.tim-cat-item').dataset.catId;
+            if (cb.checked) picked.add(id); else picked.delete(id);
+            okBtn.disabled = !picked.size;
+            okBtn.textContent = picked.size ? '帶入 ' + picked.size + ' 筆' : '帶入';
+          });
+        });
+        okBtn.disabled = !picked.size;
+        statusEl.textContent = 'TIM 管理工具 ' + _timCat.materials.length + ' 筆材料';
+      };
+      search.addEventListener('input', render);
+      okBtn.addEventListener('click', () => {
+        let added = 0, linked = 0, lastCat = null;
+        picked.forEach(id => {
+          const m = _timCat && _timCat.materials.find(x => x && x.id === id);
+          if (!m || stateOf(m) === 'in') return;
+          const cat = TIM_FAMILY_CAT[m.family] || 'pad';
+          const same = allEntries().find(e => !timLinked(e.t) && timNameKey(e.t.name) === timNameKey(m.model));
+          if (same) { same.t.src = TIM_CAT_SRC; same.t.src_id = m.id; linked++; lastCat = same.c; return; }
+          (state.timLibrary[cat] = state.timLibrary[cat] || []).push({
+            name: String(m.model || '').trim(), k_value: m.k == null ? '' : String(m.k), vendor: String(m.vendor || '').trim(),
+            src: TIM_CAT_SRC, src_id: m.id,
+          });
+          added++; lastCat = cat;
+        });
+        close();
+        if (!added && !linked) return;
+        followTimCatalog();                 // 連結的既有項目：K值、廠商、分類換成 TIM 管理工具的
+        scheduleTimSave();
+        if (lastCat) state._timActiveTab = lastCat;
+        state._timPanelOpen = true;
+        renderDataPage(page);
+        showToast([added ? '已帶入 ' + added + ' 筆' : '', linked ? '已連結 ' + linked + ' 筆既有項目' : ''].filter(Boolean).join('、') + '（參照 TIM 管理工具）', 'ok');
+      });
+      render();
+      setTimeout(() => search.focus(), 30);
+      if (_timCatState !== 'ok') { await loadTimCatalog(); if (overlay.parentNode) { followTimCatalog(); render(); } }
+    }
+
     function renderDataPage(page) {
       const d = page.data;
       if (!d.header) d.header = {};
@@ -8935,37 +9277,7 @@
         `<th>Ta = ${ta}°C</th>`
       ).join('');
 
-      const timCategories = [
-        { key: 'grease', label: 'Thermal Grease' },
-        { key: 'pad',    label: 'Thermal Pad' },
-        { key: 'putty',  label: 'Thermal Putty' },
-      ];
-      const timActiveTab = state._timActiveTab || 'grease';
-      const timPanelHTML = `<div class="tim-panel" id="tim-panel">
-        <div class="tim-panel-header" id="tim-panel-toggle">
-          <span>TIM 資料列表</span>
-          <span class="tim-panel-arrow${state._timPanelOpen ? ' open' : ''}" id="tim-panel-arrow">▶</span>
-        </div>
-        <div class="tim-panel-body${state._timPanelOpen ? ' open' : ''}" id="tim-panel-body">
-          <div class="tim-tabs">
-            ${timCategories.map(c =>
-              `<button class="tim-tab${timActiveTab === c.key ? ' active' : ''}" data-tim-cat="${c.key}">${c.label}</button>`
-            ).join('')}
-          </div>
-          <div class="tim-list-header"><span>名稱</span><span>K值</span><span>廠商</span><span></span></div>
-          <div class="tim-list" id="tim-list">
-            ${(timLib[timActiveTab] || []).map((item, idx) =>
-              `<div class="tim-entry" data-tim-idx="${idx}">
-                <input type="text" value="${escapeAttr(item.name || '')}" data-tim-field="name" placeholder="名稱">
-                <input type="text" value="${escapeAttr(item.k_value || '')}" data-tim-field="k_value" placeholder="K值">
-                <input type="text" value="${escapeAttr(item.vendor || '')}" data-tim-field="vendor" placeholder="廠商">
-                <button class="tim-entry-del" data-tim-del="${idx}" title="刪除">✕</button>
-              </div>`
-            ).join('')}
-          </div>
-          <button class="tim-add-btn" id="tim-add-btn">+ 新增 TIM</button>
-        </div>
-      </div>`;
+      const timPanelHTML = buildTimPanelHTML();
 
       const timContainer = document.getElementById('tim-panel-container');
       if (timContainer) timContainer.innerHTML = timPanelHTML;
@@ -9710,63 +10022,10 @@
       }
 
       // ── TIM Panel bindings ──
-      const timPanelToggle = document.getElementById('tim-panel-toggle');
-      const timPanelBody = document.getElementById('tim-panel-body');
-      const timPanelArrowEl = document.getElementById('tim-panel-arrow');
-      if (timPanelToggle) {
-        timPanelToggle.addEventListener('click', () => {
-          state._timPanelOpen = !state._timPanelOpen;
-          timPanelBody.classList.toggle('open');
-          timPanelArrowEl.classList.toggle('open');
-        });
-      }
-
-      const timPanel = document.getElementById('tim-panel');
-      if (timPanel) {
-        timPanel.querySelectorAll('.tim-tab').forEach(btn => {
-          btn.addEventListener('click', () => {
-            state._timActiveTab = btn.dataset.timCat;
-            renderDataPage(page);
-          });
-        });
-
-        const timAddBtn = document.getElementById('tim-add-btn');
-        if (timAddBtn) {
-          timAddBtn.addEventListener('click', async () => {
-            const cat = state._timActiveTab || 'grease';
-            if (!state.timLibrary[cat]) state.timLibrary[cat] = [];
-            state.timLibrary[cat].push({ name: '', k_value: '', vendor: '' });
-            scheduleTimSave();
-            renderDataPage(page);
-          });
-        }
-
-        timPanel.querySelectorAll('.tim-entry input[data-tim-field]').forEach(el => {
-          el.addEventListener('input', async () => {
-            const cat = state._timActiveTab || 'grease';
-            const idx = parseInt(el.closest('.tim-entry').dataset.timIdx);
-            const field = el.dataset.timField;
-            if (state.timLibrary[cat] && state.timLibrary[cat][idx]) {
-              state.timLibrary[cat][idx][field] = el.value;
-              scheduleTimSave();
-              // Reflect the new/edited TIM name in the component TIM Type dropdowns
-              // right away (in place, so the field keeps focus while typing).
-              if (field === 'name') refreshTimTypeOptions(page);
-            }
-          });
-        });
-
-        timPanel.querySelectorAll('.tim-entry-del').forEach(btn => {
-          btn.addEventListener('click', async () => {
-            const cat = state._timActiveTab || 'grease';
-            const idx = parseInt(btn.dataset.timDel);
-            if (state.timLibrary[cat]) {
-              state.timLibrary[cat].splice(idx, 1);
-              scheduleTimSave();
-              renderDataPage(page);
-            }
-          });
-        });
+      bindTimPanel(page);
+      // TIM 管理工具的型號目錄：連結的項目跟著更新（背景、每次開啟工具讀一次）
+      if (_timCatState === 'idle' && window.spSync && spSync.isEnabled()) {
+        loadTimCatalog().then(() => { if (followTimCatalog() || _timCat) refreshTimPanel(page); });
       }
 
       // ── Whole-page freeze (整頁凍結 / 唯讀鎖定) ──

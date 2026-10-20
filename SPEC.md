@@ -477,8 +477,22 @@ Thermal-Spec-DB → 文件（Shared Documents）
 | 兩人改了同一份報告 | 以 If-Match（eTag）寫入；SharePoint 上已被別人改過 → 你的版本寫入，對方版本另存「（衝突副本 · 對方 · 時間）」報告，並跳出提示 |
 | 正在編輯的報告被別人改 | 編輯中不替換畫面；離開編輯器後才套用 |
 | 本機刪除、SharePoint 上已被改過 | 不刪，改為還原到本機 |
-| TIM 材料庫 | 兩邊新增的材料合併（同名以本機為準） |
+| TIM 材料庫 | 兩邊新增的材料合併（同名以本機為準；名稱或 TIM 管理工具連結 `src_id` 已在任一分類就不再加入，分類跟著 TIM 管理工具搬過的項目不會被加回原分類） |
 | 斷線 / 登入過期 | 工具列顯示「未同步」/「請重新登入」，修改保留在本機，恢復後自動補傳 |
+
+### TIM 資料列表參照「TIM 管理工具」
+
+TIM 材料由 **TIM 管理工具**（Project-TIM-management-tool）建立；它在同一個網站自動產生
+`TIM_Manager/Database/tim_catalog.json`（TIM 型號目錄，只有材料屬性：`{ format: 'tim-catalog', version: 1,
+materials: [{ id, vendor, model, family: 'Pad'|'Putty'|'Grease', family_exact, k, k_method, type_label, … }] }`）。
+本工具只讀（`spSync.readTimCatalog`，不跳登入視窗）。
+
+| 情境 | 行為 |
+|---|---|
+| 數據頁 TIM 資料列表「🔗 從 TIM 管理工具帶入」 | 依 Grease / Pad / Putty 分組列出目錄的材料，可搜尋；勾選 → 加到 `family` 對應的分類，名稱＝型號、`k_value`、`vendor`，記 `src: 'tim-manager'`、`src_id`（材料 id）。列表已有同名、沒連結的項目 → 改為連結它（不重複新增）。`family_exact: false`（相變化、石墨片、膠帶、其他）標「類型請確認」 |
+| 連結的項目（🔗） | 名稱、K值、廠商是純文字；✂ 解除連結＝保留目前的值、改回自行填寫 |
+| 跟著更新 | 開啟 SharePoint 同步時，每次開工具第一次進數據頁在背景讀目錄：K值、廠商、分類自動更新並存檔；**名稱不自動改**（元件的 TIM Type 用名稱引用）→ 提示「已改名為…」＋「套用」；TIM 管理工具刪掉的材料保留目前的值並提示 |
+| 沒開 SharePoint 同步 | 背景不讀；按「帶入」才讀，沒登入時說明要先開啟同步 |
 
 **空間整理**（`cleanupStorage`：每天第一次同步後在背景執行一次，或從「☁ SharePoint → 🧹 SharePoint 空間…」立即執行）：
 
